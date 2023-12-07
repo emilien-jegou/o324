@@ -1,0 +1,16 @@
+[package]
+name = "o324-storage"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[features]
+full = ["git"]
+git = ["dep:git2"]
+
+[lib]
+name = "o324_storage"
+path = "lib.rs"
+
+[dependencies]
+git2 = { version = "0.18.1", optional = true }

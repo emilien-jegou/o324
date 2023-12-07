@@ -1,0 +1,13 @@
+[package]
+name = "o324-cli"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "3to4"
+path = "main.rs"
+
+[dependencies]
+o324-core = { path = "../core" }
+o324-storage = { path = "../storage", features = ["git"] }
