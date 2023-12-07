@@ -1,11 +1,21 @@
 { pkgs ? import <nixpkgs> {} }:
   pkgs.mkShell {
     nativeBuildInputs = [
+      # Rust build dependencies
+      pkgs.rustup
       pkgs.gcc
       pkgs.openssl
       pkgs.pkg-config
+
+      # Utilities
+      pkgs.zx
       pkgs.just
-      pkgs.rustup
+
+      # Versio
+      pkgs.gpgme
+      pkgs.gnupg
+      pkgs.libgpg-error
+
    ];
 
     NIX_ENFORCE_PURITY = false;
@@ -16,6 +26,7 @@
       fi;
       [ ! -f .packages/bin/cargo-expand ] && cargo install cargo-expand --root .packages/
       [ ! -f .packages/bin/cargo-watch ] && cargo install cargo-watch --root .packages/
+      [ ! -f .packages/bin/versio ] && cargo install versio --root .packages/
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";
     '';
 }

@@ -23,3 +23,12 @@ clear-all: _confirm_prompt clear
 	    esac \
 	done
 
+# regenerate the .versio.yaml file
+regenerate-versio-config:
+	./scripts/regenerate-versio-config
+
+versio COMMAND:
+	versio -m local -x local "{{COMMAND}}"
+
+release:
+	just versio release
