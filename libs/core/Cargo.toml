@@ -1,0 +1,12 @@
+[package]
+name = "o324-core"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "o324_core"
+path = "lib.rs"
+
+[dependencies]
+o324-storage = { path = "../storage" }
