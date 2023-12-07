@@ -10,3 +10,4 @@ path = "lib.rs"
 
 [dependencies]
 o324-storage = { path = "../storage" }
+toml = "0.8.8"
