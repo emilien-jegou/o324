@@ -1,0 +1,10 @@
+# Misc
+notes.txt
+
+# Direnv
+.direnv
+.direnv/*
+.packages
+
+# Rust
+target
