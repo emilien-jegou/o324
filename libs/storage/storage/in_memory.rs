@@ -1,4 +1,4 @@
-use crate::{Storage, StorageConfig};
+use crate::{Storage, StorageConfig, StorageBox};
 use serde_derive::Deserialize;
 
 /// This storage type is used for testing, data is not persisted to disk but
@@ -13,8 +13,8 @@ pub struct InMemoryStorageConfig {}
 impl StorageConfig for InMemoryStorageConfig {
     type Storage = InMemoryStorage;
 
-    fn to_storage(self) -> Box<dyn Storage> {
-        Box::new(InMemoryStorage::new(self))
+    fn to_storage(self) -> StorageBox {
+        StorageBox::new(InMemoryStorage::new(self))
     }
 }
 

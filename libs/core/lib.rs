@@ -1,11 +1,25 @@
-use o324_storage::{Storage, StorageConfig, storage::{git::GitStorageConfig, in_memory::InMemoryStorageConfig}, BuiltinStorageType};
+use o324_storage::{
+    storage::{git::GitStorageConfig, in_memory::InMemoryStorageConfig},
+    BuiltinStorageType, StorageConfig, StorageBox,
+};
 
 pub mod config;
 
 pub struct Core {
-    pub storage: Box<dyn Storage>,
+    storage: StorageBox,
     /// Ok - found | Err - not found with error reason
-    pub found_config_file: Result<(), eyre::Error>,
+    found_config_file: Result<(), eyre::Error>,
+}
+
+impl Core {
+    /// You should avoid calling this function
+    pub fn get_inner_storage<'a>(&'a self) -> &'a StorageBox {
+        &self.storage
+    }
+
+    pub fn has_found_config_file<'a>(&'a self) -> &'a Result<(), eyre::Error> {
+        &self.found_config_file
+    }
 }
 
 pub async fn load_core<SC>(config_path: &str) -> eyre::Result<Core>
