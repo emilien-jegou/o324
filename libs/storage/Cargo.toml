@@ -14,3 +14,5 @@ path = "lib.rs"
 
 [dependencies]
 git2 = { version = "0.18.1", optional = true }
+serde = "1.0.193"
+serde_derive = "1.0.193"
