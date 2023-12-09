@@ -1,4 +1,4 @@
-use crate::{Storage, StorageConfig};
+use crate::{Storage, StorageConfig, StorageBox};
 use serde_derive::Deserialize;
 
 pub struct GitStorage {
@@ -11,8 +11,8 @@ pub struct GitStorageConfig {}
 impl StorageConfig for GitStorageConfig {
     type Storage = GitStorage;
 
-    fn to_storage(self) -> Box<dyn Storage> {
-        Box::new(GitStorage::new(self))
+    fn to_storage(self) -> StorageBox {
+        StorageBox::new(GitStorage::new(self))
     }
 }
 

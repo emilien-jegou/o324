@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use o324_storage::{BuiltinStorageType, Storage};
+use o324_storage::{BuiltinStorageType, StorageBox};
 
 mod commands {
     pub mod cancel;
@@ -37,7 +37,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn execute(self, storage: Box<dyn Storage>) -> eyre::Result<()> {
+    pub async fn execute(self, storage: &StorageBox) -> eyre::Result<()> {
         match self {
             Self::Start(o) => commands::start::handle(o, storage).await?,
             _ => unimplemented!(),
@@ -109,7 +109,7 @@ pub async fn main() -> eyre::Result<()> {
     // the --config option and an error occured when retrieving
     // or parsing the config file content.
     if args.config.is_some() {
-        if let Err(err) = core.found_config_file {
+        if let Err(err) = core.has_found_config_file() {
             println!(
                         "{}",
                         format!("An error occured when loading the config file, the --config option was ignored. Got error: {err}")
@@ -118,6 +118,6 @@ pub async fn main() -> eyre::Result<()> {
         }
     }
 
-    args.command.execute(core.storage).await?;
+    args.command.execute(core.get_inner_storage()).await?;
     Ok(())
 }
