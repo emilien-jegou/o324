@@ -2,8 +2,10 @@ use o324_storage::StorageBox;
 
 pub mod config;
 mod load;
+mod utils;
 
 pub use load::{load, load_core};
+use ulid::Ulid;
 
 pub struct Core {
     storage: StorageBox,
@@ -11,11 +13,29 @@ pub struct Core {
     found_config_file: Result<(), eyre::Error>,
 }
 
+struct Task {
+    id: Ulid,
+    start: u64,
+    end: Option<u64>,
+}
+
 impl Core {
     pub async fn start_task(&self) -> eyre::Result<()> {
         let mut lock = self.storage.try_lock().await?;
 
         self.storage.debug_message();
+
+        //if self.storage.has_active_task().await? == true {
+        //return Err(eyre::eyre!(
+        //"You cannot have more than one active task at the time"
+        //));
+        //}
+
+        //self.storage.add_new_task(Task {
+        //id: Ulid::new(),
+        //start: utils::unix_now(),
+        //end: None,
+        //});
 
         lock.release().await?;
         Ok(())
