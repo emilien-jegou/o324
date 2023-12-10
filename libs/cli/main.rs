@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use o324_storage::{BuiltinStorageType, StorageBox};
+use o324_core::Core;
+use o324_storage::BuiltinStorageType;
 
 mod commands {
     pub mod cancel;
@@ -37,9 +38,9 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn execute(self, storage: &StorageBox) -> eyre::Result<()> {
+    pub async fn execute(self, core: &Core) -> eyre::Result<()> {
         match self {
-            Self::Start(o) => commands::start::handle(o, storage).await?,
+            Self::Start(o) => commands::start::handle(o, core).await?,
             _ => unimplemented!(),
         };
 
@@ -53,11 +54,11 @@ pub enum BuiltinStorageTypeArgs {
     Demo,
 }
 
-impl Into<BuiltinStorageType> for BuiltinStorageTypeArgs {
-    fn into(self) -> BuiltinStorageType {
-        match self {
-            Self::Git => BuiltinStorageType::Git,
-            Self::Demo => BuiltinStorageType::InMemory,
+impl From<BuiltinStorageTypeArgs> for BuiltinStorageType {
+    fn from(val: BuiltinStorageTypeArgs) -> Self {
+        match val {
+            BuiltinStorageTypeArgs::Git => BuiltinStorageType::Git,
+            BuiltinStorageTypeArgs::Demo => BuiltinStorageType::InMemory,
         }
     }
 }
@@ -118,6 +119,6 @@ pub async fn main() -> eyre::Result<()> {
         }
     }
 
-    args.command.execute(core.get_inner_storage()).await?;
+    args.command.execute(&core).await?;
     Ok(())
 }
