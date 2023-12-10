@@ -1,10 +1,10 @@
 use clap::Args;
-use o324_storage::StorageBox;
+use o324_core::Core;
 
 #[derive(Args, Debug)]
 pub struct Command {}
 
-pub async fn handle(_command: Command, storage: &StorageBox) -> eyre::Result<()> {
-    storage.debug_message();
+pub async fn handle(_command: Command, core: &Core) -> eyre::Result<()> {
+    core.start_task().await?;
     Ok(())
 }

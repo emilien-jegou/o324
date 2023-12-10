@@ -1,4 +1,4 @@
-use crate::{Storage, StorageConfig, StorageBox};
+use crate::{PinFuture, Storage, StorageBox, StorageConfig, TransactionBox};
 use serde_derive::Deserialize;
 
 /// This storage type is used for testing, data is not persisted to disk but
@@ -22,6 +22,10 @@ impl Storage for InMemoryStorage {
     fn debug_message(&self) {
         println!("In memory storage");
         println!("config: {:?}", self.config);
+    }
+
+    fn try_lock(&self) -> PinFuture<eyre::Result<TransactionBox>> {
+        Box::pin(async move { todo!() })
     }
 }
 
