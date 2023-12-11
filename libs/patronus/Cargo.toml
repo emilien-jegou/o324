@@ -1,0 +1,12 @@
+[package]
+name = "patronus"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "patronus"
+path = "lib.rs"
+
+[dependencies]
+patronus-macros = { path = "./macros" }

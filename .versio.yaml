@@ -15,6 +15,12 @@ projects:
       toml: "package.version"
     hooks:
       post_write: cargo update --workspace
+    depends:
+      4:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
   - name: "o324-core"
     id: 1
     labels: cargo
@@ -73,6 +79,16 @@ projects:
         files:
           - file: "Cargo.toml"
             toml: "package.version"
+  - name: "patronus"
+    id: 4
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/patronus"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
 
 sizes:
   major: [ "!" ]
