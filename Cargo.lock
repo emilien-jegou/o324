@@ -884,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "o324-cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "clap",
  "colored",
@@ -897,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "o324-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "eyre",
@@ -910,7 +910,7 @@ dependencies = [
 
 [[package]]
 name = "o324-gui"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "o324-core",
  "o324-storage",
