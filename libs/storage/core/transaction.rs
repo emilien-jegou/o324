@@ -1,22 +1,11 @@
-use std::ops::{Deref, DerefMut};
+use derive_more::{Deref, DerefMut};
 
 use crate::PinFuture;
 
+#[derive(Deref, DerefMut)]
+#[deref(forward)]
+#[deref_mut(forward)]
 pub struct TransactionBox(Box<dyn Transaction>);
-
-impl Deref for TransactionBox {
-    type Target = dyn Transaction;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl DerefMut for TransactionBox {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.0
-    }
-}
 
 impl TransactionBox {
     pub fn new(storage: impl Transaction + 'static) -> Self {

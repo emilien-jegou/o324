@@ -1,18 +1,11 @@
-use std::ops::Deref;
-
+use derive_more::{Deref, DerefMut};
 use crate::PinFuture;
-
 use super::{transaction::TransactionBox, task::Task};
 
+#[derive(Deref, DerefMut)]
+#[deref(forward)]
+#[deref_mut(forward)]
 pub struct StorageBox(Box<dyn Storage>);
-
-impl Deref for StorageBox {
-    type Target = dyn Storage;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
 
 impl StorageBox {
     pub fn new(storage: impl Storage + 'static) -> Self {
