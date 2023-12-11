@@ -37,7 +37,7 @@ impl Core {
         let task_id = Ulid::new().to_string();
         let start_timestamp = utils::unix_now();
         self.storage
-            .start_new_task(Task {
+            .create_task(Task {
                 id: task_id,
                 task_name: input.task_name,
                 project: input.project,

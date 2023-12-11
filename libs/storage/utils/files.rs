@@ -1,5 +1,10 @@
 use git2::Repository;
-use std::path::Path;
+use serde::{de::DeserializeOwned, Serialize};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::Path,
+};
 
 pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
     if !path.exists() {
@@ -30,3 +35,26 @@ pub fn init_git_repo_at_path(path: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
+pub fn read_json_document_as_struct_with_default<
+    T: DeserializeOwned + Default + 'static,
+    P: AsRef<Path>,
+>(
+    path: P,
+) -> eyre::Result<T> {
+    let path = path.as_ref();
+    if path.exists() {
+        let mut file = File::open(path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        Ok(serde_json::from_str(&contents)?)
+    } else {
+        Ok(T::default())
+    }
+}
+
+pub fn save_json_document<T: Serialize, P: AsRef<Path>>(path: P, data: &T) -> eyre::Result<()> {
+    let serialized = serde_json::to_string(data)?;
+    let mut file = File::create(path)?;
+    file.write_all(serialized.as_bytes())?;
+    Ok(())
+}
