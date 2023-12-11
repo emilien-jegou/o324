@@ -1,53 +1,9 @@
-use std::{fs::File, io::{Read, Write}, path::Path};
-
-use crate::{
-    utils::{files, semaphore::Semaphore},
-    PinFuture, Storage, StorageBox, StorageConfig, Task, Transaction, TransactionBox,
-};
-use serde_derive::Deserialize;
-
-type GitDailyDocument = Vec<Task>;
-
-fn read_document_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<GitDailyDocument> {
-    let path = path.as_ref();
-    if path.exists() {
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        Ok(serde_json::from_str(&contents)?)
-    } else {
-        Ok(GitDailyDocument::default())
-    }
-}
-
-fn save_document_from_path<P: AsRef<Path>>(path: P, data: &GitDailyDocument) -> eyre::Result<()> {
-    let serialized = serde_json::to_string(data)?;
-    let mut file = File::create(path)?;
-    file.write_all(serialized.as_bytes())?;
-    Ok(())
-}
-
+use super::{config::GitStorageConfig, transaction::GitTransaction};
+use crate::{utils::files, PinFuture, Storage, StorageBox, StorageConfig, Task, TransactionBox};
 
 /// Save data as json inside of a git directory
 pub struct GitStorage {
     config: GitStorageConfig,
-}
-
-#[derive(Debug, Deserialize, Default)]
-pub struct GitStorageConfig {
-    /// path of git directory (default to ~/.local/share/3to4/git-storage-data)
-    git_storage_path: Option<String>,
-}
-
-impl GitStorageConfig {
-    pub fn get_git_storage_path(&self) -> eyre::Result<String> {
-        let path_raw = self
-            .git_storage_path
-            .clone()
-            .unwrap_or("~/.local/share/3to4/git-storage-data".to_owned());
-
-        Ok(shellexpand::full(&path_raw)?.into_owned())
-    }
 }
 
 // - get the path of the storage, default to .local/share/3to4/git-storage-data
@@ -99,7 +55,7 @@ impl Storage for GitStorage {
         Box::pin(async move { Ok(false) })
     }
 
-    fn start_new_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
+    fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
             let now = chrono::Local::now();
             let formatted_date = now.format("%Y-%m-%d.json").to_string();
@@ -107,11 +63,11 @@ impl Storage for GitStorage {
             let path = std::path::Path::new(&storage_path);
             let full_path = path.join(formatted_date);
 
-            let mut data = read_document_from_path(&full_path)?;
+            let mut data: Vec<Task> = files::read_json_document_as_struct_with_default(&full_path)?;
 
             data.push(task);
 
-            save_document_from_path(&full_path, &data)?;
+            files::save_json_document(&full_path, &data)?;
             Ok(())
         })
     }
@@ -127,35 +83,5 @@ impl GitStorage {
         let path = std::path::Path::new(&storage_path);
         files::check_path_is_git_directory(&path)
             .map_err(|e| eyre::eyre!("storage is not initialized, got error: {e}"))
-    }
-}
-
-pub struct GitTransaction {
-    lock: Semaphore,
-}
-
-const GIT_SEMAPHORE_NAME: &str = "3to4-git-transaction-3";
-
-impl GitTransaction {
-    pub fn try_new() -> eyre::Result<Self> {
-        let mut lock = Semaphore::try_new(GIT_SEMAPHORE_NAME)?;
-        lock.try_acquire()?;
-        Ok(GitTransaction { lock })
-    }
-}
-
-impl Transaction for GitTransaction {
-    fn release(&mut self) -> PinFuture<eyre::Result<()>> {
-        Box::pin(async move {
-            self.lock.release()?;
-            Ok(())
-        })
-    }
-}
-
-impl Drop for GitTransaction {
-    fn drop(&mut self) {
-        // TODO: this is somewhat unsafe
-        self.lock.release().expect("Couldn't release semaphore");
     }
 }

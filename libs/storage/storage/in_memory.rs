@@ -36,7 +36,7 @@ impl Storage for InMemoryStorage {
         Box::pin(async move { todo!() })
     }
 
-    fn start_new_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
+    fn create_task(&self, _task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move { todo!() })
     }
 }

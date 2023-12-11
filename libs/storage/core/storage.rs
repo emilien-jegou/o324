@@ -20,7 +20,7 @@ pub trait Storage: Sync {
     fn try_lock(&self) -> PinFuture<eyre::Result<TransactionBox>>;
     fn has_active_task(&self) -> PinFuture<eyre::Result<bool>>;
 
-    fn start_new_task(&self, task: Task) -> PinFuture<eyre::Result<()>>;
+    fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>>;
 
     //let txn = self.storage.try_lock().await?;
     //if self.storage.has_active_task().await? == true {
