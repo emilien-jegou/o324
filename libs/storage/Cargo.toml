@@ -6,7 +6,7 @@ publish = false
 
 [features]
 full = ["git"]
-git = ["dep:git2", "dep:libc", "dep:lazy_static", "dep:signal-hook"]
+git = ["dep:git2", "dep:libc", "dep:lazy_static", "dep:signal-hook", "dep:shellexpand", "dep:chrono"]
 
 [lib]
 name = "o324_storage"
@@ -14,9 +14,13 @@ path = "lib.rs"
 
 [dependencies]
 git2 = { version = "0.18", optional = true }
-serde = "1.0.193"
-serde_derive = "1.0.193"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
 eyre = "0.6.9"
 libc = { version = "0.2", optional = true }
+ulid = "1.1"
 lazy_static = { version = "1.4", optional = true }
 signal-hook = { version = "0.3", optional = true }
+shellexpand = { version = "2.1", optional = true }
+chrono = { version = "0.4", optional = true }

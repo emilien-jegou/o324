@@ -1,4 +1,4 @@
-use o324_storage::StorageBox;
+use o324_storage::{StorageBox, Task};
 
 pub mod config;
 mod load;
@@ -13,29 +13,39 @@ pub struct Core {
     found_config_file: Result<(), eyre::Error>,
 }
 
-struct Task {
-    id: Ulid,
-    start: u64,
-    end: Option<u64>,
+pub struct StartTaskInput {
+    pub task_name: String,
+    pub project: Option<String>,
+    pub tags: Vec<String>,
 }
 
 impl Core {
-    pub async fn start_task(&self) -> eyre::Result<()> {
+    pub async fn initialize(&self) -> eyre::Result<()> {
+        self.storage.init().await?;
+        Ok(())
+    }
+
+    pub async fn start_task(&self, input: StartTaskInput) -> eyre::Result<()> {
         let mut lock = self.storage.try_lock().await?;
 
-        self.storage.debug_message();
+        if self.storage.has_active_task().await? == true {
+            return Err(eyre::eyre!(
+                "You cannot have more than one active task at the time"
+            ));
+        }
 
-        //if self.storage.has_active_task().await? == true {
-        //return Err(eyre::eyre!(
-        //"You cannot have more than one active task at the time"
-        //));
-        //}
-
-        //self.storage.add_new_task(Task {
-        //id: Ulid::new(),
-        //start: utils::unix_now(),
-        //end: None,
-        //});
+        let task_id = Ulid::new().to_string();
+        let start_timestamp = utils::unix_now();
+        self.storage
+            .start_new_task(Task {
+                id: task_id,
+                task_name: input.task_name,
+                project: input.project,
+                tags: input.tags,
+                start: start_timestamp,
+                end: None,
+            })
+            .await?;
 
         lock.release().await?;
         Ok(())

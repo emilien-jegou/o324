@@ -9,6 +9,7 @@ mod commands {
     pub mod edit;
     pub mod log;
     pub mod restart;
+    pub mod init;
     pub mod start;
     pub mod stats;
     pub mod status;
@@ -17,6 +18,8 @@ mod commands {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Initialize the storage
+    Init(commands::init::Command),
     /// Start a new task
     Start(commands::start::Command),
     /// Display infos on an ongoing task
@@ -41,6 +44,7 @@ impl Command {
     pub async fn execute(self, core: &Core) -> eyre::Result<()> {
         match self {
             Self::Start(o) => commands::start::handle(o, core).await?,
+            Self::Init(o) => commands::init::handle(o, core).await?,
             _ => unimplemented!(),
         };
 
