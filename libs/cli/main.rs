@@ -7,9 +7,9 @@ mod commands {
     pub mod cancel;
     pub mod delete;
     pub mod edit;
+    pub mod init;
     pub mod log;
     pub mod restart;
-    pub mod init;
     pub mod start;
     pub mod stats;
     pub mod status;
@@ -90,10 +90,13 @@ struct Args {
 }
 
 impl Args {
-    fn get_config(&self) -> String {
-        self.config
+    fn get_config(&self) -> eyre::Result<String> {
+        let config_path = self
+            .config
             .clone()
-            .unwrap_or("~/.config/3to4/config.toml".to_owned())
+            .unwrap_or("~/.config/3to4/config.toml".to_owned());
+
+        Ok(shellexpand::full(&config_path)?.into_owned())
     }
 
     fn get_storage_type(&self) -> BuiltinStorageTypeArgs {
@@ -106,7 +109,7 @@ impl Args {
 #[tokio::main]
 pub async fn main() -> eyre::Result<()> {
     let args = Args::parse();
-    let config_path = args.get_config();
+    let config_path = args.get_config()?;
 
     let core = o324_core::load(args.get_storage_type().into(), &config_path).await?;
 
