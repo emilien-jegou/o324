@@ -1,6 +1,7 @@
 [
-  { "name": "o324-storage", "path": "libs/storage" },
+  { "name": "o324-storage", "path": "libs/storage", "deps": ["patronus"] },
   { "name": "o324-core", "path": "libs/core", "deps": ["o324-storage"] },
   { "name": "o324-cli", "path": "libs/cli", "deps": ["o324-core", "o324-storage"] },
-  { "name": "o324-gui", "path": "libs/gui", "deps": ["o324-core", "o324-storage"] }
+  { "name": "o324-gui", "path": "libs/gui", "deps": ["o324-core", "o324-storage"] },
+  { "name": "patronus", "path": "libs/patronus" }
 ]
