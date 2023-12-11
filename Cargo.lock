@@ -871,6 +871,7 @@ dependencies = [
  "eyre",
  "o324-core",
  "o324-storage",
+ "shellexpand",
  "tokio",
 ]
 
