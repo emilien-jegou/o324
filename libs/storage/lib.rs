@@ -5,6 +5,7 @@ use std::{
 };
 
 use serde::de::DeserializeOwned;
+use serde_derive::{Deserialize, Serialize};
 
 pub mod storage {
     #[cfg(feature = "git")]
@@ -13,6 +14,8 @@ pub mod storage {
 }
 
 pub mod utils {
+    #[cfg(feature = "git")]
+    pub(crate) mod files;
     #[cfg(feature = "git")]
     pub(crate) mod semaphore;
 }
@@ -67,10 +70,24 @@ pub trait Transaction {
     fn release(&mut self) -> PinFuture<eyre::Result<()>>;
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Task {
+    pub id: String,
+    pub task_name: String,
+    pub project: Option<String>,
+    pub tags: Vec<String>,
+    pub start: u64,
+    pub end: Option<u64>,
+}
+
 pub trait Storage: Sync {
     fn debug_message(&self);
 
+    fn init(&self) -> PinFuture<eyre::Result<()>>;
     fn try_lock(&self) -> PinFuture<eyre::Result<TransactionBox>>;
+    fn has_active_task(&self) -> PinFuture<eyre::Result<bool>>;
+
+    fn start_new_task(&self, task: Task) -> PinFuture<eyre::Result<()>>;
 
     //let txn = self.storage.try_lock().await?;
     //if self.storage.has_active_task().await? == true {
