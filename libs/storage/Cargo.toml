@@ -13,13 +13,15 @@ name = "o324_storage"
 path = "lib.rs"
 
 [dependencies]
-git2 = { version = "0.18", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 eyre = "0.6.9"
 libc = { version = "0.2", optional = true }
 ulid = "1.1"
+
+# Git only dependencies
+git2 = { version = "0.18", optional = true }
 lazy_static = { version = "1.4", optional = true }
 signal-hook = { version = "0.3", optional = true }
 shellexpand = { version = "2.1", optional = true }
