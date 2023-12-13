@@ -1,9 +1,6 @@
 build:
 	cargo build
 
-run BIN:
-	cargo run "{{BIN}}"
-
 watch CRATE:
 	cargo-watch -x 'build --color=always -p {{CRATE}}'
 

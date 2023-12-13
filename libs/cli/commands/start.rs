@@ -16,7 +16,7 @@ pub struct Command {
 }
 
 pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    core.start_task(StartTaskInput {
+    core.start_new_task(StartTaskInput {
         task_name: command.task_name,
         project: command.project,
         tags: command.tags,

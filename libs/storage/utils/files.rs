@@ -16,7 +16,7 @@ pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
 }
 
 pub fn check_path_is_git_directory(path: &Path) -> eyre::Result<()> {
-    check_path_is_directory(&path)?;
+    check_path_is_directory(path)?;
     match Repository::discover(path) {
         Ok(_) => Ok(()),
         Err(_) => Err(eyre::eyre!("Path {:?} is not a git directory", path)),
