@@ -11,8 +11,11 @@ pub use core::{
     storage::{Storage, StorageBox},
     storage_config::StorageConfig,
     task::Task,
+    task::TaskUpdate,
     transaction::{Transaction, TransactionBox},
 };
+
+pub use patronus;
 
 pub mod storage {
     #[cfg(feature = "git")]
@@ -25,6 +28,8 @@ pub mod utils {
     pub(crate) mod files;
     #[cfg(feature = "git")]
     pub(crate) mod semaphore;
+    #[cfg(feature = "git")]
+    pub(crate) mod time;
 }
 
 pub(crate) type PinFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;

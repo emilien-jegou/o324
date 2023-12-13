@@ -20,7 +20,7 @@ mod commands {
 pub enum Command {
     /// Initialize the storage
     Init(commands::init::Command),
-    /// Start a new task
+    ///  Stop any current task and start a new task and and
     Start(commands::start::Command),
     /// Display infos on an ongoing task
     Status(commands::status::Command),
@@ -42,10 +42,18 @@ pub enum Command {
 
 impl Command {
     pub async fn execute(self, core: &Core) -> eyre::Result<()> {
+        use commands::*;
         match self {
-            Self::Start(o) => commands::start::handle(o, core).await?,
-            Self::Init(o) => commands::init::handle(o, core).await?,
-            _ => unimplemented!(),
+            Self::Start(o) => start::handle(o, core).await?,
+            Self::Stop(o) => stop::handle(o, core).await?,
+            Self::Init(o) => init::handle(o, core).await?,
+            Self::Cancel(o) => cancel::handle(o, core).await?,
+            Self::Status(o) => status::handle(o, core).await?,
+            Self::Restart(o) => restart::handle(o, core).await?,
+            Self::Log(o) => log::handle(o, core).await?,
+            Self::Stats(o) => stats::handle(o, core).await?,
+            Self::Edit(o) => edit::handle(o, core).await?,
+            Self::Delete(o) => delete::handle(o, core).await?,
         };
 
         Ok(())

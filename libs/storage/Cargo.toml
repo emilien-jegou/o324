@@ -20,6 +20,7 @@ serde_json = "1.0"
 eyre = "0.6.9"
 ulid = "1.1"
 derive_more = { version = "1.0.0-beta.6", features = ["deref", "deref_mut"] }
+base32 = "0.4.0"
 
 # Git only dependencies
 libc = { version = "0.2", optional = true }

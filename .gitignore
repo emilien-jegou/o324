@@ -8,3 +8,6 @@ notes.txt
 
 # Rust
 target
+
+# local testing
+tests

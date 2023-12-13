@@ -1,4 +1,7 @@
-use crate::{PinFuture, Storage, StorageBox, StorageConfig, TransactionBox, Task};
+use crate::{
+    core::task::{TaskId, TaskUpdate},
+    PinFuture, Storage, StorageBox, StorageConfig, Task, TransactionBox,
+};
 use serde_derive::Deserialize;
 
 /// This storage type is used for testing, data is not persisted to disk but
@@ -32,11 +35,42 @@ impl Storage for InMemoryStorage {
         Box::pin(async move { todo!() })
     }
 
-    fn has_active_task(&self) -> PinFuture<eyre::Result<bool>> {
+    fn get_current_task_id(&self) -> PinFuture<eyre::Result<Option<TaskId>>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn set_current_task_id(
+        &self,
+        _task_id: Option<TaskId>,
+    ) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move { todo!() })
     }
 
     fn create_task(&self, _task: Task) -> PinFuture<eyre::Result<()>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn get_task(&self, _task_id: String) -> PinFuture<eyre::Result<Task>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn list_tasks(
+        &self,
+        _start_timestamp: u64,
+        _end_timestamp: u64,
+    ) -> PinFuture<eyre::Result<Vec<Task>>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn update_task(
+        &self,
+        _task_id: String,
+        _updated_task: TaskUpdate,
+    ) -> PinFuture<eyre::Result<()>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn delete_task(&self, _task_id: String) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move { todo!() })
     }
 }
