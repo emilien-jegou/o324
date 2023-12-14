@@ -25,6 +25,7 @@
         rustup default beta
       fi;
       [ ! -f .packages/bin/cargo-expand ] && cargo install cargo-expand --root .packages/
+      [ ! -f .packages/bin/tauri-cli ] && cargo install tauri-cli --root .packages/
       [ ! -f .packages/bin/cargo-watch ] && cargo install cargo-watch --root .packages/
       [ ! -f .packages/bin/versio ] && cargo install versio --root .packages/
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";

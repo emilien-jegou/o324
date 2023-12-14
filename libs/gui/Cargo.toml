@@ -1,13 +1,19 @@
 [package]
-name = "o324-gui"
+name = "o3to4-gui"
 version = "0.1.0"
+description = "GUI for the 3to4 time tracker"
 edition = "2021"
-publish = false
 
-[[bin]]
-name = "3to4-gui"
-path = "main.rs"
+[build-dependencies]
+tauri-build = { version = "1.5.0" }
 
 [dependencies]
-o324-core = { path = "../core" }
-o324-storage = { path = "../storage", features = ["git"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.5.3" }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
+# If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
+# DO NOT REMOVE!!
+custom-protocol = [ "tauri/custom-protocol" ]
