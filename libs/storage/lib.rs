@@ -28,8 +28,6 @@ pub mod utils {
     pub(crate) mod files;
     #[cfg(feature = "git")]
     pub(crate) mod semaphore;
-    #[cfg(feature = "git")]
-    pub(crate) mod time;
 }
 
 pub(crate) type PinFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
