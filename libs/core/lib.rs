@@ -1,6 +1,6 @@
 use std::{
     str::FromStr,
-    time::{Duration, UNIX_EPOCH, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use o324_storage::{patronus::Setter, StorageBox, Task, TaskUpdate};
@@ -184,6 +184,26 @@ impl Core {
         self.storage.update_task(task_id, update_task).await?;
         lock.release().await?;
         Ok(())
+    }
+
+    pub async fn list_last_tasks(&self, count: u64) -> eyre::Result<Vec<Task>> {
+        let mut lock = self.storage.try_lock().await?;
+        let tasks = self.storage.list_last_tasks(count).await?;
+        lock.release().await?;
+        Ok(tasks)
+    }
+
+    /// Returned an ordered list of task between given dates
+    pub async fn list_task_range(
+        &self,
+        _start_timestamp: u64,
+        _end_timestamp: u64,
+    ) -> eyre::Result<Vec<Task>> {
+        todo!();
+        //let mut lock = self.storage.try_lock().await?;
+        //self.storage.delete_task(task_id).await?;
+        //lock.release().await?;
+        //Ok(())
     }
 
     pub fn get_inner_storage(&self) -> &StorageBox {

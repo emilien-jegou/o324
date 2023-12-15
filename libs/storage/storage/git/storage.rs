@@ -1,16 +1,21 @@
 use super::{config::GitStorageConfig, transaction::GitTransaction};
 use crate::{
     core::task::{TaskId, TaskUpdate},
+    storage::git,
     utils::files,
     PinFuture, Storage, StorageBox, StorageConfig, Task, TransactionBox,
 };
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
-use ulid::Ulid;
+use std::{
+    collections::HashSet,
+    ops::Bound::{Excluded, Included},
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
 };
+use ulid::Ulid;
 
 #[derive(Serialize, Deserialize, Default)]
 struct DailyDocument {
@@ -22,7 +27,7 @@ struct MetadataDocument {
     /// Current task id
     pub current: Option<String>,
     /// Ordered list of tasks id
-    pub tasks_refs: BTreeSet<String>,
+    pub task_refs: BTreeSet<String>,
 }
 
 /// Save data as json inside of a git directory
@@ -60,16 +65,49 @@ impl GitStorage {
         Ok(())
     }
 
+    fn list_tasks_by_ids(&self, task_ids: Vec<TaskId>) -> eyre::Result<Vec<Task>> {
+        // List of documents where the tasks are contained, remove duplicate
+        let files = task_ids
+            .iter()
+            .map(|task_id| self.get_storage_file_from_ulid(&task_id))
+            .collect::<eyre::Result<HashSet<PathBuf>>>()?;
+
+        let documents = files
+            .into_iter()
+            .map(|path| {
+                let doc: DailyDocument = files::read_json_document_as_struct_with_default(path)?;
+                Ok(doc)
+            })
+            .collect::<eyre::Result<Vec<DailyDocument>>>()?;
+
+        let task_ids_set: HashSet<String> = task_ids.into_iter().collect();
+
+        // Combine all tasks object from document and filter them out using boundaries
+        let tasks = documents
+            .into_iter()
+            .map(|doc| doc.tasks)
+            .fold(Vec::<(String, Task)>::new(), |mut acc, tasks| {
+                acc.extend(tasks);
+                acc
+            })
+            .into_iter()
+            .filter(|(id, _)| task_ids_set.contains(id))
+            .map(|(_, task)| task)
+            .collect::<Vec<Task>>();
+
+        Ok(tasks)
+    }
+
     fn save_task_ref(&self, task_id: &str) -> eyre::Result<()> {
         let mut metadata = self.get_current_metadata()?;
-        metadata.tasks_refs.insert(task_id.to_string());
+        metadata.task_refs.insert(task_id.to_string());
         self.set_current_metadata(metadata)?;
         Ok(())
     }
 
     fn delete_task_ref(&self, task_id: &str) -> eyre::Result<()> {
         let mut metadata = self.get_current_metadata()?;
-        metadata.tasks_refs.remove(task_id);
+        metadata.task_refs.remove(task_id);
         self.set_current_metadata(metadata)?;
         Ok(())
     }
@@ -170,12 +208,48 @@ impl Storage for GitStorage {
         })
     }
 
-    fn list_tasks(
+    fn list_last_tasks(&self, count: u64) -> PinFuture<eyre::Result<Vec<Task>>> {
+        Box::pin(async move {
+            let metadata = self.get_current_metadata()?;
+            let task_ids: Vec<String> = metadata
+                .task_refs
+                .iter()
+                .rev()
+                .take(count as usize)
+                .cloned()
+                .collect();
+
+            let tasks = self.list_tasks_by_ids(task_ids)?;
+
+            Ok(tasks)
+        })
+    }
+
+    fn list_tasks_range(
         &self,
-        _start_timestamp: u64,
-        _end_timestamp: u64,
+        start_timestamp: u64,
+        end_timestamp: u64,
     ) -> PinFuture<eyre::Result<Vec<Task>>> {
-        Box::pin(async move { todo!() })
+        Box::pin(async move {
+            let metadata = self.get_current_metadata()?;
+
+            // We convert the timestamp to ulid to simplify the search and set the second part to
+            // respectively the lowest and highest characters of Crockford 32 to ensure all ulid
+            // between the range are found
+            let start = git::ulid_from_timestamp_with_overwrite(start_timestamp, '0')?;
+            let end = git::ulid_from_timestamp_with_overwrite(end_timestamp, 'Z')?;
+
+            // List of task we desire to return
+            let task_ids: Vec<String> = metadata
+                .task_refs
+                .range((Included(start.clone()), Excluded(end.clone())))
+                .cloned()
+                .collect();
+
+            let tasks = self.list_tasks_by_ids(task_ids)?;
+
+            Ok(tasks)
+        })
     }
 
     fn update_task(

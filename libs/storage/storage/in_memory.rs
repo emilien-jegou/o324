@@ -39,10 +39,7 @@ impl Storage for InMemoryStorage {
         Box::pin(async move { todo!() })
     }
 
-    fn set_current_task_id(
-        &self,
-        _task_id: Option<TaskId>,
-    ) -> PinFuture<eyre::Result<()>> {
+    fn set_current_task_id(&self, _task_id: Option<TaskId>) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move { todo!() })
     }
 
@@ -54,11 +51,15 @@ impl Storage for InMemoryStorage {
         Box::pin(async move { todo!() })
     }
 
-    fn list_tasks(
+    fn list_tasks_range(
         &self,
         _start_timestamp: u64,
         _end_timestamp: u64,
     ) -> PinFuture<eyre::Result<Vec<Task>>> {
+        Box::pin(async move { todo!() })
+    }
+
+    fn list_last_tasks(&self, _count: u64) -> PinFuture<eyre::Result<Vec<Task>>> {
         Box::pin(async move { todo!() })
     }
 
