@@ -27,7 +27,10 @@ pub trait Storage: Sync {
     fn get_task(&self, task_id: String) -> PinFuture<eyre::Result<Task>>;
 
     // List all tasks between timestamps
-    fn list_tasks(&self, start_timestamp: u64, end_timestamp: u64) -> PinFuture<eyre::Result<Vec<Task>>>;
+    fn list_tasks_range(&self, start_timestamp: u64, end_timestamp: u64) -> PinFuture<eyre::Result<Vec<Task>>>;
+
+    // List last $count tasks
+    fn list_last_tasks(&self, count: u64) -> PinFuture<eyre::Result<Vec<Task>>>;
 
     // Update a task
     fn update_task(&self, task_id: String, updated_task: TaskUpdate) -> PinFuture<eyre::Result<()>>;
