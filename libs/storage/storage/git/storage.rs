@@ -17,9 +17,10 @@ struct DailyDocument {
 
 #[derive(Serialize, Deserialize, Default)]
 struct MetadataDocument {
+    /// Current task id
     pub current: Option<String>,
-    // Ordered list of tasks by creation date
-    pub history: BTreeSet<String>,
+    /// Ordered list of tasks id
+    pub tasks_refs: BTreeSet<String>,
 }
 
 /// Save data as json inside of a git directory
@@ -57,6 +58,20 @@ impl GitStorage {
         Ok(())
     }
 
+    fn save_task_ref(&self, task_id: &str) -> eyre::Result<()> {
+        let mut metadata = self.get_current_metadata()?;
+        metadata.tasks_refs.insert(task_id.to_string());
+        self.set_current_metadata(metadata)?;
+        Ok(())
+    }
+
+    fn delete_task_ref(&self, task_id: &str) -> eyre::Result<()> {
+        let mut metadata = self.get_current_metadata()?;
+        metadata.tasks_refs.remove(task_id);
+        self.set_current_metadata(metadata)?;
+        Ok(())
+    }
+
     fn get_storage_file_from_ulid(&self, ulid: &TaskId) -> eyre::Result<PathBuf> {
         let storage_path = self.config.get_git_storage_path()?;
         let path = std::path::Path::new(&storage_path);
@@ -82,10 +97,8 @@ impl StorageConfig for GitStorageConfig {
     }
 }
 
-// NOTE: we may only want to expose the try_lock as we want all action to be executed in a
-// transaction, methods such as has_active_task may be better suited for the Transaction struct
-// instead
-
+// NOTE: we may want to move all read and write method to the transaction struct instead to
+// prevent potential misuse.
 impl Storage for GitStorage {
     fn debug_message(&self) {
         println!("Git storage");
@@ -115,7 +128,7 @@ impl Storage for GitStorage {
     fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
             let file = self.get_storage_file_from_ulid(&task.ulid)?;
-
+            self.save_task_ref(&task.ulid)?;
             let mut data: DailyDocument = files::read_json_document_as_struct_with_default(&file)?;
 
             data.tasks.insert(task.ulid.clone(), task);
@@ -195,6 +208,8 @@ impl Storage for GitStorage {
                 .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
             files::save_json_document(&file, &data)?;
+
+            self.delete_task_ref(&task_id)?;
 
             Ok(())
         })
