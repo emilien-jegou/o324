@@ -1,10 +1,12 @@
 use super::{config::GitStorageConfig, transaction::GitTransaction};
 use crate::{
     core::task::{TaskId, TaskUpdate},
-    utils::{files, time},
+    utils::files,
     PinFuture, Storage, StorageBox, StorageConfig, Task, TransactionBox,
 };
+use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
+use ulid::Ulid;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
@@ -75,7 +77,7 @@ impl GitStorage {
     fn get_storage_file_from_ulid(&self, ulid: &TaskId) -> eyre::Result<PathBuf> {
         let storage_path = self.config.get_git_storage_path()?;
         let path = std::path::Path::new(&storage_path);
-        let date = time::ulid_to_utc_datetime(ulid)?;
+        let date: DateTime<Utc> = Ulid::from_string(ulid)?.datetime().into();
         let formatted_date = date.format("%Y-%m-%d.json").to_string();
         let full_path = path.join(formatted_date);
         Ok(full_path)
