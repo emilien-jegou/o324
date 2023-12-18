@@ -4,13 +4,17 @@ version = "0.1.0"
 description = "GUI for the 3to4 time tracker"
 edition = "2021"
 
+[[bin]]
+name = "o3to4-gui"
+path = "src-interface/main.rs"
+
 [build-dependencies]
-tauri-build = { version = "1.5.0" }
+tauri-build = { version = "1.5.0", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5.3" }
+tauri = { version = "1.5.3", features = [] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

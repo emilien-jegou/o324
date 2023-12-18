@@ -2,11 +2,11 @@
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
-    "devPath": "localhost:3000",
-    "distDir": "../../dist"
+    "devPath": "http://localhost:5173",
+    "distDir": "./dist"
   },
   "package": {
-    "productName": "3to4-gui",
+    "productName": "o3to4-gui",
     "version": "0.1.0"
   },
   "tauri": {
@@ -15,7 +15,7 @@
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
+      "category": "Productivity",
       "copyright": "",
       "deb": {
         "depends": []
@@ -28,7 +28,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "com.3to4.dev",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -55,10 +55,10 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 800,
         "resizable": true,
         "title": "3to4",
-        "width": 800
+        "width": 400
       }
     ]
   }
