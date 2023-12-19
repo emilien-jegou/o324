@@ -1,8 +1,7 @@
-import { component$, Slot, useStyles$ } from "@builder.io/qwik";
-import { routeLoader$ } from "@builder.io/qwik-city";
-import type { RequestHandler } from "@builder.io/qwik-city";
-
-import styles from "./styles.css?inline";
+import { component$, Slot, useStyles$ } from '@builder.io/qwik';
+import { routeLoader$ } from '@builder.io/qwik-city';
+import styles from './styles.css?inline';
+import type { RequestHandler } from '@builder.io/qwik-city';
 
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
