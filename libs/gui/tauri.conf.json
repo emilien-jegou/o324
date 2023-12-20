@@ -55,7 +55,7 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 800,
+        "height": 640,
         "resizable": true,
         "title": "3to4",
         "width": 400

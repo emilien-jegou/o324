@@ -1,7 +1,7 @@
-import { defineConfig } from "vite";
-import { qwikVite } from "@builder.io/qwik/optimizer";
-import { qwikCity } from "@builder.io/qwik-city/vite";
-import tsconfigPaths from "vite-tsconfig-paths";
+import { qwikVite } from '@builder.io/qwik/optimizer';
+import { qwikCity } from '@builder.io/qwik-city/vite';
+import { defineConfig } from 'vite';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig(() => ({
   plugins: [
@@ -11,7 +11,7 @@ export default defineConfig(() => ({
     qwikVite({
       srcDir: 'src-frontend',
     }),
-    tsconfigPaths()
+    tsconfigPaths({ root: '.' }),
   ],
   resolve: {
     alias: {
@@ -20,16 +20,15 @@ export default defineConfig(() => ({
   },
   dev: {
     headers: {
-      "Cache-Control": "public, max-age=0",
+      'Cache-Control': 'public, max-age=0',
     },
   },
   preview: {
     headers: {
-      "Cache-Control": "public, max-age=600",
+      'Cache-Control': 'public, max-age=600',
     },
   },
   build: {
-    ssr: false,  // Ensure SSR is turned off for CSR build
+    ssr: false, // Ensure SSR is turned off for CSR build
   },
-})
-                           );
+}));
