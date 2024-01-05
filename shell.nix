@@ -23,6 +23,7 @@
       pkgs.libsoup
       pkgs.webkitgtk
       pkgs.wget
+      pkgs.nodejs_18
 
    ];
 
