@@ -18,8 +18,6 @@
 
       ## GUI
       # We only install packages needed for local development
-      # running the command cargo tauri build will always break
-      # on nixos.
       pkgs.libsoup
       pkgs.webkitgtk
       pkgs.wget
