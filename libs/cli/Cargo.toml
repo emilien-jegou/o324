@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [[bin]]
-name = "3to4"
+name = "o324"
 path = "main.rs"
 
 [dependencies]

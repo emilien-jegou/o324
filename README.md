@@ -1,4 +1,4 @@
-# 3to4
+# o324
 
 An open source CLI and GUI time tracker for linux developed in rust.
 
