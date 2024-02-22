@@ -9,6 +9,8 @@ use serde_derive::Deserialize;
 #[derive(Deserialize)]
 #[serde(bound = "S: DeserializeOwned")]
 pub struct Config<S: StorageConfig> {
+    /// default storage type to be used by frontends (default to: git)
+    pub default_storage_type: Option<String>,
     pub storage: S,
 }
 
@@ -31,6 +33,8 @@ where
     S: StorageConfig,
 {
     Config {
+        // TODO: fix this:
+        default_storage_type: Some("git".to_string()),
         storage: S::default(),
     }
 }
