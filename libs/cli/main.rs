@@ -78,7 +78,7 @@ impl From<BuiltinStorageTypeArgs> for BuiltinStorageType {
 // Note: for uniformity, we dont use clap `default_value` or `default_value_t` options
 #[derive(Parser, Debug)]
 #[command(
-    name="3to4",
+    name="o324",
     version,
     author="Emilien Jegou",
     long_about = Some("A CLI & GUI time tracker, learn more on [[GITHUB_LINK]].")
@@ -88,7 +88,7 @@ struct Args {
     #[arg(long)]
     storage_type: Option<BuiltinStorageTypeArgs>,
 
-    /// Path of configuration file (default: "~/.config/3to4/config.toml")
+    /// Path of configuration file (default: "~/.config/o324/config.toml")
     #[arg(short, long)]
     config: Option<String>,
 
@@ -102,7 +102,7 @@ impl Args {
         let config_path = self
             .config
             .clone()
-            .unwrap_or("~/.config/3to4/config.toml".to_owned());
+            .unwrap_or("~/.config/o324/config.toml".to_owned());
 
         Ok(shellexpand::full(&config_path)?.into_owned())
     }

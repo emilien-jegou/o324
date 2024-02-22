@@ -1,11 +1,11 @@
 [package]
-name = "o3to4-gui"
+name = "o324-gui"
 version = "0.1.0"
-description = "GUI for the 3to4 time tracker"
+description = "GUI for the o324 time tracker"
 edition = "2021"
 
 [[bin]]
-name = "o3to4-gui"
+name = "o324-gui"
 path = "src-interface/main.rs"
 
 [build-dependencies]
