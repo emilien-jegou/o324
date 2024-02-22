@@ -122,8 +122,8 @@ impl GitStorage {
     }
 }
 
-// - get the path of the storage, default to .local/share/3to4/git-storage-data
-// - check if the directory if not, exit, the user has to call ./3to4 init to init the storage with
+// - get the path of the storage, default to .local/share/o324/git-storage-data
+// - check if the directory if not, exit, the user has to call ./o324 init to init the storage with
 // the given config
 // - try get file for the current day, file have format [yyyy]-[mm]-[dd].json
 //    - if doesnt exist -> return false

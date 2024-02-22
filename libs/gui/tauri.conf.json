@@ -6,13 +6,11 @@
     "distDir": "./dist"
   },
   "package": {
-    "productName": "o3to4-gui",
+    "productName": "oo324-gui",
     "version": "0.1.0"
   },
   "tauri": {
-    "allowlist": {
-      "all": false
-    },
+    "allowlist": { "all": false },
     "bundle": {
       "active": true,
       "category": "Productivity",
@@ -28,7 +26,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.3to4.dev",
+      "identifier": "com.o324.dev",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -57,7 +55,7 @@
         "fullscreen": false,
         "height": 640,
         "resizable": true,
-        "title": "3to4",
+        "title": "o324",
         "width": 400
       }
     ]

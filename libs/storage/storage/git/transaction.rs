@@ -4,7 +4,7 @@ pub struct GitTransaction {
     lock: Semaphore,
 }
 
-const GIT_SEMAPHORE_NAME: &str = "3to4-git-transaction-3";
+const GIT_SEMAPHORE_NAME: &str = "o324-git-transaction";
 
 impl GitTransaction {
     pub fn try_new() -> eyre::Result<Self> {

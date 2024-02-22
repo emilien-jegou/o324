@@ -2243,6 +2243,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "o324-gui"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
 name = "o324-storage"
 version = "0.0.1"
 dependencies = [
@@ -2260,16 +2270,6 @@ dependencies = [
  "shellexpand",
  "signal-hook",
  "ulid",
-]
-
-[[package]]
-name = "o3to4-gui"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
 ]
 
 [[package]]
