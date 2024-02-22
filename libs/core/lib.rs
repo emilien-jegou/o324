@@ -44,6 +44,7 @@ impl FromStr for TaskRef {
     }
 }
 
+// TODO: prevent invalid character in task name (e.g. '#', '-')
 impl Core {
     pub async fn initialize(&self) -> eyre::Result<()> {
         self.storage.init().await?;
