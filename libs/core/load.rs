@@ -15,6 +15,8 @@ pub async fn load_core<SC>(config_path: &str) -> eyre::Result<Core>
 where
     SC: StorageConfig,
 {
+    // TODO: we want the default_storage_type option to be effective
+    // right now it doesn't produce anything.
     let mut found_config_file = Ok(());
     let config = match config::get_config_from_path::<SC>(config_path).await {
         Ok(v) => v,
