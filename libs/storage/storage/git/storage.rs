@@ -69,7 +69,7 @@ impl GitStorage {
         // List of documents where the tasks are contained, remove duplicate
         let files = task_ids
             .iter()
-            .map(|task_id| self.get_storage_file_from_ulid(&task_id))
+            .map(|task_id| self.get_storage_file_from_ulid(task_id))
             .collect::<eyre::Result<HashSet<PathBuf>>>()?;
 
         let documents = files
@@ -197,7 +197,7 @@ impl Storage for GitStorage {
     fn get_task(&self, task_id: String) -> PinFuture<eyre::Result<Task>> {
         Box::pin(async move {
             let file = self.get_storage_file_from_ulid(&task_id)?;
-            let data: DailyDocument = files::read_json_document_as_struct_with_default(&file)?;
+            let data: DailyDocument = files::read_json_document_as_struct_with_default(file)?;
 
             let task = data
                 .tasks
