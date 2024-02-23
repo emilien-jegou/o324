@@ -35,7 +35,7 @@ impl Command {
     pub fn parse_project_value(&self) -> Option<Option<String>> {
         self.project
             .clone()
-            .map(|x| if x.len() == 0 { None } else { Some(x) })
+            .map(|x| if x.is_empty() { None } else { Some(x) })
     }
 }
 
