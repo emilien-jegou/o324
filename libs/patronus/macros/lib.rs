@@ -5,10 +5,10 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Data, DeriveInput, Fields};
 
 /// Usage:
-/// ```rust
+/// `
 /// #[patronus("TaskUpdate")]
 /// struct Task { id: String }
-/// ```
+/// `
 #[proc_macro_attribute]
 pub fn patronus(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -69,7 +69,7 @@ pub fn patronus(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
-        #[derive(Default)]
+        #[derive(Default, Debug, PartialEq)]
         pub struct #updated_struct_name {
             #(#field_definitions)*
         }

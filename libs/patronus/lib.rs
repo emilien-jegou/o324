@@ -1,6 +1,6 @@
 pub use patronus_macros::patronus;
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Debug)]
 pub enum Setter<T> {
     #[default]
     Unset,
