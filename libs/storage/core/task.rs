@@ -3,7 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 
 pub type TaskId = String;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[patronus("TaskUpdate")]
 pub struct Task {
     pub ulid: TaskId,
@@ -15,6 +15,36 @@ pub struct Task {
 }
 
 impl TaskUpdate {
+    pub fn from_task_diff(left: &Task, right: &Task) -> eyre::Result<TaskUpdate> {
+        if left.ulid != right.ulid {
+            return Err(eyre::eyre!("diff between task with different id"));
+        }
+
+        let mut res = TaskUpdate::default().set_ulid(left.ulid.clone());
+
+        if left.task_name != right.task_name {
+            res = res.set_task_name(right.task_name.clone());
+        }
+
+        if left.project != right.project {
+            res = res.set_project(right.project.clone());
+        }
+
+        if left.tags != right.tags {
+            res = res.set_tags(right.tags.iter().cloned().collect::<Vec<String>>());
+        }
+
+        if left.start != right.start {
+            res = res.set_start(right.start);
+        }
+
+        if left.end != right.end {
+            res = res.set_end(right.end.clone());
+        }
+
+        Ok(res)
+    }
+
     pub fn merge_with_task(self, task: &Task) -> Task {
         Task {
             ulid: self.ulid.or(task.ulid.clone()),

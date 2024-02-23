@@ -9,7 +9,7 @@ name = "o324_core"
 path = "lib.rs"
 
 [dependencies]
-o324-storage = { path = "../storage" }
+o324-storage = { path = "../storage", features = ["git"] }
 serde = "1.0"
 serde_derive = "1.0"
 toml = "0.8.8"
