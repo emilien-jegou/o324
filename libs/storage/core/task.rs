@@ -31,7 +31,7 @@ impl TaskUpdate {
         }
 
         if left.tags != right.tags {
-            res = res.set_tags(right.tags.iter().cloned().collect::<Vec<String>>());
+            res = res.set_tags(right.tags.to_vec());
         }
 
         if left.start != right.start {
@@ -39,7 +39,7 @@ impl TaskUpdate {
         }
 
         if left.end != right.end {
-            res = res.set_end(right.end.clone());
+            res = res.set_end(right.end);
         }
 
         Ok(res)

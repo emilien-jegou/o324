@@ -28,7 +28,7 @@ pub fn build_task_change_object(
 
     // Verify deleted tasks
     for task in left.iter() {
-        if right.iter().find(|&x| x.ulid == task.ulid).is_none() {
+        if !right.iter().any(|x| x.ulid == task.ulid) {
             results.push(TaskActionObject::Deleted(task.ulid.clone()));
         }
     }
