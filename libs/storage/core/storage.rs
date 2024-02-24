@@ -38,7 +38,6 @@ pub trait Storage: Sync {
     // Delete a task by id
     fn delete_task(&self, task_id: String) -> PinFuture<eyre::Result<()>>;
 
-
     // Get the active task id
     fn get_current_task_id(&self) -> PinFuture<eyre::Result<Option<TaskId>>>;
 

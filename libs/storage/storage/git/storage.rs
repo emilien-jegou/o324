@@ -1,4 +1,4 @@
-use super::{config::GitStorageConfig, transaction::GitTransaction};
+use super::{config::GitStorageConfig, git_synchronize, transaction::GitTransaction};
 use crate::{
     core::task::{TaskId, TaskUpdate},
     storage::git,
@@ -120,6 +120,10 @@ impl GitStorage {
         let full_path = path.join(formatted_date);
         Ok(full_path)
     }
+
+    async fn git_synchronize(&self) -> eyre::Result<()> {
+        Ok(git_synchronize::sync(&self.config).await?)
+    }
 }
 
 // - get the path of the storage, default to .local/share/o324/git-storage-data
@@ -167,6 +171,7 @@ impl Storage for GitStorage {
 
     fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let file = self.get_storage_file_from_ulid(&task.ulid)?;
             self.save_task_ref(&task.ulid)?;
             let mut data: DailyDocument = files::read_json_document_as_struct_with_default(&file)?;
@@ -196,6 +201,7 @@ impl Storage for GitStorage {
 
     fn get_task(&self, task_id: String) -> PinFuture<eyre::Result<Task>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let file = self.get_storage_file_from_ulid(&task_id)?;
             let data: DailyDocument = files::read_json_document_as_struct_with_default(file)?;
 
@@ -210,6 +216,7 @@ impl Storage for GitStorage {
 
     fn list_last_tasks(&self, count: u64) -> PinFuture<eyre::Result<Vec<Task>>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let metadata = self.get_current_metadata()?;
             let task_ids: Vec<String> = metadata
                 .task_refs
@@ -231,6 +238,7 @@ impl Storage for GitStorage {
         end_timestamp: u64,
     ) -> PinFuture<eyre::Result<Vec<Task>>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let metadata = self.get_current_metadata()?;
 
             // We convert the timestamp to ulid to simplify the search and set the second part to
@@ -258,6 +266,7 @@ impl Storage for GitStorage {
         updated_task: TaskUpdate,
     ) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let file = self.get_storage_file_from_ulid(&task_id)?;
             let mut data: DailyDocument = files::read_json_document_as_struct_with_default(&file)?;
 
@@ -277,6 +286,7 @@ impl Storage for GitStorage {
 
     fn delete_task(&self, task_id: String) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            git_synchronize::sync(&self.config).await?;
             let file = self.get_storage_file_from_ulid(&task_id)?;
             let mut data: DailyDocument = files::read_json_document_as_struct_with_default(&file)?;
             data.tasks

@@ -7,7 +7,7 @@ pub enum TaskActionObject {
     Updated(TaskUpdate),
 }
 
-pub fn build_task_change_object(
+pub fn build_task_action_object(
     left: Vec<Task>,
     right: Vec<Task>,
 ) -> eyre::Result<Vec<TaskActionObject>> {
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn no_change_detected() {
-        let changes = build_task_change_object(vec![], vec![]).unwrap();
+        let changes = build_task_action_object(vec![], vec![]).unwrap();
 
         assert_eq!(changes.len(), 0);
     }
@@ -62,7 +62,7 @@ mod tests {
         let le = get_tasks(r#"{}"#);
         let ri = get_tasks(r#"{"b2":{"ulid":"b2","task_name":"0","tags":[],"start":5,"end":6}}"#);
 
-        let res = build_task_change_object(le, ri).unwrap();
+        let res = build_task_action_object(le, ri).unwrap();
 
         let expected = vec![TaskActionObject::Created(Task {
             ulid: "b2".to_owned(),
@@ -81,7 +81,7 @@ mod tests {
         let le = get_tasks(r#"{"b2":{"ulid":"b2","task_name":"0","tags":[],"start":5,"end":6}}"#);
         let ri = get_tasks(r#"{"b2":{"ulid":"b2","task_name":"1","tags":[],"start":5,"end":6}}"#);
 
-        let res = build_task_change_object(le, ri).unwrap();
+        let res = build_task_action_object(le, ri).unwrap();
 
         let expected = vec![TaskActionObject::Updated(
             TaskUpdate::default()
@@ -97,7 +97,7 @@ mod tests {
         let le = get_tasks(r#"{"b2":{"ulid":"b2","task_name":"0","tags":[],"start":5,"end":6}}"#);
         let ri = get_tasks(r#"{}"#);
 
-        let res = build_task_change_object(le, ri).unwrap();
+        let res = build_task_action_object(le, ri).unwrap();
 
         let expected = vec![TaskActionObject::Deleted("b2".to_owned())];
 

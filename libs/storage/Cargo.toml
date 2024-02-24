@@ -31,8 +31,11 @@ base32 = "0.4.0"
 
 # Git only dependencies
 libc = { version = "0.2", optional = true }
-git2 = { version = "0.18", optional = true }
+git2 = { version = "^0.18", optional = true }
 lazy_static = { version = "1.4", optional = true }
 signal-hook = { version = "0.3", optional = true }
 shellexpand = { version = "2.1", optional = true }
 chrono = { version = "0.4", optional = true }
+
+# Test dependencies
+tempfile = "3.10.0" 
