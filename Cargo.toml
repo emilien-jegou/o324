@@ -3,7 +3,9 @@ resolver = "2"
 members = [
   "libs/core",
   "libs/storage",
+  "libs/storage-git",
   "libs/cli",
   "libs/gui",
   "libs/patronus",
+  "libs/config",
 ]

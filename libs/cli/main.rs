@@ -1,7 +1,5 @@
-use clap::{Parser, Subcommand, ValueEnum};
-use colored::Colorize;
+use clap::{Parser, Subcommand};
 use o324_core::Core;
-use o324_storage::BuiltinStorageType;
 
 mod commands {
     pub mod cancel;
@@ -14,6 +12,7 @@ mod commands {
     pub mod stats;
     pub mod status;
     pub mod stop;
+    pub mod sync;
 }
 
 #[derive(Subcommand, Debug)]
@@ -38,6 +37,8 @@ pub enum Command {
     Edit(commands::edit::Command),
     /// Remove a task
     Delete(commands::delete::Command),
+    /// Synchronize with external storage
+    Sync(commands::sync::Command),
 }
 
 impl Command {
@@ -54,24 +55,10 @@ impl Command {
             Self::Stats(o) => stats::handle(o, core).await?,
             Self::Edit(o) => edit::handle(o, core).await?,
             Self::Delete(o) => delete::handle(o, core).await?,
+            Self::Sync(o) => sync::handle(o, core).await?,
         };
 
         Ok(())
-    }
-}
-
-#[derive(Clone, Debug, ValueEnum)]
-pub enum BuiltinStorageTypeArgs {
-    Git,
-    Demo,
-}
-
-impl From<BuiltinStorageTypeArgs> for BuiltinStorageType {
-    fn from(val: BuiltinStorageTypeArgs) -> Self {
-        match val {
-            BuiltinStorageTypeArgs::Git => BuiltinStorageType::Git,
-            BuiltinStorageTypeArgs::Demo => BuiltinStorageType::InMemory,
-        }
     }
 }
 
@@ -84,9 +71,9 @@ impl From<BuiltinStorageTypeArgs> for BuiltinStorageType {
     long_about = Some("A CLI & GUI time tracker, learn more on [[GITHUB_LINK]].")
 )]
 struct Args {
-    /// Storage type to use (default: git)
+    /// Profile to use
     #[arg(long)]
-    storage_type: Option<BuiltinStorageTypeArgs>,
+    profile_name: Option<String>,
 
     /// Path of configuration file (default: "~/.config/o324/config.toml")
     #[arg(short, long)]
@@ -106,12 +93,6 @@ impl Args {
 
         Ok(shellexpand::full(&config_path)?.into_owned())
     }
-
-    fn get_storage_type(&self) -> BuiltinStorageTypeArgs {
-        self.storage_type
-            .clone()
-            .unwrap_or(BuiltinStorageTypeArgs::Git)
-    }
 }
 
 #[tokio::main]
@@ -119,21 +100,8 @@ pub async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let config_path = args.get_config()?;
 
-    let core = o324_core::load(args.get_storage_type().into(), &config_path).await?;
+    let storage_config = o324_core::load(&config_path, args.profile_name)?;
 
-    // we only print the warning if the user manually specified
-    // the --config option and an error occured when retrieving
-    // or parsing the config file content.
-    if args.config.is_some() {
-        if let Err(err) = core.has_found_config_file() {
-            println!(
-                        "{}",
-                        format!("An error occured when loading the config file, the --config option was ignored. Got error: {err}")
-                            .yellow()
-                    );
-        }
-    }
-
-    args.command.execute(&core).await?;
+    args.command.execute(&storage_config).await?;
     Ok(())
 }

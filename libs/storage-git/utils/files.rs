@@ -1,4 +1,4 @@
-use git2::Repository;
+use lazy_regex::Regex;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fs::File,
@@ -17,7 +17,7 @@ pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
 
 pub fn check_path_is_git_directory(path: &Path) -> eyre::Result<()> {
     check_path_is_directory(path)?;
-    match Repository::discover(path) {
+    match git2::Repository::discover(path) {
         Ok(_) => Ok(()),
         Err(_) => Err(eyre::eyre!("Path {:?} is not a git directory", path)),
     }
@@ -26,12 +26,6 @@ pub fn check_path_is_git_directory(path: &Path) -> eyre::Result<()> {
 /// Create directory and all necessary parent directories of a given path
 pub fn create_dir_if_not_exists_deep(path: &Path) -> eyre::Result<()> {
     std::fs::create_dir_all(path)?;
-    Ok(())
-}
-
-// Initialize a new repository at the specified path
-pub fn init_git_repo_at_path(path: &Path) -> eyre::Result<()> {
-    Repository::init(path)?;
     Ok(())
 }
 
@@ -53,8 +47,24 @@ pub fn read_json_document_as_struct_with_default<
 }
 
 pub fn save_json_document<T: Serialize, P: AsRef<Path>>(path: P, data: &T) -> eyre::Result<()> {
-    let serialized = serde_json::to_string(data)?;
+    let serialized = serde_json::to_string_pretty(data)?;
     let mut file = File::create(path)?;
     file.write_all(serialized.as_bytes())?;
     Ok(())
+}
+
+pub fn find_matching_files(path: &Path, re: &Regex) -> eyre::Result<Vec<String>> {
+    let mut matchs: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+            if re.is_match(file_name) {
+                matchs.push(file_name.to_string());
+            }
+        }
+    }
+
+    Ok(matchs)
 }
