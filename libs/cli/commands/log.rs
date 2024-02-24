@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_humanize::HumanTime;
 use clap::Args;
 use colored::Colorize;
@@ -56,13 +56,15 @@ pub async fn short_output(tasks: &Vec<Task>) -> eyre::Result<()> {
     table.set_format(format::FormatBuilder::new().padding(0, 1).build());
 
     for task in tasks.iter() {
-        let start_naive = NaiveDateTime::from_timestamp(task.start as i64, 0);
-        let start_time = DateTime::<Utc>::from_utc(start_naive, Utc);
+        let start_naive = NaiveDateTime::from_timestamp_opt(task.start as i64, 0)
+            .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
+        let start_time = Utc.from_utc_datetime(&start_naive);
 
         //let end_time = if let Some(end) = task.end {
         let (humanized, duration) = if let Some(end) = task.end {
-            let end_naive = NaiveDateTime::from_timestamp(end as i64, 0);
-            let end_time = DateTime::<Utc>::from_utc(end_naive, Utc);
+            let end_naive = NaiveDateTime::from_timestamp_opt(end as i64, 0)
+                .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
+            let end_time = Utc.from_utc_datetime(&end_naive);
             let humanized = HumanTime::from(end_time - Utc::now()).to_string();
             let duration = end_time - start_time;
             (humanized, format_duration(duration))
@@ -117,14 +119,17 @@ pub async fn verbose_output(tasks: &Vec<Task>) -> eyre::Result<()> {
 
     for task in tasks.iter() {
         // Convert UNIX timestamp to NaiveDateTime
-        let start_naive = NaiveDateTime::from_timestamp(task.start as i64, 0);
-        let start_time = DateTime::<Utc>::from_utc(start_naive, Utc)
+        let start_naive = NaiveDateTime::from_timestamp_opt(task.start as i64, 0)
+            .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
+        let start_time = Utc
+            .from_utc_datetime(&start_naive)
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
         let end_time = if let Some(end) = task.end {
-            let end_naive = NaiveDateTime::from_timestamp(end as i64, 0);
-            DateTime::<Utc>::from_utc(end_naive, Utc)
+            let end_naive = NaiveDateTime::from_timestamp_opt(end as i64, 0)
+                .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
+            Utc.from_utc_datetime(&end_naive)
                 .format("%Y-%m-%d %H:%M:%S")
                 .to_string()
         } else {

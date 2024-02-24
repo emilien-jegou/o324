@@ -1,21 +1,55 @@
+use o324_config::ProfileConfig;
 use std::{
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use thiserror::Error;
 
-use o324_storage::{patronus::Setter, StorageBox, Task, TaskUpdate};
-
-pub mod config;
-mod load;
 mod utils;
 
-pub use load::{load, load_core};
+use o324_storage::{StorageBox, Task, TaskUpdate};
+use patronus::Setter;
 use ulid::Ulid;
 
 pub struct Core {
+    config: o324_config::CoreConfig,
     storage: StorageBox,
-    /// Ok - found | Err - not found with error reason
-    found_config_file: Result<(), eyre::Error>,
+}
+
+#[derive(Error, Debug)]
+pub enum LoadError {
+    #[error("An error occured when trying to open the configuration file '{0}': {1}")]
+    LoadConfigError(String, String),
+    #[error("You must specified a profile name or set a default profile name in your configuration file")]
+    NoChoosenProfile,
+    #[error("Couldn't find profile '{0}' in configuration file '{1}'")]
+    ProfileNotFound(String, String),
+    #[error("{0}")]
+    ConfigError(String),
+}
+
+pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, LoadError> {
+    let config = o324_config::load(config_path)
+        .map_err(|e| LoadError::LoadConfigError(config_path.to_string(), e.to_string()))?;
+
+    let choosen_profile_name = profile_name
+        .or(config.core.default_profile_name.clone())
+        .ok_or_else(|| LoadError::NoChoosenProfile)?;
+
+    let choosen_profile: &ProfileConfig = config
+        .profile
+        .iter()
+        .find(|(key, _)| *key == &choosen_profile_name)
+        .ok_or_else(|| LoadError::ProfileNotFound(choosen_profile_name, config_path.to_string()))?
+        .1;
+
+    let storage = o324_storage::load_builtin_storage_from_profile(choosen_profile)
+        .map_err(|e| LoadError::ConfigError(e.to_string()))?;
+
+    Ok(Core {
+        storage,
+        config: config.core,
+    })
 }
 
 pub struct StartTaskInput {
@@ -47,7 +81,7 @@ impl FromStr for TaskRef {
 // TODO: prevent invalid character in task name (e.g. '#', '-')
 impl Core {
     pub async fn initialize(&self) -> eyre::Result<()> {
-        self.storage.init().await?;
+        self.storage.init(&self.config).await?;
         Ok(())
     }
 
@@ -113,6 +147,12 @@ impl Core {
         let mut lock = self.storage.try_lock().await?;
         self.storage.delete_task(task_id).await?;
         lock.release().await?;
+        Ok(())
+    }
+
+    pub async fn synchronize(&self) -> eyre::Result<()> {
+        let _lock = self.storage.try_lock().await?;
+        self.storage.synchronize().await?;
         Ok(())
     }
 
@@ -209,9 +249,5 @@ impl Core {
 
     pub fn get_inner_storage(&self) -> &StorageBox {
         &self.storage
-    }
-
-    pub fn has_found_config_file(&self) -> &Result<(), eyre::Error> {
-        &self.found_config_file
     }
 }

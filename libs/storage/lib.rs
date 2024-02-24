@@ -1,40 +1,53 @@
-use std::{future::Future, pin::Pin};
+use inflector::cases::pascalcase::to_pascal_case;
+use o324_config::ProfileConfig;
+use o324_storage_core::StorageConfig;
+use serde::de::DeserializeOwned;
+use serde_derive::Deserialize;
+use std::str::FromStr;
+use strum_macros::{Display, EnumString};
 
-mod core {
-    pub(crate) mod storage;
-    pub(crate) mod storage_config;
-    pub(crate) mod task;
-    pub(crate) mod transaction;
-}
+pub use o324_storage_core::StorageBox;
+pub use o324_storage_core::{Task, TaskId, TaskUpdate};
 
-pub use core::{
-    storage::{Storage, StorageBox},
-    storage_config::StorageConfig,
-    task::Task,
-    task::TaskUpdate,
-    transaction::{Transaction, TransactionBox},
-};
-
-pub use patronus;
-
-pub mod storage {
-    #[cfg(feature = "git")]
-    pub mod git;
-    pub mod in_memory;
-}
-
-pub mod utils {
-    #[cfg(feature = "git")]
-    pub(crate) mod files;
-    #[cfg(feature = "git")]
-    pub(crate) mod semaphore;
-}
-
-pub(crate) type PinFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
-#[derive(Clone, Debug)]
+#[derive(EnumString, Display)]
 pub enum BuiltinStorageType {
     #[cfg(feature = "git")]
     Git,
-    InMemory,
+}
+
+impl BuiltinStorageType {
+    fn from_str_lowercase(s: &str) -> eyre::Result<Self> {
+        Ok(Self::from_str(&to_pascal_case(s))?)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(bound = "S: DeserializeOwned")]
+pub struct Config<S: StorageConfig> {
+    /// name of this computer
+    pub computer_name: String,
+
+    /// default storage type to be used by frontends (default to: git)
+    pub default_storage_type: Option<String>,
+    pub storage: S,
+}
+
+pub fn load_builtin_storage_from_profile(profile: &ProfileConfig) -> eyre::Result<StorageBox> {
+    let storage_type = BuiltinStorageType::from_str_lowercase(&profile.storage_type)
+        .map_err(|_| eyre::eyre!("Unsupported profile name"))?;
+
+    match storage_type {
+        #[cfg(feature = "git")]
+        BuiltinStorageType::Git => {
+            load_storage_from_value::<o324_storage_git::GitStorageConfig>(&profile.details)
+        }
+    }
+}
+
+pub fn load_storage_from_value<SC>(details: &toml::Value) -> eyre::Result<StorageBox>
+where
+    SC: StorageConfig,
+{
+    let config: SC = details.clone().try_into()?;
+    config.try_into_storage()
 }

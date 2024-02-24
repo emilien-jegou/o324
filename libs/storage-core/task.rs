@@ -1,4 +1,4 @@
-use patronus::patronus;
+use patronus::{patronus, Setter};
 use serde_derive::{Deserialize, Serialize};
 
 pub type TaskId = String;
@@ -53,6 +53,14 @@ impl TaskUpdate {
             tags: self.tags.or(task.tags.clone()),
             start: self.start.or(task.start),
             end: self.end.or(task.end),
+        }
+    }
+
+    // This is an helper method
+    pub fn get_ulid(&self) -> eyre::Result<String> {
+        match &self.ulid {
+            Setter::Set(ulid) => Ok(ulid.clone()),
+            Setter::Unset => Err(eyre::eyre!("task ulid is a required field")),
         }
     }
 }

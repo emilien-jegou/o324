@@ -1,0 +1,29 @@
+[package]
+name = "o324-storage-git"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "o324_storage_git"
+path = "lib.rs"
+
+[dependencies]
+o324-storage-core = { path = "../storage-core" }
+o324-config = { path = "../config" }
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+eyre = "0.6.9"
+ulid = "1.1"
+derive_more = { version = "1.0.0-beta.6", features = ["deref", "deref_mut"] }
+libc = "0.2"
+git2 = "^0.18"
+lazy_static = "1.4"
+signal-hook = "0.3"
+shellexpand = "2.1"
+chrono = "0.4"
+tempfile = "3.10.0"
+sugars = "3.0.1"
+retry = "2.0.0"
+lazy-regex = "3.1.0"

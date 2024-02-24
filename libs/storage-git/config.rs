@@ -4,6 +4,9 @@ use serde_derive::Deserialize;
 pub struct GitStorageConfig {
     /// path of git directory where tasks are stored (default to ~/.local/share/o324/git-storage-data)
     git_storage_path: Option<String>,
+
+    /// path of the remote directory where tasks should be persisted
+    pub git_remote_origin_url: String,
 }
 
 impl GitStorageConfig {

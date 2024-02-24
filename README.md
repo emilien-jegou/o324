@@ -14,6 +14,7 @@ This project aims to create an open-source time tracking solution featuring a cu
 - [~] Git
 - [ ] File storage (no sync)
 - [ ] Server
+- [ ] P2P
 
 ## CLI commands
 - [x] cancel
@@ -26,13 +27,22 @@ This project aims to create an open-source time tracking solution featuring a cu
 - [ ] stats
 - [ ] status
 - [x] stop
-- [ ] sync
+- [~] sync
 
 ## GUI
 
+- [ ] Onboarding
 - [x] Setup
 - [~] Latest task view
 - [~] Calendar view
+
+## Core
+
+- [~] Configuration profiles
+
+## Mobile
+
+Currently experimenting with [Tauri mobile](https://beta.tauri.app/fr/blog/tauri-mobile-alpha/#preview).
 
 # Screens
 

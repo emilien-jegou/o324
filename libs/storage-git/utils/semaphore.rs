@@ -23,7 +23,7 @@ lazy_static::lazy_static! {
 impl Semaphore {
     pub fn try_new(semaphore_name: &str) -> eyre::Result<Self> {
         let name = CString::new(semaphore_name)?;
-        let sem_ptr = unsafe { sem_open(name.as_ptr(), O_CREAT | O_RDWR, 0o666, 1) };
+        let sem_ptr = unsafe { sem_open(name.as_ptr(), O_CREAT | O_RDWR, 0o600, 1) };
 
         if sem_ptr == SEM_FAILED {
             let err = io::Error::last_os_error();
