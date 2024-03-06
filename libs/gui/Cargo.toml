@@ -1,6 +1,6 @@
 [package]
 name = "o324-gui"
-version = "0.1.0"
+version = "0.2.0"
 description = "GUI for the o324 time tracker"
 edition = "2021"
 

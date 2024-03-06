@@ -112,11 +112,15 @@ html {
 <!-- ### VERSIO BEGIN CONTENT ### -->
 <!-- ### VERSIO CONTENT 2024-03-06 ### -->
 <div class="release">
-  <div class="release-head"><span class="caret caret-down"></span>Release 0.0.1 : 2024-03-06</div>
+  <div class="release-head"><span class="caret caret-down"></span>Release 0.1.0 : 2024-03-06</div>
   <div class="nested active">
     
       <div class="dep">
-        Depends on changes to project patronus (4).
+        Depends on changes to project o324-storage-core (5).
+      </div>
+    
+      <div class="dep">
+        Depends on changes to project o324-storage-git (6).
       </div>
     
       <div class="dep">
@@ -127,16 +131,6 @@ html {
     <div class="pr">
       <div class="pr-head"><span class="caret"></span>Commits (minor)</div>
       <div class="nested">
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 4ec26f7 (patch): refactor(storage-git): use Shaku for dependency injection</div>
-          <pre class="msg nested">refactor(storage-git): use Shaku for dependency injection
-
-** What is the motivation for the change?
-
-We want the different manager to be loosly tied to simplify testing and
-structure creation.</pre>
-        </div>
         
         <div class="commit">
           <div class="commit-head"><span class="caret"></span>Commit 21840d6 (minor): feat: git synchronization, storage refactor, config profiles, CLI</div>
@@ -180,99 +174,105 @@ applications (*ongoing update*)
 with cross dependencies.</pre>
         </div>
         
-      </div>
-    </div>
-    
-  </div>
-</div>
-<!-- ### VERSIO CONTENT 2023-12-11 ### -->
-<div class="release">
-  <div class="release-head"><span class="caret caret-down"></span>Release 0.1.0 : 2023-12-11</div>
-  <div class="nested active">
-    
-      <div class="dep">
-        Depends on changes to project patronus (4).
-      </div>
-    
-    
-    <div class="pr">
-      <div class="pr-head"><span class="caret"></span>Commits (minor)</div>
-      <div class="nested">
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit f77fb93 (patch): style: clippy fixes</div>
+          <pre class="msg nested">style: clippy fixes</pre>
+        </div>
         
         <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit fae4251 (patch): refactor(storage): code organization</div>
+          <div class="commit-head"><span class="caret"></span>Commit 68a8ca2 (minor): feat: diff function between tasks objects</div>
+          <pre class="msg nested">feat: diff function between tasks objects
+
+** What is the motivation for the change?
+
+We want to get an object that represent the tasks modifications that
+happens in between two version of a json file, there are three possible
+way a task get modified:
+- it got created
+- it got updated
+- it got deleted
+
+The function handling this is not used as of this commit but it will be
+used in futurs work to detect how task need to be updated.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit fe5bd0a (minor): feat: rebrand [3to4 -> o324]</div>
+          <pre class="msg nested">feat: rebrand [3to4 -> o324]</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit a492c17 (patch): refactor(core): mark wanted behavior in core configuration</div>
+          <pre class="msg nested">refactor(core): mark wanted behavior in core configuration
+
+** What is the motivation for the change?
+
+I just want to comment over what work will be needed in the
+configuration. The changes brings no impact.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 4c0250f (minor): feat(cli): log command</div>
+          <pre class="msg nested">feat(cli): log command</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit aa6b321 (minor): feat(core): optimize timestamp extraction from ulid</div>
+          <pre class="msg nested">feat(core): optimize timestamp extraction from ulid</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit cf9259b (minor): feat(core): keep an history of all tasks in git storage</div>
+          <pre class="msg nested">feat(core): keep an history of all tasks in git storage
+
+** What is the motivation for the change?
+
+We want to keep an history of every task to allow commands such as logs
+and restart in the CLI.
+
+** How does it address the problem?
+
+We keep a list of all logs in the `__metadata.json` file inside the git
+storage.
+
+** Are there any side effects?
+
+This will clutter the metadata file with a lot of infos, but that seems
+fine, for example, 20 tasks a day for a whole year will use about 0.2 MB
+of space.
+
+The real issue could come from either:
+- the conversion of the ulid to timestamps
+- opening a large amount of json files to get the logs infos</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 6460e71 (minor): feat: partial git implementation of CLI functions</div>
+          <pre class="msg nested">feat: partial git implementation of CLI functions
+
+This commit contains the implementation of a few cli function to be
+executed with git storage:
+- start
+- edit (still need some tweaking)
+- init
+- cancel
+- delete
+- stop</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 0668d81 (none): release: updating packages version</div>
+          <pre class="msg nested">release: updating packages version</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 783a1f9 (patch): refactor(storage): code organization</div>
           <pre class="msg nested">refactor(storage): code organization</pre>
         </div>
         
         <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit aef9d76 (minor): feat(patronus): add a library to simplify creation of update model</div>
+          <div class="commit-head"><span class="caret"></span>Commit 9d347d8 (minor): feat(patronus): add a library to simplify creation of update model</div>
           <pre class="msg nested">feat(patronus): add a library to simplify creation of update model</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 9f35a25 (patch): refactor(storage): simplify deref derives with derive_more package</div>
-          <pre class="msg nested">refactor(storage): simplify deref derives with derive_more package</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit ab828d5 (patch): style(storage): code organization</div>
-          <pre class="msg nested">style(storage): code organization</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit f9390f1 (minor): feat: start new task & directory init</div>
-          <pre class="msg nested">feat: start new task & directory init</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 6c07770 (minor): feat: git storage transaction semaphore implementation</div>
-          <pre class="msg nested">feat: git storage transaction semaphore implementation
-
-** What is the motivation for the change?
-
-We want to be able to lock the access to the storage to ensure updates
-are performed atomically.
-
-For the Git storage, this will be done through semaphores, an
-implementation was added in this commit.
-
-** Others changes
-
-- We no longer pass the storage directly to handler, instead we give
-- Clippy and rustfmt
-
-** Breaking changes
-
-The InMemory storage doesn't have a transaction implementation, using it
-will result in a 'todo!' error</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit c4bfe84 (minor): feat: avoid passing Box<dyn Storage> in the program</div>
-          <pre class="msg nested">feat: avoid passing Box<dyn Storage> in the program
-
-Passing Boxes around multiply import and make the code unnecessarily complicated,
-we prefer encapsulating the Box in a struct with deref as it provide a cleaner
-interface</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit ecbb90d (minor): feat: dynamic storage types and start command</div>
-          <pre class="msg nested">feat: dynamic storage types and start command
-
-** What is the motivation for the change?
-
-- I want to be able to modify the storage-type as needed through a CLI
-parameter.
-- I want the config to be serialized per storage-type so that the user
-never have to specify required parameters from storages he doesn't use
-- I want users to be able to plug-in their own storage type without
-needing to touch the core library internals (although right now they
-will still need to modify the CLI for that)
-
-NB: Currently the CLI has direct access to the storage as the
-intermediary core layer (command -> core -> storage) is still not
-developed.</pre>
         </div>
         
       </div>
