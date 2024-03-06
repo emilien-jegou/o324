@@ -20,7 +20,10 @@ pub fn push(repo: &git2::Repository) -> Result<(), git2::Error> {
 mod tests {
     use sugars::hmap;
 
-    use crate::{assert_branch_eq_json, test_utilities::{add_commit_on_head, create_repository_test_setup}};
+    use crate::{
+        assert_branch_eq_json,
+        utils::test_utilities::{add_commit_on_head, create_repository_test_setup},
+    };
 
     use super::push;
 
