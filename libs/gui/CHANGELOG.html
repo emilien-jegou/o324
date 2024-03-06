@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  margin: 10px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.release {
+  border-top: 2px solid lightgray;
+  margin-bottom: 20px;
+}
+
+.release-head {
+  font-size: 150%;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+.dep {
+  margin-left: 10px;
+  margin-bottom: 10px;
+}
+
+.pr {
+  margin-left: 10px;
+  margin-bottom: 10px;
+}
+
+.pr-head {
+  font-size: 120%;
+  margin-bottom: 10px;
+}
+
+.commit {
+  margin-left: 10px;
+  margin-bottom: 20px;
+}
+
+.commit:first-child {
+  margin-top: 15px;
+}
+
+.commit-head {
+  margin-bottom: 10px;
+}
+
+.msg {
+  margin-top: 10px;
+  margin-left: 26px;
+}
+
+.caret {
+  cursor: pointer;
+  -webkit-user-select: none; /* Safari 3.1+ */
+  -moz-user-select: none; /* Firefox 2+ */
+  -ms-user-select: none; /* IE 10+ */
+  user-select: none;
+}
+
+.caret::before {
+  content: "\229E";
+  font-size: 14pt;
+  color: #aaa;
+  display: inline-block;
+  vertical-align: bottom;
+  text-align: bottom;
+  margin-right: 6px;
+  width: 20px;
+}
+
+.caret-down::before {
+  content: "\229F";
+  font-size: 14pt;
+  color: #aaa;
+  display: inline-block;
+  vertical-align: bottom;
+  text-align: bottom;
+  margin-right: 6px;
+  width: 20px;
+
+  /*
+  -ms-transform: rotate(90deg); /* IE 9
+  -webkit-transform: rotate(90deg); /* Safari
+  transform: rotate(90deg);
+  */
+}
+
+.nested {
+  display: none;
+}
+
+.active {
+  display: block;
+}
+</style>
+<script>
+</script>
+</head>
+<body>
+
+<h1>Changelog</h1>
+<p>The latest release was 2024-03-06.</p>
+
+<!-- ### VERSIO BEGIN CONTENT ### -->
+<!-- ### VERSIO CONTENT 2024-03-06 ### -->
+<div class="release">
+  <div class="release-head"><span class="caret caret-down"></span>Release 0.2.0 : 2024-03-06</div>
+  <div class="nested active">
+    
+      <div class="dep">
+        Depends on changes to project o324-storage (0).
+      </div>
+    
+      <div class="dep">
+        Depends on changes to project o324-core (1).
+      </div>
+    
+    
+    <div class="pr">
+      <div class="pr-head"><span class="caret"></span>Commits (minor)</div>
+      <div class="nested">
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 21840d6 (minor): feat: git synchronization, storage refactor, config profiles, CLI</div>
+          <pre class="msg nested">feat: git synchronization, storage refactor, config profiles, CLI
+
+** What is the motivation for the change?
+
+This is a mega-commit that introduce many changes to the CLI
+
+Git storage synchronization:
+
+We can now synchronize the data accross multiple devices, we use a
+checkpoint-based approach for reconciliation.
+
+This is the first basic working version of the git storage but many
+changes and optimizations will be added in future commits.
+
+Configuration profile:
+
+We can now have multiple profiles in the configuration file, an option
+was added to the CLI to select the profile we wish to use.
+
+Better CLI log:
+
+Some changes were added to the CLI to better display the tasks logs, we
+can now choose between a simplified, table or json display.
+
+Packages refactors:
+
+We now have three storage packages, they are used as followed
+
+- storage-core: contains the core structure that different storage type
+needs to implement.
+
+- storage: interface that should be used by the different bricks of the
+applications (*ongoing update*)
+
+- storage-git: first storage implementation
+
+... We also now have a config package which alleviate a lot of issue I had
+with cross dependencies.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit a5daccd (patch): build(deps-dev): bump vite from 5.0.10 to 5.0.12 in /libs/gui</div>
+          <pre class="msg nested">build(deps-dev): bump vite from 5.0.10 to 5.0.12 in /libs/gui
+
+Bumps [vite](https://github.com/vitejs/vite/tree/HEAD/packages/vite) from 5.0.10 to 5.0.12.
+- [Release notes](https://github.com/vitejs/vite/releases)
+- [Changelog](https://github.com/vitejs/vite/blob/v5.0.12/packages/vite/CHANGELOG.md)
+- [Commits](https://github.com/vitejs/vite/commits/v5.0.12/packages/vite)
+
+---
+updated-dependencies:
+- dependency-name: vite
+  dependency-type: direct:development
+...
+
+Signed-off-by: dependabot[bot] <support@github.com></pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit fe5bd0a (minor): feat: rebrand [3to4 -> o324]</div>
+          <pre class="msg nested">feat: rebrand [3to4 -> o324]</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit e70abc1 (minor): feat(GUI): design implementation</div>
+          <pre class="msg nested">feat(GUI): design implementation</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 87a5686 (patch): style(gui): add tailwindcss</div>
+          <pre class="msg nested">style(gui): add tailwindcss</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 829fab2 (patch): style(gui): add prettier and linter rules</div>
+          <pre class="msg nested">style(gui): add prettier and linter rules</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit df2280c (minor): feat(gui): add tauri to the project</div>
+          <pre class="msg nested">feat(gui): add tauri to the project</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 818246c (minor): feat: tauri init</div>
+          <pre class="msg nested">feat: tauri init</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 0668d81 (none): release: updating packages version</div>
+          <pre class="msg nested">release: updating packages version</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+<!-- ### VERSIO END CONTENT ### -->
+
+<script>
+var toggler = document.getElementsByClassName("caret");
+var i;
+
+for (i = 0; i < toggler.length; i++) {
+  toggler[i].addEventListener("click", function() {
+    this.parentElement.parentElement.querySelector(".nested").classList.toggle("active");
+    this.classList.toggle("caret-down");
+  });
+}
+</script>
+
+</body>
+</html>

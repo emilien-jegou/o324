@@ -112,8 +112,16 @@ html {
 <!-- ### VERSIO BEGIN CONTENT ### -->
 <!-- ### VERSIO CONTENT 2024-03-06 ### -->
 <div class="release">
-  <div class="release-head"><span class="caret caret-down"></span>Release 0.1.0 : 2024-03-06</div>
+  <div class="release-head"><span class="caret caret-down"></span>Release 0.0.1 : 2024-03-06</div>
   <div class="nested active">
+    
+      <div class="dep">
+        Depends on changes to project o324-storage-core (5).
+      </div>
+    
+      <div class="dep">
+        Depends on changes to project o324-config (7).
+      </div>
     
     
     <div class="pr">
@@ -121,64 +129,60 @@ html {
       <div class="nested">
         
         <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 68a8ca2 (minor): feat: diff function between tasks objects</div>
-          <pre class="msg nested">feat: diff function between tasks objects
+          <div class="commit-head"><span class="caret"></span>Commit 4ec26f7 (patch): refactor(storage-git): use Shaku for dependency injection</div>
+          <pre class="msg nested">refactor(storage-git): use Shaku for dependency injection
 
 ** What is the motivation for the change?
 
-We want to get an object that represent the tasks modifications that
-happens in between two version of a json file, there are three possible
-way a task get modified:
-- it got created
-- it got updated
-- it got deleted
+We want the different manager to be loosly tied to simplify testing and
+structure creation.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 7ac55e5 (patch): refactor(storage-git): Arc<Box<dyn ...>> to Arc<dyn ...></div>
+          <pre class="msg nested">refactor(storage-git): Arc<Box<dyn ...>> to Arc<dyn ...></pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 21840d6 (minor): feat: git synchronization, storage refactor, config profiles, CLI</div>
+          <pre class="msg nested">feat: git synchronization, storage refactor, config profiles, CLI
 
-The function handling this is not used as of this commit but it will be
-used in futurs work to detect how task need to be updated.</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 6460e71 (minor): feat: partial git implementation of CLI functions</div>
-          <pre class="msg nested">feat: partial git implementation of CLI functions
+** What is the motivation for the change?
 
-This commit contains the implementation of a few cli function to be
-executed with git storage:
-- start
-- edit (still need some tweaking)
-- init
-- cancel
-- delete
-- stop</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 0668d81 (none): release: updating packages version</div>
-          <pre class="msg nested">release: updating packages version</pre>
-        </div>
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit 9d347d8 (minor): feat(patronus): add a library to simplify creation of update model</div>
-          <pre class="msg nested">feat(patronus): add a library to simplify creation of update model</pre>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-</div>
-<!-- ### VERSIO CONTENT 2023-12-11 ### -->
-<div class="release">
-  <div class="release-head"><span class="caret caret-down"></span>Release 0.0.1 : 2023-12-11</div>
-  <div class="nested active">
-    
-    
-    <div class="pr">
-      <div class="pr-head"><span class="caret"></span>Commits (minor)</div>
-      <div class="nested">
-        
-        <div class="commit">
-          <div class="commit-head"><span class="caret"></span>Commit aef9d76 (minor): feat(patronus): add a library to simplify creation of update model</div>
-          <pre class="msg nested">feat(patronus): add a library to simplify creation of update model</pre>
+This is a mega-commit that introduce many changes to the CLI
+
+Git storage synchronization:
+
+We can now synchronize the data accross multiple devices, we use a
+checkpoint-based approach for reconciliation.
+
+This is the first basic working version of the git storage but many
+changes and optimizations will be added in future commits.
+
+Configuration profile:
+
+We can now have multiple profiles in the configuration file, an option
+was added to the CLI to select the profile we wish to use.
+
+Better CLI log:
+
+Some changes were added to the CLI to better display the tasks logs, we
+can now choose between a simplified, table or json display.
+
+Packages refactors:
+
+We now have three storage packages, they are used as followed
+
+- storage-core: contains the core structure that different storage type
+needs to implement.
+
+- storage: interface that should be used by the different bricks of the
+applications (*ongoing update*)
+
+- storage-git: first storage implementation
+
+... We also now have a config package which alleviate a lot of issue I had
+with cross dependencies.</pre>
         </div>
         
       </div>

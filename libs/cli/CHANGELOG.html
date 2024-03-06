@@ -107,9 +107,135 @@ html {
 <body>
 
 <h1>Changelog</h1>
-<p>The latest release was 2023-12-11.</p>
+<p>The latest release was 2024-03-06.</p>
 
 <!-- ### VERSIO BEGIN CONTENT ### -->
+<!-- ### VERSIO CONTENT 2024-03-06 ### -->
+<div class="release">
+  <div class="release-head"><span class="caret caret-down"></span>Release 0.2.0 : 2024-03-06</div>
+  <div class="nested active">
+    
+      <div class="dep">
+        Depends on changes to project o324-storage (0).
+      </div>
+    
+      <div class="dep">
+        Depends on changes to project o324-core (1).
+      </div>
+    
+    
+    <div class="pr">
+      <div class="pr-head"><span class="caret"></span>Commits (minor)</div>
+      <div class="nested">
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 21840d6 (minor): feat: git synchronization, storage refactor, config profiles, CLI</div>
+          <pre class="msg nested">feat: git synchronization, storage refactor, config profiles, CLI
+
+** What is the motivation for the change?
+
+This is a mega-commit that introduce many changes to the CLI
+
+Git storage synchronization:
+
+We can now synchronize the data accross multiple devices, we use a
+checkpoint-based approach for reconciliation.
+
+This is the first basic working version of the git storage but many
+changes and optimizations will be added in future commits.
+
+Configuration profile:
+
+We can now have multiple profiles in the configuration file, an option
+was added to the CLI to select the profile we wish to use.
+
+Better CLI log:
+
+Some changes were added to the CLI to better display the tasks logs, we
+can now choose between a simplified, table or json display.
+
+Packages refactors:
+
+We now have three storage packages, they are used as followed
+
+- storage-core: contains the core structure that different storage type
+needs to implement.
+
+- storage: interface that should be used by the different bricks of the
+applications (*ongoing update*)
+
+- storage-git: first storage implementation
+
+... We also now have a config package which alleviate a lot of issue I had
+with cross dependencies.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit f77fb93 (patch): style: clippy fixes</div>
+          <pre class="msg nested">style: clippy fixes</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 679a110 (minor): feat(CLI): improve log messages formatting</div>
+          <pre class="msg nested">feat(CLI): improve log messages formatting
+
+** What is the motivation for the change?
+
+I want a better way to visualize tasks in the CLI.
+
+** How does it address the problem?
+
+We now have three output options:
+
+A short version that we get by default that omit a lot of informations
+tasks (omit ID, task end date ...).
+
+A detailed version when running with `--verbose` that display
+informations in a table format.
+
+A json version when running with `--json` that display the tasks as a
+json array.</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit fe5bd0a (minor): feat: rebrand [3to4 -> o324]</div>
+          <pre class="msg nested">feat: rebrand [3to4 -> o324]</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit fd88a0a (minor): feat(cli): restart command</div>
+          <pre class="msg nested">feat(cli): restart command</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 4c0250f (minor): feat(cli): log command</div>
+          <pre class="msg nested">feat(cli): log command</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 6460e71 (minor): feat: partial git implementation of CLI functions</div>
+          <pre class="msg nested">feat: partial git implementation of CLI functions
+
+This commit contains the implementation of a few cli function to be
+executed with git storage:
+- start
+- edit (still need some tweaking)
+- init
+- cancel
+- delete
+- stop</pre>
+        </div>
+        
+        <div class="commit">
+          <div class="commit-head"><span class="caret"></span>Commit 0668d81 (none): release: updating packages version</div>
+          <pre class="msg nested">release: updating packages version</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+  </div>
+</div>
 <!-- ### VERSIO CONTENT 2023-12-11 ### -->
 <div class="release">
   <div class="release-head"><span class="caret caret-down"></span>Release 0.1.0 : 2023-12-11</div>
