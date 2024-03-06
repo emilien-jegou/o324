@@ -1,20 +1,26 @@
+#![feature(trait_upcasting)]
+
 mod config;
 mod git_synchronize;
 mod storage;
 mod task_action;
-mod transaction;
+pub(crate) mod module;
+
+pub(crate) mod providers {
+    pub mod git_transaction_provider;
+}
 
 mod git_actions {
     mod fetch;
+    mod init;
     mod push;
     pub mod rebase;
-    mod init;
     mod stage_and_commit_changes;
 
     pub use fetch::fetch;
-    pub use rebase::rebase_current_branch;
-    pub use push::push;
     pub use init::init;
+    pub use push::push;
+    pub use rebase::rebase_current_branch;
     pub use stage_and_commit_changes::stage_and_commit_changes;
 }
 
@@ -24,9 +30,9 @@ pub(crate) mod models {
 }
 
 pub(crate) mod managers {
+    pub mod git_manager;
     pub mod metadata_manager;
     pub mod task_manager;
-    pub mod git_manager;
 }
 
 pub mod utils {
@@ -42,7 +48,6 @@ use std::time::{Duration, UNIX_EPOCH};
 pub use config::GitStorageConfig;
 use o324_storage_core::Task;
 pub use storage::GitStorage;
-pub use transaction::GitTransaction;
 use ulid::Ulid;
 
 pub type GitDailyDocument = Vec<Task>;

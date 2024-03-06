@@ -27,8 +27,8 @@
     NIX_ENFORCE_PURITY = false;
     shellHook =
     ''
-      if ! rustup toolchain list | grep default | grep -q beta; then
-        rustup default beta
+      if ! rustup toolchain list | grep default | grep -q nightly; then
+        rustup default nightly
       fi;
       [ ! -f .packages/bin/cargo-expand ] && cargo install cargo-expand --root .packages/
       [ ! -f .packages/bin/cargo-tauri ] && cargo install tauri-cli --root .packages/
