@@ -17,14 +17,14 @@ pub trait IGitManager: Send + Sync {
 }
 
 pub struct GitManager {
-    metadata_manager: Arc<Box<dyn IMetadataManager>>,
+    metadata_manager: Arc<dyn IMetadataManager>,
     repository_path: PathBuf,
     remote_origin_url: String,
 }
 
 impl GitManager {
     pub fn new(
-        metadata_manager: Arc<Box<dyn IMetadataManager>>,
+        metadata_manager: Arc<dyn IMetadataManager>,
         repository_path: &Path,
         remote_origin_url: &str,
     ) -> Self {
