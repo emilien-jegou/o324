@@ -23,9 +23,12 @@ export default {
 
         // Border
         'border-default': 'var(--color-border-default)',
+        'border-subtle': 'var(--color-border-subtle)',
+        'border-subtler': 'var(--color-border-subtler)',
 
         // Other
         focused: 'var(--color-focused)',
+        'contrast': 'var(--color-contrast)',
       },
     },
   },
