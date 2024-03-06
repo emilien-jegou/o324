@@ -6,13 +6,13 @@ use crate::{managers::git_manager::IGitManager, utils::semaphore::Semaphore};
 
 pub struct GitTransaction {
     lock: Semaphore,
-    git_manager: Arc<Box<dyn IGitManager>>,
+    git_manager: Arc<dyn IGitManager>,
 }
 
 const GIT_SEMAPHORE_NAME: &str = "o324-git-transaction";
 
 impl GitTransaction {
-    pub fn try_new(git_manager: Arc<Box<dyn IGitManager>>) -> eyre::Result<Self> {
+    pub fn try_new(git_manager: Arc<dyn IGitManager>) -> eyre::Result<Self> {
         let mut lock = Semaphore::try_new(GIT_SEMAPHORE_NAME)?;
         lock.try_acquire()?;
         Ok(GitTransaction { lock, git_manager })

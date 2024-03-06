@@ -20,8 +20,8 @@ use ulid::Ulid;
 /// Save data as json inside of a git directory
 pub struct GitStorage {
     config: GitStorageConfig,
-    metadata_manager: Arc<Box<dyn IMetadataManager>>,
-    git_manager: Arc<Box<dyn IGitManager>>,
+    metadata_manager: Arc<dyn IMetadataManager>,
+    git_manager: Arc<dyn IGitManager>,
 }
 
 impl GitStorage {
@@ -30,8 +30,8 @@ impl GitStorage {
         let git_storage_path = std::path::Path::new(&storage_path);
 
         // Managers
-        let metadata_manager: Arc<Box<dyn IMetadataManager>> =
-            Arc::new(Box::new(MetadataManager::new(&git_storage_path)));
+        let metadata_manager: Arc<dyn IMetadataManager> =
+            Arc::new(MetadataManager::new(&git_storage_path));
 
         let git_manager = GitManager::new(
             metadata_manager.clone(),
@@ -42,7 +42,7 @@ impl GitStorage {
         Ok(GitStorage {
             config,
             metadata_manager,
-            git_manager: Arc::new(Box::new(git_manager)),
+            git_manager: Arc::new(git_manager),
         })
     }
 

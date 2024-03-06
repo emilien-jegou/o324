@@ -8,10 +8,10 @@ use crate::{
 };
 
 use super::task_action::{apply_task_action_object, build_task_action_object, TaskActionObject};
-use std::collections::{BTreeMap, HashSet};
+use std::{collections::{BTreeMap, HashSet}, sync::Arc};
 
 pub fn rebase_action<'repo>(
-    metadata_manager: &Box<dyn IMetadataManager>,
+    metadata_manager: &Arc<dyn IMetadataManager>,
     rebase: &mut Rebase<'repo>,
 ) -> eyre::Result<()> {
     let task_file_regex = regex!("20[0-9]{2}-[0-9]{2}-[0-9]{2}\\.json");
@@ -135,7 +135,7 @@ pub fn rebase_action<'repo>(
 }
 
 pub fn rebase_with_auto_resolve(
-    metadata_manager: &Box<dyn IMetadataManager>,
+    metadata_manager: &Arc<dyn IMetadataManager>,
     repository: &git2::Repository,
 ) -> eyre::Result<()> {
     let mut rebase = git_actions::rebase_current_branch(repository)?;
