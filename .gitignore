@@ -12,3 +12,5 @@ target
 
 # local testing
 tests
+
+scripts/node_modules

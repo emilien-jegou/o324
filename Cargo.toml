@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "libs/core",
   "libs/storage",
+  "libs/storage-core",
   "libs/storage-git",
   "libs/cli",
   "libs/gui",

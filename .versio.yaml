@@ -5,34 +5,8 @@ options:
   prev_tag: "prev"
 
 projects:
-  - name: "o324-storage"
-    id: 0
-    labels: cargo
-    changelog: "CHANGELOG.html"
-    root: "libs/storage"
-    version:
-      file: "Cargo.toml"
-      toml: "package.version"
-    hooks:
-      post_write: cargo update --workspace
-    depends:
-      5:
-        size: patch
-        files:
-          - file: "Cargo.toml"
-            toml: "package.version"
-      6:
-        size: patch
-        files:
-          - file: "Cargo.toml"
-            toml: "package.version"
-      7:
-        size: patch
-        files:
-          - file: "Cargo.toml"
-            toml: "package.version"
   - name: "o324-core"
-    id: 1
+    id: 2883876390
     labels: cargo
     changelog: "CHANGELOG.html"
     root: "libs/core"
@@ -42,75 +16,64 @@ projects:
     hooks:
       post_write: cargo update --workspace
     depends:
-      0:
+      2786728596:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      4:
+      2002531128:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      7:
+      1151190025:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-  - name: "o324-cli"
-    id: 2
+      1244452204:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2142811417:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+  - name: "o324-storage"
+    id: 2786728596
     labels: cargo
     changelog: "CHANGELOG.html"
-    root: "libs/cli"
+    root: "libs/storage"
     version:
       file: "Cargo.toml"
       toml: "package.version"
     hooks:
       post_write: cargo update --workspace
     depends:
-      0:
+      2002531128:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      1:
+      1151190025:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-  - name: "o324-gui"
-    id: 3
-    labels: cargo
-    changelog: "CHANGELOG.html"
-    root: "libs/gui"
-    version:
-      file: "Cargo.toml"
-      toml: "package.version"
-    hooks:
-      post_write: cargo update --workspace
-    depends:
-      0:
+      1244452204:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      1:
+      2142811417:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-  - name: "patronus"
-    id: 4
-    labels: cargo
-    changelog: "CHANGELOG.html"
-    root: "libs/patronus"
-    version:
-      file: "Cargo.toml"
-      toml: "package.version"
-    hooks:
-      post_write: cargo update --workspace
   - name: "o324-storage-core"
-    id: 5
+    id: 2002531128
     labels: cargo
     changelog: "CHANGELOG.html"
     root: "libs/storage-core"
@@ -120,18 +83,18 @@ projects:
     hooks:
       post_write: cargo update --workspace
     depends:
-      4:
+      1151190025:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      7:
+      1244452204:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
   - name: "o324-storage-git"
-    id: 6
+    id: 2142811417
     labels: cargo
     changelog: "CHANGELOG.html"
     root: "libs/storage-git"
@@ -141,18 +104,110 @@ projects:
     hooks:
       post_write: cargo update --workspace
     depends:
-      5:
+      2002531128:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
-      7:
+      1151190025:
         size: patch
         files:
           - file: "Cargo.toml"
             toml: "package.version"
+      1244452204:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+  - name: "o324-cli"
+    id: 3972353465
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/cli"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
+    depends:
+      2883876390:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2786728596:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2002531128:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      1151190025:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      1244452204:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2142811417:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+  - name: "o324-gui"
+    id: 3972357588
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/gui"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
+    depends:
+      2786728596:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2002531128:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      1151190025:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      1244452204:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2142811417:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+  - name: "patronus"
+    id: 1244452204
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/patronus"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
   - name: "o324-config"
-    id: 7
+    id: 1151190025
     labels: cargo
     changelog: "CHANGELOG.html"
     root: "libs/config"

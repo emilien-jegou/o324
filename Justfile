@@ -25,10 +25,11 @@ clear-all: _confirm_prompt clear
 	done
 
 # regenerate the .versio.yaml file
-regenerate-versio-config:
-	./scripts/regenerate-versio-config
+generate-versio-config:
+	cd scripts && npm install && cd ..
+	./scripts/generate-versio-config
 
-versio COMMAND:
+versio COMMAND: generate-versio-config
 	versio -m local -x local "{{COMMAND}}"
 
 release:
