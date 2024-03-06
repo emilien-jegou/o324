@@ -8,11 +8,11 @@ use crate::PinFuture;
 pub struct TransactionBox(Box<dyn Transaction>);
 
 impl TransactionBox {
-    pub fn new(storage: impl Transaction + 'static) -> Self {
-        Self(Box::new(storage))
+    pub fn new(transaction: Box<dyn Transaction>) -> Self {
+        Self(transaction)
     }
 }
 
-pub trait Transaction {
+pub trait Transaction: Send + Sync {
     fn release(&mut self) -> PinFuture<eyre::Result<()>>;
 }

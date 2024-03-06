@@ -1,16 +1,18 @@
-use crate::managers::git_manager::{GitManager, IGitManager};
-use crate::managers::metadata_manager::{IMetadataManager, MetadataManager};
 use crate::{
-    models::task_document::TaskDocument, ulid_from_timestamp_with_overwrite, utils::files,
+    managers::git_manager::IGitManager, managers::metadata_manager::IMetadataManager,
+    models::task_document::TaskDocument, module,
+    providers::git_transaction_provider::IGitTransaction, ulid_from_timestamp_with_overwrite,
+    utils::files,
 };
 
-use super::{config::GitStorageConfig, transaction::GitTransaction};
+use super::config::GitStorageConfig;
 use chrono::{DateTime, Utc};
 use o324_storage_core::{
-    PinFuture, Storage, StorageBox, StorageConfig, Task, TaskId, TaskUpdate, TransactionBox,
+    PinFuture, Storage, StorageBox, StorageConfig, Task, TaskId, TaskUpdate, Transaction,
+    TransactionBox,
 };
+use shaku::{HasComponent, HasProvider};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::{
     collections::HashSet,
     ops::Bound::{Excluded, Included},
@@ -20,30 +22,13 @@ use ulid::Ulid;
 /// Save data as json inside of a git directory
 pub struct GitStorage {
     config: GitStorageConfig,
-    metadata_manager: Arc<dyn IMetadataManager>,
-    git_manager: Arc<dyn IGitManager>,
+    module: module::GitStorageModule,
 }
 
 impl GitStorage {
     pub fn try_new(config: GitStorageConfig) -> eyre::Result<Self> {
-        let storage_path = config.get_git_storage_path()?;
-        let git_storage_path = std::path::Path::new(&storage_path);
-
-        // Managers
-        let metadata_manager: Arc<dyn IMetadataManager> =
-            Arc::new(MetadataManager::new(&git_storage_path));
-
-        let git_manager = GitManager::new(
-            metadata_manager.clone(),
-            &git_storage_path,
-            &config.git_remote_origin_url,
-        );
-
-        Ok(GitStorage {
-            config,
-            metadata_manager,
-            git_manager: Arc::new(git_manager),
-        })
+        let module = module::build_from_config(&config)?;
+        Ok(GitStorage { config, module })
     }
 
     fn list_tasks_by_ids(&self, task_ids: Vec<TaskId>) -> eyre::Result<Vec<Task>> {
@@ -112,25 +97,32 @@ impl Storage for GitStorage {
     }
 
     fn init(&self, _config: &o324_config::CoreConfig) -> PinFuture<eyre::Result<()>> {
-        Box::pin(async move { self.git_manager.init_repository() })
+        Box::pin(async move {
+            let git_manager: &dyn IGitManager = self.module.resolve_ref();
+            git_manager.init_repository()
+        })
     }
 
     fn try_lock(&self) -> PinFuture<eyre::Result<TransactionBox>> {
         Box::pin(async move {
-            //let repo = git2::Repository::init(path)?;
+            let git_manager: &dyn IGitManager = self.module.resolve_ref();
             // We want to verify that the repository is a git directory before running the
             // transaction, if it's not, the user will have to run the 'init' command
-            self.git_manager.repository_is_initialized()?;
-            Ok(TransactionBox::new(GitTransaction::try_new(
-                self.git_manager.clone(),
-            )?))
+            git_manager.repository_is_initialized()?;
+            let transaction: Box<dyn IGitTransaction> = self
+                .module
+                .provide()
+                .map_err(|e| eyre::eyre!("couldn't provide transaction: {e}"))?;
+
+            Ok(TransactionBox::new(transaction as Box<dyn Transaction>))
         })
     }
 
     fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task.ulid)?;
-            self.metadata_manager.save_task_ref(&task.ulid)?;
+            metadata_manager.save_task_ref(&task.ulid)?;
             let mut data: TaskDocument = files::read_json_document_as_struct_with_default(&file)?;
 
             data.tasks.insert(task.ulid.clone(), task);
@@ -142,14 +134,16 @@ impl Storage for GitStorage {
 
     fn get_current_task_id(&self) -> PinFuture<eyre::Result<Option<TaskId>>> {
         Box::pin(async move {
-            let metadata = self.metadata_manager.get_current()?;
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
+            let metadata = metadata_manager.get_current()?;
             Ok(metadata.current)
         })
     }
 
     fn set_current_task_id(&self, task_id: Option<TaskId>) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
-            self.metadata_manager.set_current_task(task_id)?;
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
+            metadata_manager.set_current_task(task_id)?;
             Ok(())
         })
     }
@@ -170,7 +164,8 @@ impl Storage for GitStorage {
 
     fn list_last_tasks(&self, count: u64) -> PinFuture<eyre::Result<Vec<Task>>> {
         Box::pin(async move {
-            let metadata = self.metadata_manager.get_current()?;
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
+            let metadata = metadata_manager.get_current()?;
             let task_ids: Vec<String> = metadata
                 .task_refs
                 .iter()
@@ -190,7 +185,8 @@ impl Storage for GitStorage {
         end_timestamp: u64,
     ) -> PinFuture<eyre::Result<Vec<Task>>> {
         Box::pin(async move {
-            let metadata = self.metadata_manager.get_current()?;
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
+            let metadata = metadata_manager.get_current()?;
 
             // We convert the timestamp to ulid to simplify the search and set the second part to
             // respectively the lowest and highest characters of Crockford 32 to ensure all ulid
@@ -234,6 +230,7 @@ impl Storage for GitStorage {
 
     fn delete_task(&self, task_id: String) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task_id)?;
             let mut data: TaskDocument = files::read_json_document_as_struct_with_default(&file)?;
             data.tasks
@@ -241,14 +238,15 @@ impl Storage for GitStorage {
                 .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
             files::save_json_document(&file, &data)?;
-            self.metadata_manager.delete_task_ref(&task_id)?;
+            metadata_manager.delete_task_ref(&task_id)?;
             Ok(())
         })
     }
 
     fn synchronize(&self) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
-            self.git_manager.sync()?;
+            let git_manager: &dyn IGitManager = self.module.resolve_ref();
+            git_manager.sync()?;
             Ok(())
         })
     }

@@ -1,39 +1,26 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use retry::delay::Fixed;
+use shaku::{Component, Interface};
 
 use crate::{git_actions, git_synchronize, utils::files};
 
 use super::metadata_manager::IMetadataManager;
 
-pub trait IGitManager: Send + Sync {
+pub trait IGitManager: Interface {
     fn repository_is_initialized(&self) -> eyre::Result<()>;
     fn sync(&self) -> eyre::Result<()>;
     fn init_repository(&self) -> eyre::Result<()>;
     fn commit_on_change(&self) -> eyre::Result<()>;
 }
 
+#[derive(Component)]
+#[shaku(interface = IGitManager)]
 pub struct GitManager {
+    #[shaku(inject)]
     metadata_manager: Arc<dyn IMetadataManager>,
     repository_path: PathBuf,
     remote_origin_url: String,
-}
-
-impl GitManager {
-    pub fn new(
-        metadata_manager: Arc<dyn IMetadataManager>,
-        repository_path: &Path,
-        remote_origin_url: &str,
-    ) -> Self {
-        Self {
-            metadata_manager,
-            repository_path: repository_path.to_path_buf(),
-            remote_origin_url: remote_origin_url.to_owned(),
-        }
-    }
 }
 
 impl IGitManager for GitManager {

@@ -1,17 +1,15 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeSet, path::PathBuf};
 
 use lazy_regex::regex;
 use o324_storage_core::Task;
+use shaku::{Component, Interface};
 
 use crate::{
     models::{metadata_document::MetadataDocument, task_document::TaskDocument},
     utils::files::{self, find_matching_files},
 };
 
-pub trait IMetadataManager: Send + Sync {
+pub trait IMetadataManager: Interface {
     fn get_current(&self) -> eyre::Result<MetadataDocument>;
     fn set_current(&self, meta: MetadataDocument) -> eyre::Result<()>;
     fn save_task_ref(&self, task_id: &str) -> eyre::Result<()>;
@@ -20,19 +18,11 @@ pub trait IMetadataManager: Send + Sync {
     fn recompute(&self) -> eyre::Result<MetadataDocument>;
 }
 
+#[derive(Component)]
+#[shaku(interface = IMetadataManager)]
 pub struct MetadataManager {
     git_storage_path: PathBuf,
     metadata_path: PathBuf,
-}
-
-impl MetadataManager {
-    pub fn new(git_storage_path: &Path) -> Self {
-        let metadata_path = git_storage_path.join("__metadata.json");
-        Self {
-            metadata_path,
-            git_storage_path: git_storage_path.to_path_buf(),
-        }
-    }
 }
 
 impl IMetadataManager for MetadataManager {
