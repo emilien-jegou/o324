@@ -9,7 +9,7 @@ pub fn fetch(repo: &git2::Repository) -> Result<(), git2::Error> {
 mod tests {
     use crate::{
         assert_branch_eq_json,
-        test_utilities::{add_commit_on_head, create_repository_test_setup},
+        utils::test_utilities::{add_commit_on_head, create_repository_test_setup},
     };
     use sugars::hmap;
 

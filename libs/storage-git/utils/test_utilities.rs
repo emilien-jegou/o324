@@ -19,7 +19,7 @@ macro_rules! assert_value_eq_json {
 #[macro_export]
 macro_rules! assert_branches_eq_json {
     ($remote:expr, $branch_type:expr, $($json:tt)*) => {
-        let v = $crate::test_utilities::get_branches_commits(
+        let v = $crate::utils::test_utilities::get_branches_commits(
             &$remote,
             $branch_type
         ).unwrap();
@@ -30,7 +30,7 @@ macro_rules! assert_branches_eq_json {
 #[macro_export]
 macro_rules! assert_branch_eq_json {
     ($remote:expr, $branch_type:expr, $branch_name:expr, $($json:tt)*) => {
-        let v = $crate::test_utilities::get_branch_commits(
+        let v = $crate::utils::test_utilities::get_branch_commits(
             &$remote,
             $branch_name,
             $branch_type
@@ -263,7 +263,7 @@ pub fn debug_tempdir(dir: TempDir) {
 #[cfg(test)]
 mod tests {
     use crate::assert_branches_eq_json;
-    use crate::test_utilities::create_repository_test_setup;
+    use crate::utils::test_utilities::create_repository_test_setup;
 
     #[test]
     fn test_setup() {

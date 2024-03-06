@@ -66,7 +66,7 @@ mod tests {
 
     use crate::{
         assert_branch_eq_json, git_actions,
-        test_utilities::{add_commit_on_head, create_repository_test_setup},
+        utils::test_utilities::{add_commit_on_head, create_repository_test_setup},
     };
     use sugars::hmap;
 
@@ -131,7 +131,7 @@ mod tests {
         assert_eq!(conflict.files.len(), 0);
 
         // Works even when no changes need applying
-        conflict.apply_changes().unwrap();
+        conflict.write_changes().unwrap().stage_all().unwrap();
         operation.commit_changes().unwrap();
 
         // no more conflict
@@ -271,7 +271,7 @@ mod tests {
             assert_eq!(file.previous, None);
 
             file.resolve("Hey");
-            conflict.apply_changes().unwrap();
+            conflict.write_changes().unwrap().stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -290,7 +290,7 @@ mod tests {
             assert_eq!(file.previous, Some("World".to_string()));
 
             file.resolve("Hey 2");
-            conflict.apply_changes().unwrap();
+            conflict.write_changes().unwrap().stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -327,7 +327,7 @@ mod tests {
             assert_eq!(file.previous, None);
 
             file.resolve(&file.left.clone());
-            conflict.apply_changes().unwrap();
+            conflict.write_changes().unwrap().stage_all().unwrap();
 
             // Since the two commit are identical the local
             // commit will be deleted
@@ -349,7 +349,7 @@ mod tests {
 
             // We choose local changes here
             file.resolve(&file.right.clone());
-            conflict.apply_changes().unwrap();
+            conflict.write_changes().unwrap().stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -405,7 +405,7 @@ mod tests {
             // files with the local changes.
             file.resolve(&file.right.clone());
 
-            conflict.apply_changes().unwrap();
+            conflict.write_changes().unwrap().stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -446,8 +446,8 @@ mod tests {
 
             // We do not handle the merge conflict properly here...
 
-            // ..so both apply and commit should fail
-            assert!(conflict.apply_changes().is_err());
+            // ..so both staging and commit should fail
+            assert!(conflict.stage_all().is_err());
             assert!(operation.commit_changes().is_err());
         }
 

@@ -35,13 +35,13 @@ pub(crate) mod managers {
     pub mod task_manager;
 }
 
-pub mod utils {
+pub(crate) mod utils {
     pub mod files;
     pub mod semaphore;
+    #[cfg(test)]
+    pub mod test_utilities;
 }
 
-#[cfg(test)]
-mod test_utilities;
 
 use std::time::{Duration, UNIX_EPOCH};
 
