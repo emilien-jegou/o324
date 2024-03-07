@@ -16,11 +16,21 @@ impl StorageBox {
     }
 }
 
+pub enum LockType {
+    /// Blocks both during exclusive and shared transactions
+    Exclusive,
+    /// Blocks only during exclusive transactions, allowing concurrent shared transactions
+    Shared,
+}
+
 pub trait Storage: Sync {
     fn debug_message(&self);
 
     fn init(&self, config: &o324_config::CoreConfig) -> PinFuture<eyre::Result<()>>;
-    fn try_lock(&self) -> PinFuture<eyre::Result<TransactionBox>>;
+    fn try_lock(
+        &self,
+        transaction_type: LockType,
+    ) -> PinFuture<eyre::Result<TransactionBox>>;
 
     /// Create a new task, if a task was already running then stop it
     fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>>;

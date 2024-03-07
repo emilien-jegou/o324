@@ -7,7 +7,7 @@ use thiserror::Error;
 
 mod utils;
 
-use o324_storage::{StorageBox, Task, TaskUpdate};
+use o324_storage::{LockType, StorageBox, Task, TaskUpdate, TransactionBox};
 use patronus::Setter;
 use ulid::Ulid;
 
@@ -34,7 +34,7 @@ pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, Loa
 
     let choosen_profile_name = profile_name
         .or(config.core.default_profile_name.clone())
-        .ok_or_else(|| LoadError::NoChoosenProfile)?;
+        .ok_or(LoadError::NoChoosenProfile)?;
 
     let choosen_profile: &ProfileConfig = config
         .profile
@@ -56,6 +56,30 @@ pub struct StartTaskInput {
     pub task_name: String,
     pub project: Option<String>,
     pub tags: Vec<String>,
+}
+
+#[must_use]
+pub struct DropLock(TransactionBox);
+
+async fn new_lock(storage: &StorageBox, lock_type: LockType) -> eyre::Result<DropLock> {
+    let lock = storage.try_lock(lock_type).await?;
+    Ok(DropLock(lock))
+}
+
+// This trivial implementation of `drop` adds a print to console.
+impl Drop for DropLock {
+    fn drop(&mut self) {
+        let v = self.0.clone();
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            runtime.spawn(async move {
+                v.release()
+                    .await
+                    .expect("couldn't release transaction lock");
+            });
+        } else {
+            panic!("Tokio runtime not available");
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -86,7 +110,7 @@ impl Core {
     }
 
     pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<()> {
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
         let current_timestamp = utils::unix_now();
         let current = self.storage.get_current_task_id().await?;
 
@@ -109,13 +133,11 @@ impl Core {
             .await?;
 
         self.storage.set_current_task_id(Some(task_id)).await?;
-
-        lock.release().await?;
         Ok(())
     }
 
     pub async fn stop_current_task(&self) -> eyre::Result<()> {
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
         let current = self.storage.get_current_task_id().await?;
         let current_timestamp = utils::unix_now();
 
@@ -126,12 +148,11 @@ impl Core {
             self.storage.set_current_task_id(None).await?;
         }
 
-        lock.release().await?;
         Ok(())
     }
 
     pub async fn cancel_current_task(&self) -> eyre::Result<()> {
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
         let current = self.storage.get_current_task_id().await?;
 
         if let Some(task_id) = current {
@@ -139,19 +160,17 @@ impl Core {
             self.storage.set_current_task_id(None).await?;
         }
 
-        lock.release().await?;
         Ok(())
     }
 
     pub async fn delete_task(&self, task_id: String) -> eyre::Result<()> {
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
         self.storage.delete_task(task_id).await?;
-        lock.release().await?;
         Ok(())
     }
 
     pub async fn synchronize(&self) -> eyre::Result<()> {
-        let _lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
         self.storage.synchronize().await?;
         Ok(())
     }
@@ -160,7 +179,7 @@ impl Core {
         if let Setter::Set(_) = update_task.ulid {
             return Err(eyre::eyre!("Updating the task id directly is not allowed"));
         }
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Exclusive).await?;
 
         let current_task_id = self.storage.get_current_task_id().await?;
 
@@ -207,10 +226,8 @@ impl Core {
             let new_task_id = Ulid::from_datetime(system_time).to_string();
             let mut new_task = update_task.merge_with_task(&prev_task);
 
-            new_task.ulid = new_task_id.clone();
-
+            new_task.ulid.clone_from(&new_task_id);
             self.storage.create_task(new_task.clone()).await?;
-
             self.storage.delete_task(task_id).await?;
 
             if new_task.end.is_none() {
@@ -223,14 +240,12 @@ impl Core {
         }
 
         self.storage.update_task(task_id, update_task).await?;
-        lock.release().await?;
         Ok(())
     }
 
     pub async fn list_last_tasks(&self, count: u64) -> eyre::Result<Vec<Task>> {
-        let mut lock = self.storage.try_lock().await?;
+        let _lock = new_lock(&self.storage, LockType::Shared).await?;
         let tasks = self.storage.list_last_tasks(count).await?;
-        lock.release().await?;
         Ok(tasks)
     }
 
@@ -240,8 +255,9 @@ impl Core {
         _start_timestamp: u64,
         _end_timestamp: u64,
     ) -> eyre::Result<Vec<Task>> {
+        let _lock = new_lock(&self.storage, LockType::Shared).await?;
         todo!();
-        //let mut lock = self.storage.try_lock().await?;
+        //let _lock = new_lock(&self.storage).await?;
         //self.storage.delete_task(task_id).await?;
         //lock.release().await?;
         //Ok(())

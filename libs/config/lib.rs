@@ -1,5 +1,5 @@
-mod load_config;
 mod config;
+mod load_config;
 
+pub use config::{Config, CoreConfig, ProfileConfig};
 pub use load_config::load;
-pub use config::{ CoreConfig, ProfileConfig, Config };

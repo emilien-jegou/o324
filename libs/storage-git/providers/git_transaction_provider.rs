@@ -1,48 +1,43 @@
-use std::{error::Error, sync::Arc};
+use crate::{managers::git_manager::IGitManager, utils::system_lock::SystemLock};
+use o324_storage_core::{LockType, PinFuture, Transaction};
+use shaku::Interface;
+use std::sync::Arc;
 
-use o324_storage_core::{PinFuture, Transaction};
-use shaku::{HasComponent, Interface, Module, Provider};
-
-use crate::{managers::git_manager::IGitManager, utils::semaphore::Semaphore};
-
+/// A git transaction that should ensure than only one git operation can be started at the same
+/// time
 pub trait IGitTransaction: Transaction + Interface {}
 
 pub struct GitTransaction {
     git_manager: Arc<dyn IGitManager>,
-    lock: Semaphore,
+    lock: SystemLock,
 }
 
-const GIT_SEMAPHORE_NAME: &str = "o324-git-transaction";
+const GIT_SYSTEM_LOCK_NAME: &str = "o324-git-transaction";
 
-impl<M: Module + HasComponent<dyn IGitManager>> Provider<M> for GitTransaction {
-    type Interface = dyn IGitTransaction;
+impl GitTransaction {
+    pub fn try_new(
+        git_manager: Arc<dyn IGitManager>,
+        lock_type: LockType,
+    ) -> eyre::Result<GitTransaction> {
+        let lock = SystemLock::try_new(GIT_SYSTEM_LOCK_NAME, lock_type)?;
 
-    fn provide(module: &M) -> Result<Box<Self::Interface>, Box<dyn Error>> {
-        let mut lock = Semaphore::try_new(GIT_SEMAPHORE_NAME)?;
-        lock.try_acquire()?;
+        Ok(Self { git_manager, lock })
+    }
 
-        Ok(Box::new(Self {
-            git_manager: module.resolve(),
-            lock,
-        }))
+    pub fn try_lock(&self) -> eyre::Result<()> {
+        self.lock.lock()?;
+        Ok(())
     }
 }
 
 impl Transaction for GitTransaction {
-    fn release(&mut self) -> PinFuture<eyre::Result<()>> {
+    fn release(&self) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
-            self.lock.release()?;
             self.git_manager.commit_on_change()?;
+            self.lock.unlock()?;
             Ok(())
         })
     }
 }
 
 impl IGitTransaction for GitTransaction {}
-
-impl Drop for GitTransaction {
-    fn drop(&mut self) {
-        // TODO: this is unsafe
-        self.lock.release().expect("Couldn't release semaphore");
-    }
-}

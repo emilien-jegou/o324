@@ -4,6 +4,11 @@ use git2::{build::CheckoutBuilder, BranchType, Repository, Signature};
 use serde::{Serialize, Serializer};
 use tempfile::{tempdir, TempDir};
 
+use crate::{
+    module::{self, GitStorageModule},
+    GitStorageConfig,
+};
+
 #[macro_export]
 macro_rules! assert_value_eq_json {
     ($value:expr, $($json:tt)*) => {
@@ -37,6 +42,15 @@ macro_rules! assert_branch_eq_json {
         ).unwrap();
         $crate::assert_value_eq_json!(v, $($json)*);
     };
+}
+
+#[macro_export]
+macro_rules! tasks_vec {
+    ($($json:tt)*) => {{
+        let val = ::serde_json::json!($($json)*);
+        let data: Vec<Task> = ::serde_json::from_value(val).unwrap();
+        data
+    }};
 }
 
 pub fn get_branch_commits(
@@ -260,9 +274,23 @@ pub fn debug_tempdir(dir: TempDir) {
     println!("TEMPDIR: {:?}", persistent_dir);
 }
 
+pub fn get_test_module(local: git2::Repository, origin: git2::Repository) -> GitStorageModule {
+    let origin_url = format!(
+        "file://{}",
+        origin.path().parent().unwrap().to_str().unwrap()
+    );
+
+    let config = GitStorageConfig {
+        git_storage_path: local.path().parent().unwrap().to_str().map(String::from),
+        git_remote_origin_url: origin_url,
+        git_file_format_type: None,
+    };
+
+    module::build_from_config(&config).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::assert_branches_eq_json;
     use crate::utils::test_utilities::create_repository_test_setup;
 
     #[test]

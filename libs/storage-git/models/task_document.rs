@@ -4,5 +4,6 @@ use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct TaskDocument {
+    /// Ordered map of TaskId to Task
     pub tasks: BTreeMap<TaskId, Task>,
 }

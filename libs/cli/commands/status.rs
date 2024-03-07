@@ -7,4 +7,3 @@ pub struct Command {}
 pub async fn handle(_: Command, _core: &Core) -> eyre::Result<()> {
     unimplemented!();
 }
-

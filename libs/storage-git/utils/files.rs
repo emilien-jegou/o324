@@ -1,5 +1,5 @@
 use lazy_regex::Regex;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
     if !path.exists() {
@@ -38,4 +38,17 @@ pub fn find_matching_files(path: &Path, re: &Regex) -> eyre::Result<Vec<String>>
     }
 
     Ok(matchs)
+}
+
+pub fn add_file_extension(path_buf: &mut PathBuf, extension: &str) {
+    // Check if the current extension is the same as the provided one, if not, append the provided extension.
+    match path_buf.extension() {
+        Some(current_extension) if current_extension == extension => {}
+        _ => {
+            if let Some(stem) = path_buf.file_stem() {
+                let new_name = format!("{}.{}", stem.to_string_lossy(), extension);
+                path_buf.set_file_name(new_name);
+            }
+        }
+    }
 }
