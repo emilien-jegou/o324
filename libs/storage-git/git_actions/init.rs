@@ -7,7 +7,7 @@ use crate::utils::files;
 pub fn init(repository_path: &PathBuf, remote_origin_url: &str) -> eyre::Result<()> {
     files::create_dir_if_not_exists_deep(repository_path)?;
     let repo = git2::Repository::init(repository_path)?;
-    repo.remote("origin", &remote_origin_url)?;
+    repo.remote("origin", remote_origin_url)?;
 
     // Set up the user for the commit.
     let sig = Signature::now("Your Name", "your_email@example.com")?;

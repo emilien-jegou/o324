@@ -34,7 +34,7 @@ pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, Loa
 
     let choosen_profile_name = profile_name
         .or(config.core.default_profile_name.clone())
-        .ok_or_else(|| LoadError::NoChoosenProfile)?;
+        .ok_or(LoadError::NoChoosenProfile)?;
 
     let choosen_profile: &ProfileConfig = config
         .profile
@@ -207,10 +207,8 @@ impl Core {
             let new_task_id = Ulid::from_datetime(system_time).to_string();
             let mut new_task = update_task.merge_with_task(&prev_task);
 
-            new_task.ulid = new_task_id.clone();
-
+            new_task.ulid.clone_from(&new_task_id);
             self.storage.create_task(new_task.clone()).await?;
-
             self.storage.delete_task(task_id).await?;
 
             if new_task.end.is_none() {

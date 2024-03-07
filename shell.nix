@@ -24,6 +24,9 @@
       pkgs.nodejs_18
 
    ];
+    # TODO
+    # This is a good example on how to build rust projects in nix
+    # https://github.com/NixOS/nixpkgs/blob/nixos-23.11/pkgs/applications/networking/feedreaders/newsflash/default.nix
 
     NIX_ENFORCE_PURITY = false;
     shellHook =

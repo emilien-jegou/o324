@@ -49,7 +49,7 @@ fn format_duration(duration: Duration) -> String {
     }
 }
 
-pub async fn short_output(tasks: &Vec<Task>) -> eyre::Result<()> {
+pub async fn short_output(tasks: &[Task]) -> eyre::Result<()> {
     // Create the table
     let mut table = Table::new();
 
@@ -101,7 +101,7 @@ pub async fn short_output(tasks: &Vec<Task>) -> eyre::Result<()> {
     Ok(())
 }
 
-pub async fn verbose_output(tasks: &Vec<Task>) -> eyre::Result<()> {
+pub async fn verbose_output(tasks: &[Task]) -> eyre::Result<()> {
     // Create the table
     let mut table = Table::new();
 
@@ -157,7 +157,7 @@ pub async fn verbose_output(tasks: &Vec<Task>) -> eyre::Result<()> {
     Ok(())
 }
 
-pub async fn json_output(tasks: &Vec<Task>) -> eyre::Result<()> {
+pub async fn json_output(tasks: &[Task]) -> eyre::Result<()> {
     println!("{}", serde_json::to_string(tasks)?);
     Ok(())
 }

@@ -1,11 +1,14 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use retry::delay::Fixed;
 use shaku::{Component, Interface};
 
-use crate::{git_actions, git_synchronize, utils::files};
+use crate::{git_actions, utils::files};
 
-use super::metadata_manager::IMetadataManager;
+use super::{
+    config_manager::IConfigManager, file_format_manager::IFileFormatManager,
+    git_sync_manager::IGitSyncManager,
+};
 
 pub trait IGitManager: Interface {
     fn repository_is_initialized(&self) -> eyre::Result<()>;
@@ -16,24 +19,26 @@ pub trait IGitManager: Interface {
 
 #[derive(Component)]
 #[shaku(interface = IGitManager)]
-pub struct GitManager {
+    pub struct GitManager {
     #[shaku(inject)]
-    metadata_manager: Arc<dyn IMetadataManager>,
-    repository_path: PathBuf,
-    remote_origin_url: String,
+    file_format_manager: Arc<dyn IFileFormatManager>,
+    #[shaku(inject)]
+    git_sync_manager: Arc<dyn IGitSyncManager>,
+    #[shaku(inject)]
+    config: Arc<dyn IConfigManager>,
 }
 
 impl IGitManager for GitManager {
     fn repository_is_initialized(&self) -> eyre::Result<()> {
-        files::check_path_is_git_directory(&self.repository_path)
+        files::check_path_is_git_directory(&self.config.get_repository_path())
             .map_err(|e| eyre::eyre!("storage is not initialized, got error: {e}"))
     }
 
     fn sync(&self) -> eyre::Result<()> {
-        let repository = git2::Repository::open(&self.repository_path)?;
+        let repository = git2::Repository::open(self.config.get_repository_path())?;
         retry::retry(Fixed::from_millis(100).take(3), || -> eyre::Result<()> {
             git_actions::fetch(&repository)?;
-            git_synchronize::rebase_with_auto_resolve(&self.metadata_manager, &repository)?;
+            self.git_sync_manager.rebase_with_auto_resolve()?;
             git_actions::push(&repository)?;
             Ok(())
         })
@@ -43,13 +48,17 @@ impl IGitManager for GitManager {
     }
 
     fn init_repository(&self) -> eyre::Result<()> {
-        git_actions::init(&self.repository_path, &self.remote_origin_url)?;
+        git_actions::init(
+            &self.config.get_repository_path(),
+            &self.config.get_remote_origin_url(),
+        )?;
         Ok(())
     }
 
     fn commit_on_change(&self) -> eyre::Result<()> {
-        let repository = git2::Repository::open(&self.repository_path)?;
-        git_actions::stage_and_commit_changes(&repository, "test", &["*\\.json"])?;
+        let repository = git2::Repository::open(self.config.get_repository_path())?;
+        let rg = format!("*\\.{}", self.file_format_manager.file_extension());
+        git_actions::stage_and_commit_changes(&repository, "test", &[&rg])?;
         Ok(())
     }
 }
