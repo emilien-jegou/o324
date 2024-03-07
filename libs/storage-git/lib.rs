@@ -1,10 +1,9 @@
 #![feature(trait_upcasting)]
+#![feature(concat_idents)]
 
 mod config;
-mod git_synchronize;
-mod storage;
-mod task_action;
 pub(crate) mod module;
+mod storage;
 
 pub(crate) mod providers {
     pub mod git_transaction_provider;
@@ -24,24 +23,39 @@ mod git_actions {
     pub use stage_and_commit_changes::stage_and_commit_changes;
 }
 
+
+mod task_actions {
+    pub mod task_change;
+    pub mod repair_unique_current_task;
+    pub mod resolve_task_conflict;
+}
+
 pub(crate) mod models {
     pub mod metadata_document;
     pub mod task_document;
 }
 
 pub(crate) mod managers {
+    pub mod config_manager;
+    pub mod document_storage_manager;
+    pub mod file_format_manager;
     pub mod git_manager;
-    pub mod metadata_manager;
-    pub mod task_manager;
-    pub mod model_manager;
+    pub mod git_sync_manager;
+    pub mod metadata_document_manager;
+    pub mod task_document_manager;
+}
+
+pub(crate) mod services {
+    pub mod metadata_service;
+    pub mod task_service;
 }
 
 pub(crate) mod utils {
     pub mod files;
-    pub mod semaphore;
-    pub mod ulid;
+    pub mod system_lock;
     #[cfg(test)]
     pub mod test_utilities;
+    pub mod ulid;
 }
 
 pub use config::GitStorageConfig;

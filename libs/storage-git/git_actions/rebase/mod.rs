@@ -1,11 +1,11 @@
 mod diff;
-mod rebase;
-mod rebase_iterator;
-mod rebase_operation;
+mod rebase_iterator_struct;
+mod rebase_operation_struct;
+mod rebase_struct;
 
-pub use rebase::Rebase;
-pub use rebase_iterator::RebaseIterator;
-pub use rebase_operation::RebaseOperation;
+pub use rebase_iterator_struct::RebaseIterator;
+pub use rebase_operation_struct::{Conflict, ConflictFile, RebaseOperation};
+pub use rebase_struct::Rebase;
 
 pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Error> {
     match repo.find_reference("refs/remotes/origin/main") {
@@ -26,7 +26,7 @@ pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Er
 
             // Push the local `main` branch to `origin` as `main`
             let mut remote = repo.find_remote("origin")?;
-            remote.push(&[&format!("refs/heads/main:refs/heads/main")], None)?;
+            remote.push(&[&"refs/heads/main:refs/heads/main".to_string()], None)?;
 
             Ok(())
         }
@@ -36,18 +36,17 @@ pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Er
 // TODO: right now we always rebase onto main, this should be changed, we should allow users to
 // set a different branch if they feel like it.
 pub fn rebase_current_branch(repo: &git2::Repository) -> Result<Rebase<'_>, git2::Error> {
-    // Ensure `origin/main` exists or is created
     ensure_origin_main_exists(repo)?;
 
-    // Step 1: Find the remote branch's commit to rebase onto
+    // Find the remote branch's commit to rebase onto
     let remote_branch_ref = repo.find_reference("refs/remotes/origin/main")?;
     let upstream_commit = repo.reference_to_annotated_commit(&remote_branch_ref)?;
 
-    // Step 2: Identify the current branch's latest commit
+    // Identify the current branch's latest commit
     let head = repo.head()?;
     let head_commit = repo.reference_to_annotated_commit(&head)?;
 
-    // Step 3: Set up and perform the rebase
+    // Set up and perform the rebase
     let mut rebase_options = git2::RebaseOptions::new();
 
     let rebase = repo.rebase(
@@ -131,7 +130,7 @@ mod tests {
         assert_eq!(conflict.files.len(), 0);
 
         // Works even when no changes need applying
-        conflict.write_changes().unwrap().stage_all().unwrap();
+        conflict.stage_conflicted().unwrap();
         operation.commit_changes().unwrap();
 
         // no more conflict
@@ -270,8 +269,9 @@ mod tests {
             assert_eq!(file.right, "Foo");
             assert_eq!(file.previous, None);
 
-            file.resolve("Hey");
-            conflict.write_changes().unwrap().stage_all().unwrap();
+            file.write("Hey").unwrap();
+
+            conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -289,8 +289,8 @@ mod tests {
             assert_eq!(file.right, "Bar");
             assert_eq!(file.previous, Some("World".to_string()));
 
-            file.resolve("Hey 2");
-            conflict.write_changes().unwrap().stage_all().unwrap();
+            file.write("Hey 2").unwrap();
+            conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -326,8 +326,8 @@ mod tests {
             assert_eq!(file.right, "Foo");
             assert_eq!(file.previous, None);
 
-            file.resolve(&file.left.clone());
-            conflict.write_changes().unwrap().stage_all().unwrap();
+            file.write(&file.left.clone()).unwrap();
+            conflict.stage_conflicted().unwrap();
 
             // Since the two commit are identical the local
             // commit will be deleted
@@ -348,8 +348,8 @@ mod tests {
             assert_eq!(file.previous, None);
 
             // We choose local changes here
-            file.resolve(&file.right.clone());
-            conflict.write_changes().unwrap().stage_all().unwrap();
+            file.write(&file.right.clone()).unwrap();
+            conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -403,9 +403,9 @@ mod tests {
 
             // This will replace the content of all conflicted
             // files with the local changes.
-            file.resolve(&file.right.clone());
+            file.write(&file.right.clone()).unwrap();
 
-            conflict.write_changes().unwrap().stage_all().unwrap();
+            conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -442,18 +442,16 @@ mod tests {
         //// Apply each rebase operation
         for op in rebase.iter() {
             let mut operation = op.unwrap();
-            let conflict = operation.get_conflict().unwrap();
+            let _conflict = operation.get_conflict().unwrap();
 
             // We do not handle the merge conflict properly here...
 
             // ..so both staging and commit should fail
-            assert!(conflict.stage_all().is_err());
             assert!(operation.commit_changes().is_err());
         }
 
-        // TODO
-        // We should not abort the rebase due to the failure above or it will overwrite local
-        // changes
+        rebase.abort().unwrap();
+        // TODO: verify abort
     }
 
     #[test]

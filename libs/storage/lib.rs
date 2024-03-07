@@ -6,8 +6,7 @@ use serde_derive::Deserialize;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
-pub use o324_storage_core::StorageBox;
-pub use o324_storage_core::{Task, TaskId, TaskUpdate};
+pub use o324_storage_core::{LockType, StorageBox, Task, TaskId, TaskUpdate, TransactionBox};
 
 #[derive(EnumString, Display)]
 pub enum BuiltinStorageType {
@@ -16,7 +15,7 @@ pub enum BuiltinStorageType {
 }
 
 impl BuiltinStorageType {
-    fn from_str_lowercase(s: &str) -> eyre::Result<Self> {
+    fn from_str_snakecase(s: &str) -> eyre::Result<Self> {
         Ok(Self::from_str(&to_pascal_case(s))?)
     }
 }
@@ -33,7 +32,7 @@ pub struct Config<S: StorageConfig> {
 }
 
 pub fn load_builtin_storage_from_profile(profile: &ProfileConfig) -> eyre::Result<StorageBox> {
-    let storage_type = BuiltinStorageType::from_str_lowercase(&profile.storage_type)
+    let storage_type = BuiltinStorageType::from_str_snakecase(&profile.storage_type)
         .map_err(|_| eyre::eyre!("Unsupported profile name"))?;
 
     match storage_type {

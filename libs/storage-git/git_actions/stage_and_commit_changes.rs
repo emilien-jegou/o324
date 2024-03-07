@@ -16,7 +16,7 @@ pub fn stage_and_commit_changes(
     // Check if there are changes in the index compared to the HEAD commit
     let oid = index.write_tree()?;
     let tree = repo.find_tree(oid)?;
-    let head_commit = find_last_commit(&repo)?;
+    let head_commit = find_last_commit(repo)?;
     let head_tree = head_commit.tree()?;
 
     // Compare the current tree with the HEAD tree

@@ -8,4 +8,3 @@ pub async fn handle(_: Command, core: &Core) -> eyre::Result<()> {
     core.cancel_current_task().await?;
     Ok(())
 }
-

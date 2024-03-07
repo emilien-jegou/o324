@@ -14,17 +14,19 @@ pub struct RebaseOperation<'repo> {
 
 #[derive(Clone)]
 pub struct ConflictFile {
+    pub repository_path: PathBuf,
     pub relative_file_path: String,
     pub left: String,
     pub right: String,
     pub previous: Option<String>,
-    pub resolved: Option<String>,
 }
 
 impl ConflictFile {
-    /// Write content of 's' to file
-    pub fn resolve(&mut self, s: &str) {
-        self.resolved = Some(s.to_string());
+    #[cfg(test)]
+    pub fn write(&mut self, content: &str) -> Result<(), git2::Error> {
+        std::fs::write(self.repository_path.join(&self.relative_file_path), content)
+            .map_err(|e| git2::Error::from_str(&format!("{}", e)))?;
+        Ok(())
     }
 }
 
@@ -50,56 +52,26 @@ pub struct Conflict<'repo> {
 }
 
 impl<'repo> Conflict<'repo> {
-    pub fn stage_all(&self) -> Result<&Self, git2::Error> {
+    pub fn stage_file(&self, filename: &str) -> Result<&Self, git2::Error> {
         let mut index: git2::Index = self.repository.index()?;
-
-        for it in self.files.iter() {
-            match &it.resolved.as_ref() {
-                Some(_) => {
-                    let path = PathBuf::from(&it.relative_file_path);
-                    index.add_path(&path)?;
-                }
-                None => Err(git2::Error::from_str(&format!(
-                    "Try to stage files in an unclean repository, file: {:?}",
-                    it.relative_file_path
-                )))?,
-            }
-        }
+        let path = PathBuf::from(&filename);
+        index.add_path(&path)?;
         index.write()?;
         Ok(self)
     }
 
-    pub fn write_changes(&self) -> Result<&Self, git2::Error> {
-        let repo_path = self
-            .repository
-            .path()
-            .parent()
-            .ok_or_else(|| git2::Error::from_str("repository is missing a parent directory"))?;
-
+    pub fn stage_conflicted(&self) -> Result<&Self, git2::Error> {
+        let mut index: git2::Index = self.repository.index()?;
         for it in self.files.iter() {
-            if let Some(content) = &it.resolved.as_ref() {
-                let path = PathBuf::from(&it.relative_file_path);
-                std::fs::write(&repo_path.join(&path), content)
-                    .map_err(|e| git2::Error::from_str(&format!("{}", e)))?;
-            }
+            let path = PathBuf::from(&it.relative_file_path);
+            index.add_path(&path)?;
         }
-
+        index.write()?;
         Ok(self)
     }
 }
 
-/// Fetches the previous version of a file from a git repository.
-///
-/// # Arguments
-///
-/// * `repository` - A reference to the git repository.
-/// * `path` - The path to the file within the repository.
-///
-/// # Returns
-///
-/// This function returns a `Result<Option<String>, git2::Error>`. On success, it returns the previous
-/// content of the file as an `Option<String>`, where `None` indicates that the file did not exist in the
-/// previous commit. On failure, it returns an error of type `git2::Error`.
+/// Get the previous version of a file from a git repository relative to the current branch.
 fn get_previous_file_content(
     repository: &git2::Repository,
     path: &Path,
@@ -177,9 +149,11 @@ impl<'repo> RebaseOperation<'repo> {
             .ok_or_else(|| git2::Error::from_str("repository is missing a parent directory"))?;
 
         // Print paths and add the "ours" side to the index
-        for relative_path in conflicts {
-            if let Some(path) = relative_path {
-                let content = std::fs::read_to_string(&repo_path.join(&path))
+        conflicts
+            .into_iter()
+            .flatten()
+            .try_for_each(|path| -> Result<(), git2::Error> {
+                let content = std::fs::read_to_string(repo_path.join(&path))
                     .map_err(|e| git2::Error::from_str(&e.to_string()))?;
 
                 let (left, right) = diff::extract_diff_from_conflict(&content);
@@ -189,6 +163,7 @@ impl<'repo> RebaseOperation<'repo> {
                     get_previous_file_content(self.repository, &path).unwrap_or(None);
 
                 file_conflicts.push(ConflictFile {
+                    repository_path: repo_path.to_path_buf(),
                     relative_file_path: path
                         .to_str()
                         .ok_or_else(|| git2::Error::from_str("path isn\'t utf8"))?
@@ -196,10 +171,9 @@ impl<'repo> RebaseOperation<'repo> {
                     left,
                     right,
                     previous,
-                    resolved: None,
                 });
-            }
-        }
+                Ok(())
+            })?;
 
         Ok(file_conflicts)
     }

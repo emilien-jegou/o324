@@ -7,20 +7,20 @@ pub enum Setter<T> {
     Set(T),
 }
 
-impl<T> Into<Option<T>> for Setter<T> {
-    fn into(self) -> Option<T> {
-        match self {
-            Self::Set(e) => Some(e),
-            Self::Unset => None,
+impl<T> From<Setter<T>> for Option<T> {
+    fn from(val: Setter<T>) -> Self {
+        match val {
+            Setter::Set(e) => Some(e),
+            Setter::Unset => None,
         }
     }
 }
 
-impl<T> Into<Setter<T>> for Option<T> {
-    fn into(self) -> Setter<T> {
-        match self {
-            Self::Some(e) => Setter::Set(e),
-            Self::None => Setter::Unset,
+impl<T> From<Option<T>> for Setter<T> {
+    fn from(val: Option<T>) -> Self {
+        match val {
+            Option::Some(e) => Setter::Set(e),
+            Option::None => Setter::Unset,
         }
     }
 }
