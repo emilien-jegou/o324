@@ -6,5 +6,3 @@ use std::collections::BTreeMap;
 pub struct TaskDocument {
     pub tasks: BTreeMap<TaskId, Task>,
 }
-
-

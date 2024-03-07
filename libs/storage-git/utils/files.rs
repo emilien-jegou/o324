@@ -1,10 +1,5 @@
 use lazy_regex::Regex;
-use serde::{de::DeserializeOwned, Serialize};
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
-};
+use std::path::Path;
 
 pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
     if !path.exists() {
@@ -26,30 +21,6 @@ pub fn check_path_is_git_directory(path: &Path) -> eyre::Result<()> {
 /// Create directory and all necessary parent directories of a given path
 pub fn create_dir_if_not_exists_deep(path: &Path) -> eyre::Result<()> {
     std::fs::create_dir_all(path)?;
-    Ok(())
-}
-
-pub fn read_json_document_as_struct_with_default<
-    T: DeserializeOwned + Default + 'static,
-    P: AsRef<Path>,
->(
-    path: P,
-) -> eyre::Result<T> {
-    let path = path.as_ref();
-    if path.exists() {
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        Ok(serde_json::from_str(&contents)?)
-    } else {
-        Ok(T::default())
-    }
-}
-
-pub fn save_json_document<T: Serialize, P: AsRef<Path>>(path: P, data: &T) -> eyre::Result<()> {
-    let serialized = serde_json::to_string_pretty(data)?;
-    let mut file = File::create(path)?;
-    file.write_all(serialized.as_bytes())?;
     Ok(())
 }
 
