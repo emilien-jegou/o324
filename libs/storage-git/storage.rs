@@ -1,8 +1,9 @@
+use crate::module::TaskModel;
+use crate::utils;
 use crate::{
     managers::git_manager::IGitManager, managers::metadata_manager::IMetadataManager,
     models::task_document::TaskDocument, module,
-    providers::git_transaction_provider::IGitTransaction, ulid_from_timestamp_with_overwrite,
-    utils::files,
+    providers::git_transaction_provider::IGitTransaction,
 };
 
 use super::config::GitStorageConfig;
@@ -32,6 +33,8 @@ impl GitStorage {
     }
 
     fn list_tasks_by_ids(&self, task_ids: Vec<TaskId>) -> eyre::Result<Vec<Task>> {
+        let task_model: &TaskModel = self.module.resolve_ref();
+
         // List of documents where the tasks are contained, remove duplicate
         let files = task_ids
             .iter()
@@ -40,10 +43,7 @@ impl GitStorage {
 
         let documents = files
             .into_iter()
-            .map(|path| {
-                let doc: TaskDocument = files::read_json_document_as_struct_with_default(path)?;
-                Ok(doc)
-            })
+            .map(|path| task_model.read_as_struct_with_default(&path))
             .collect::<eyre::Result<Vec<TaskDocument>>>()?;
 
         let task_ids_set: HashSet<String> = task_ids.into_iter().collect();
@@ -120,14 +120,14 @@ impl Storage for GitStorage {
 
     fn create_task(&self, task: Task) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            let task_model: &TaskModel = self.module.resolve_ref();
             let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task.ulid)?;
             metadata_manager.save_task_ref(&task.ulid)?;
-            let mut data: TaskDocument = files::read_json_document_as_struct_with_default(&file)?;
 
+            let mut data = task_model.read_as_struct_with_default(&file)?;
             data.tasks.insert(task.ulid.clone(), task);
-
-            files::save_json_document(&file, &data)?;
+            task_model.save(&file, &data)?;
             Ok(())
         })
     }
@@ -150,8 +150,9 @@ impl Storage for GitStorage {
 
     fn get_task(&self, task_id: String) -> PinFuture<eyre::Result<Task>> {
         Box::pin(async move {
+            let task_model: &TaskModel = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task_id)?;
-            let data: TaskDocument = files::read_json_document_as_struct_with_default(file)?;
+            let data = task_model.read_as_struct_with_default(&file)?;
 
             let task = data
                 .tasks
@@ -191,8 +192,8 @@ impl Storage for GitStorage {
             // We convert the timestamp to ulid to simplify the search and set the second part to
             // respectively the lowest and highest characters of Crockford 32 to ensure all ulid
             // between the range are found
-            let start = ulid_from_timestamp_with_overwrite(start_timestamp, '0')?;
-            let end = ulid_from_timestamp_with_overwrite(end_timestamp, 'Z')?;
+            let start = utils::ulid::ulid_from_timestamp_with_overwrite(start_timestamp, '0')?;
+            let end = utils::ulid::ulid_from_timestamp_with_overwrite(end_timestamp, 'Z')?;
 
             // List of task we desire to return
             let task_ids: Vec<String> = metadata
@@ -212,8 +213,9 @@ impl Storage for GitStorage {
         updated_task: TaskUpdate,
     ) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
+            let task_model: &TaskModel = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task_id)?;
-            let mut data: TaskDocument = files::read_json_document_as_struct_with_default(&file)?;
+            let mut data = task_model.read_as_struct_with_default(&file)?;
 
             let task = data
                 .tasks
@@ -223,7 +225,7 @@ impl Storage for GitStorage {
             data.tasks
                 .insert(task.ulid.clone(), updated_task.merge_with_task(task));
 
-            files::save_json_document(&file, &data)?;
+            task_model.save(&file, &data)?;
             Ok(())
         })
     }
@@ -231,13 +233,14 @@ impl Storage for GitStorage {
     fn delete_task(&self, task_id: String) -> PinFuture<eyre::Result<()>> {
         Box::pin(async move {
             let metadata_manager: &dyn IMetadataManager = self.module.resolve_ref();
+            let task_model: &TaskModel = self.module.resolve_ref();
             let file = self.get_storage_file_from_ulid(&task_id)?;
-            let mut data: TaskDocument = files::read_json_document_as_struct_with_default(&file)?;
+            let mut data: TaskDocument = task_model.read_as_struct_with_default(&file)?;
             data.tasks
                 .remove(&task_id)
                 .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
-            files::save_json_document(&file, &data)?;
+            task_model.save(&file, &data)?;
             metadata_manager.delete_task_ref(&task_id)?;
             Ok(())
         })

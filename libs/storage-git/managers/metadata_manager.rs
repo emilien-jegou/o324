@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 
 use lazy_regex::regex;
 use o324_storage_core::Task;
@@ -6,7 +6,8 @@ use shaku::{Component, Interface};
 
 use crate::{
     models::{metadata_document::MetadataDocument, task_document::TaskDocument},
-    utils::files::{self, find_matching_files},
+    module::MetadataModel,
+    utils::files::find_matching_files,
 };
 
 pub trait IMetadataManager: Interface {
@@ -21,17 +22,20 @@ pub trait IMetadataManager: Interface {
 #[derive(Component)]
 #[shaku(interface = IMetadataManager)]
 pub struct MetadataManager {
+    #[shaku(inject)]
+    metadata_manager: Arc<MetadataModel>,
     git_storage_path: PathBuf,
     metadata_path: PathBuf,
 }
 
 impl IMetadataManager for MetadataManager {
     fn get_current(&self) -> eyre::Result<MetadataDocument> {
-        files::read_json_document_as_struct_with_default(&self.metadata_path)
+        self.metadata_manager
+            .read_as_struct_with_default(&self.metadata_path)
     }
 
     fn set_current(&self, meta: MetadataDocument) -> eyre::Result<()> {
-        files::save_json_document(&self.metadata_path, &meta)?;
+        self.metadata_manager.save(&self.metadata_path, &meta)?;
         Ok(())
     }
 
