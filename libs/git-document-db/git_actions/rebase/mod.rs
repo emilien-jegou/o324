@@ -265,8 +265,8 @@ mod tests {
             assert_eq!(conflict.files.len(), 1);
             let file = &mut conflict.files[0];
 
-            assert_eq!(file.left, "World");
-            assert_eq!(file.right, "Foo");
+            assert_eq!(file.our, "World");
+            assert_eq!(file.their, "Foo");
             assert_eq!(file.previous, None);
 
             file.write("Hey").unwrap();
@@ -285,8 +285,8 @@ mod tests {
             assert_eq!(conflict.files.len(), 1);
             let file = &mut conflict.files[0];
 
-            assert_eq!(file.left, "Hey");
-            assert_eq!(file.right, "Bar");
+            assert_eq!(file.our, "Hey");
+            assert_eq!(file.their, "Bar");
             assert_eq!(file.previous, Some("World".to_string()));
 
             file.write("Hey 2").unwrap();
@@ -322,11 +322,11 @@ mod tests {
             assert_eq!(conflict.files.len(), 1);
             let file = &mut conflict.files[0];
 
-            assert_eq!(file.left, "World");
-            assert_eq!(file.right, "Foo");
+            assert_eq!(file.our, "World");
+            assert_eq!(file.their, "Foo");
             assert_eq!(file.previous, None);
 
-            file.write(&file.left.clone()).unwrap();
+            file.write(&file.our.clone()).unwrap();
             conflict.stage_conflicted().unwrap();
 
             // Since the two commit are identical the local
@@ -343,12 +343,12 @@ mod tests {
             assert_eq!(conflict.files.len(), 1);
             let file = &mut conflict.files[0];
 
-            assert_eq!(file.left, "World");
-            assert_eq!(file.right, "Bar");
+            assert_eq!(file.our, "World");
+            assert_eq!(file.their, "Bar");
             assert_eq!(file.previous, None);
 
             // We choose local changes here
-            file.write(&file.right.clone()).unwrap();
+            file.write(&file.their.clone()).unwrap();
             conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
         }
@@ -397,13 +397,13 @@ mod tests {
             let file = &mut conflict.files[0];
 
             assert_eq!(file.relative_file_path, "text.txt");
-            assert_eq!(file.left, "remote content");
-            assert_eq!(file.right, "local content");
+            assert_eq!(file.our, "remote content");
+            assert_eq!(file.their, "local content");
             assert_eq!(file.previous, Some("".to_string()));
 
             // This will replace the content of all conflicted
             // files with the local changes.
-            file.write(&file.right.clone()).unwrap();
+            file.write(&file.their.clone()).unwrap();
 
             conflict.stage_conflicted().unwrap();
             operation.commit_changes().unwrap();
@@ -485,7 +485,7 @@ mod tests {
         let conflict = operation.get_conflict().unwrap();
 
         // No conflict are expected, changes affect different files
-        assert_eq!(conflict.left_commit.summary, Some("REMOTE".to_string()));
-        assert_eq!(conflict.right_commit.summary, Some("LOCAL".to_string()));
+        assert_eq!(conflict.our_commit.summary, Some("REMOTE".to_string()));
+        assert_eq!(conflict.their_commit.summary, Some("LOCAL".to_string()));
     }
 }

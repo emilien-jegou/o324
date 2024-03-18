@@ -1,68 +1,46 @@
+use crate::{models::task_document::TaskDocument, module::GitService};
 use chrono::{DateTime, Utc};
+use git_document_db::StoreResult;
 use lazy_regex::Regex;
 use o324_storage_core::{Task, TaskId, TaskUpdate};
-use shaku::{Component, Interface};
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
+use teloc::Dependency;
 use ulid::Ulid;
 
-use crate::{models::task_document::TaskDocument, module::TaskDocumentStorage, utils};
-
-use super::{config_manager::IConfigManager, file_format_manager::IFileFormatManager};
-
-pub trait ITaskDocumentManager: Interface {
-    /// Get the name of the task document
-    fn get_task_document_name(&self, ulid: &TaskId) -> eyre::Result<String>;
-
-    /// Get a regex that can match any task document
-    fn get_task_document_regex(&self) -> eyre::Result<Regex>;
-
-    fn get_all_tasks(&self) -> eyre::Result<Vec<Task>>;
-    fn get_tasks_by_ids(&self, task_ids: &[TaskId]) -> eyre::Result<Vec<Task>>;
-    fn create_task(&self, task: Task) -> eyre::Result<()>;
-    fn _create_task_batch(&self, task_list: Vec<Task>) -> eyre::Result<()>;
-    fn get_task(&self, task_id: &TaskId) -> eyre::Result<Task>;
-    fn update_task(&self, task_id: &TaskId, updated_task: TaskUpdate) -> eyre::Result<()>;
-    fn delete_task(&self, task_id: &TaskId) -> eyre::Result<()>;
-}
-
-#[derive(Component)]
-#[shaku(interface = ITaskDocumentManager)]
+#[derive(Dependency)]
 pub struct TaskDocumentManager {
-    #[shaku(inject)]
-    file_format_manager: Arc<dyn IFileFormatManager>,
-    #[shaku(inject)]
-    task_storage: Arc<TaskDocumentStorage>,
-    #[shaku(inject)]
-    config: Arc<dyn IConfigManager>,
+    storage: GitService,
 }
 
-impl ITaskDocumentManager for TaskDocumentManager {
-    fn get_task_document_name(&self, ulid: &TaskId) -> eyre::Result<String> {
+impl TaskDocumentManager {
+    pub fn get_task_document_id(&self, ulid: &TaskId) -> eyre::Result<String> {
         let date: DateTime<Utc> = Ulid::from_string(ulid)?.datetime().into();
         let formatted_date = date.format("%Y-%m-%d").to_string();
         Ok(formatted_date)
     }
 
-    fn get_task_document_regex(&self) -> eyre::Result<Regex> {
-        let rg = self.file_format_manager.file_extension();
-        Regex::new(&format!("{}{}$", r"20\d{2}-\d{2}-\d{2}\.", rg)).map_err(From::from)
+    pub fn get_task_document_regex(&self) -> eyre::Result<Regex> {
+        Regex::new(r"20\d{2}-\d{2}-\d{2}").map_err(From::from)
     }
 
-    fn create_task(&self, task: Task) -> eyre::Result<()> {
-        let document_name = self.get_task_document_name(&task.ulid)?;
+    pub fn create_task(&self, task: Task) -> eyre::Result<()> {
+        let document_id = self.get_task_document_id(&task.ulid)?;
         let mut data = self
-            .task_storage
-            .read_as_struct_with_default(&document_name)?;
+            .storage
+            .0
+            .get::<TaskDocument>(&document_id)?
+            .unwrap_or_default();
         data.tasks.insert(task.ulid.clone(), task);
-        self.task_storage.write(&document_name, &data)?;
+        data.id = document_id;
+        self.storage.0.save(&data)?;
         Ok(())
     }
 
-    fn _create_task_batch(&self, task_list: Vec<Task>) -> eyre::Result<()> {
+    pub fn _create_task_batch(&self, task_list: Vec<Task>) -> eyre::Result<()> {
         use std::collections::HashMap;
         let document_hashmap: HashMap<String, Vec<&Task>> = task_list
             .iter()
-            .map(|task| Ok((self.get_task_document_name(&task.ulid)?, task)))
+            .map(|task| Ok((self.get_task_document_id(&task.ulid)?, task)))
             .collect::<eyre::Result<Vec<(String, &Task)>>>()?
             .into_iter()
             .fold(HashMap::new(), |mut acc, (doc_name, task)| {
@@ -71,32 +49,39 @@ impl ITaskDocumentManager for TaskDocumentManager {
             });
 
         for (document_name, tasks) in document_hashmap.iter() {
-            let mut data = self
-                .task_storage
-                .read_as_struct_with_default(document_name)?;
+            let mut data: TaskDocument = self
+                .storage
+                .0
+                .get(document_name)?
+                .unwrap_or_else(Default::default);
 
             for task in tasks.iter() {
                 data.tasks.insert(task.ulid.to_string(), (*task).clone());
             }
 
-            self.task_storage.write(document_name, &data)?;
+            self.storage.0.save(&data)?;
         }
 
         Ok(())
     }
 
-    fn get_tasks_by_ids(&self, task_ids: &[TaskId]) -> eyre::Result<Vec<Task>> {
+    pub fn get_tasks_by_ids(&self, task_ids: &[TaskId]) -> eyre::Result<Vec<Task>> {
         let task_ids_set: HashSet<String> = task_ids.iter().cloned().collect();
 
         let document_names = task_ids
             .iter()
-            .map(|task_id| self.get_task_document_name(task_id))
+            .map(|task_id| self.get_task_document_id(task_id))
             .collect::<eyre::Result<HashSet<String>>>()?;
 
         let documents = document_names
             .into_iter()
-            .map(|path| self.task_storage.read_as_struct_with_default(&path))
-            .collect::<eyre::Result<Vec<TaskDocument>>>()?;
+            .map(|path| {
+                self.storage
+                    .0
+                    .get::<TaskDocument>(&path)
+                    .map(|d| d.unwrap_or_default())
+            })
+            .collect::<StoreResult<Vec<TaskDocument>>>()?;
 
         let all_tasks: Vec<Task> = documents
             .into_iter()
@@ -109,11 +94,13 @@ impl ITaskDocumentManager for TaskDocumentManager {
             .collect())
     }
 
-    fn get_task(&self, task_id: &TaskId) -> eyre::Result<Task> {
-        let document_name = self.get_task_document_name(task_id)?;
+    pub fn get_task(&self, task_id: &TaskId) -> eyre::Result<Task> {
+        let document_name = self.get_task_document_id(task_id)?;
         let data = self
-            .task_storage
-            .read_as_struct_with_default(&document_name)?;
+            .storage
+            .0
+            .get::<TaskDocument>(&document_name)?
+            .unwrap_or_default();
 
         let task = data
             .tasks
@@ -123,11 +110,15 @@ impl ITaskDocumentManager for TaskDocumentManager {
         Ok(task.clone())
     }
 
-    fn update_task(&self, task_id: &TaskId, updated_task: TaskUpdate) -> eyre::Result<()> {
-        let document_name = self.get_task_document_name(task_id)?;
+    pub fn update_task(&self, task_id: &TaskId, updated_task: TaskUpdate) -> eyre::Result<()> {
+        let document_name = self.get_task_document_id(task_id)?;
         let mut data = self
-            .task_storage
-            .read_as_struct_with_default(&document_name)?;
+            .storage
+            .0
+            .get::<TaskDocument>(&document_name)?
+            .unwrap_or_default();
+
+        println!("{:?} {:?}", document_name, updated_task);
 
         let task = data
             .tasks
@@ -137,33 +128,29 @@ impl ITaskDocumentManager for TaskDocumentManager {
         data.tasks
             .insert(task.ulid.clone(), updated_task.merge_with_task(task));
 
-        self.task_storage.write(&document_name, &data)?;
+        self.storage.0.save(&data)?;
         Ok(())
     }
 
-    fn delete_task(&self, task_id: &TaskId) -> eyre::Result<()> {
-        let document_name = self.get_task_document_name(task_id)?;
-        let mut data: TaskDocument = self
-            .task_storage
-            .read_as_struct_with_default(&document_name)?;
+    pub fn delete_task(&self, task_id: &TaskId) -> eyre::Result<()> {
+        let document_name = self.get_task_document_id(task_id)?;
+        let mut data = self
+            .storage
+            .0
+            .get::<TaskDocument>(&document_name)?
+            .unwrap_or_default();
 
         data.tasks
             .remove(task_id)
             .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
-        self.task_storage.write(&document_name, &data)?;
+        self.storage.0.save(&data)?;
         Ok(())
     }
 
-    fn get_all_tasks(&self) -> eyre::Result<Vec<Task>> {
+    pub fn get_all_tasks(&self) -> eyre::Result<Vec<Task>> {
         let re = self.get_task_document_regex()?;
-        let repository_path = self.config.get_repository_path();
-
-        // Find and parse all task documents
-        let all_task_documents = utils::files::find_matching_files(&repository_path, &re)?
-            .into_iter()
-            .map(|path| self.task_storage.read_as_struct_with_default(&path))
-            .collect::<eyre::Result<Vec<TaskDocument>>>()?;
+        let all_task_documents: Vec<TaskDocument> = self.storage.0.find_matching(&re)?;
 
         // Extract and combine every tasks
         let all_tasks = all_task_documents

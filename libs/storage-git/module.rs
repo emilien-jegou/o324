@@ -1,81 +1,56 @@
-use crate::config::GitFileFormatType;
-use crate::managers::config_manager::{ConfigManager, ConfigManagerParameters};
-use crate::managers::document_storage_manager::{DocumentStorageManager, IDocumentStorageManager};
-use crate::managers::file_format_manager::{
-    FileFormatManager, IFileFormatManager, JsonFileFormat, TomlFileFormat, YamlFileFormat,
-};
-use crate::managers::git_manager::GitManager;
-use crate::managers::git_sync_manager::GitSyncManager;
-use crate::managers::metadata_document_manager::MetadataDocumentManager;
+use crate::{managers::metadata_document_manager::MetadataDocumentManager, services::storage_sync_service::StorageSyncService};
 use crate::managers::task_document_manager::TaskDocumentManager;
-use crate::models::metadata_document::MetadataDocument;
-use crate::models::task_document::TaskDocument;
 use crate::services::metadata_service::MetadataService;
 use crate::services::task_service::TaskService;
-use std::sync::Arc;
+use teloc::{inject, Dependency, Resolver, ServiceProvider};
 
 use super::config::GitStorageConfig;
-use shaku::{module, HasComponent};
 
-pub type TaskDocumentStorage = dyn IDocumentStorageManager<TaskDocument>;
-pub type MetadataDocumentStorage = dyn IDocumentStorageManager<MetadataDocument>;
+#[derive(Dependency)]
+pub struct Module {
+    // Services
+    pub metadata_service: MetadataService,
+    pub task_service: TaskService,
+    pub storage_sync_service: StorageSyncService,
+    pub git_service: GitService,
 
-pub trait FileFormatModule: HasComponent<dyn IFileFormatManager> {}
-
-macro_rules! create_format_module {
-    ($module_name:ident, $file_format:ty) => {
-        module! {
-            $module_name: FileFormatModule {
-                components = [ #[lazy] FileFormatManager<$file_format> ],
-                providers = []
-            }
-        }
-    };
+    // Managers
+    pub metadata_document_manager: MetadataDocumentManager,
+    pub task_document_manager: MetadataDocumentManager,
 }
 
-create_format_module!(JsonFormatModule, JsonFileFormat);
-create_format_module!(YamlFormatModule, YamlFileFormat);
-create_format_module!(TomlFormatModule, TomlFileFormat);
+#[derive(Clone)]
+pub struct GitService(pub git_document_db::Client);
 
-module! {
-    pub GitStorageModule {
-        components = [
-            ConfigManager,
-            #[lazy] GitManager,
-            #[lazy] GitSyncManager,
-            #[lazy] MetadataDocumentManager,
-            #[lazy] MetadataService,
-            #[lazy] TaskDocumentManager,
-            #[lazy] TaskService,
-            #[lazy] DocumentStorageManager<MetadataDocument>,
-            #[lazy] DocumentStorageManager<TaskDocument>,
-        ],
-        providers = [],
-
-
-        use dyn FileFormatModule {
-            components = [ dyn IFileFormatManager ],
-            providers = []
-        }
+#[inject]
+impl GitService {
+    pub fn new(git_document_db: &git_document_db::Client) -> Self {
+        Self(git_document_db.clone())
     }
 }
 
-pub fn build_from_config(config: &GitStorageConfig) -> eyre::Result<GitStorageModule> {
+pub fn build_from_config(config: &GitStorageConfig) -> eyre::Result<Module> {
     let storage_path = config.get_git_storage_path()?;
     let git_storage_path = std::path::Path::new(&storage_path);
 
-    let file_format_module: Arc<dyn FileFormatModule> = match config.get_file_format_type()? {
-        GitFileFormatType::Json => Arc::new(JsonFormatModule::builder().build()),
-        GitFileFormatType::Yaml => Arc::new(YamlFormatModule::builder().build()),
-        GitFileFormatType::Toml => Arc::new(TomlFormatModule::builder().build()),
-    };
-
-    let module = GitStorageModule::builder(file_format_module)
-        .with_component_parameters::<ConfigManager>(ConfigManagerParameters {
-            repository_path: git_storage_path.to_path_buf(),
-            remote_origin_url: config.git_remote_origin_url.clone(),
-        })
+    let config = git_document_db::ClientConfig::builder()
+        .document_parser(git_document_db::document_parser::JsonParser::get())
+        .repository_path(git_storage_path.to_path_buf())
+        .remote_origin_url(config.git_remote_origin_url.to_string())
         .build();
 
+    let client = git_document_db::Client::initialize(config)?;
+
+    let sp = ServiceProvider::new()
+        .add_transient::<GitService>()
+        .add_transient::<MetadataDocumentManager>()
+        .add_transient::<MetadataService>()
+        .add_transient::<StorageSyncService>()
+        .add_transient::<TaskDocumentManager>()
+        .add_transient::<TaskService>()
+        .add_transient::<Module>()
+        .add_instance(&client);
+
+    let module: Module = sp.resolve();
     Ok(module)
 }

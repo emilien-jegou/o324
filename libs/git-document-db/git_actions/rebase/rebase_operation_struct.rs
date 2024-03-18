@@ -16,8 +16,8 @@ pub struct RebaseOperation<'repo> {
 pub struct ConflictFile {
     pub repository_path: PathBuf,
     pub relative_file_path: String,
-    pub left: String,
-    pub right: String,
+    pub our: String,
+    pub their: String,
     pub previous: Option<String>,
 }
 
@@ -47,8 +47,8 @@ impl ConflictCommit {
 pub struct Conflict<'repo> {
     repository: &'repo git2::Repository,
     pub files: Vec<ConflictFile>,
-    pub left_commit: ConflictCommit,
-    pub right_commit: ConflictCommit,
+    pub our_commit: ConflictCommit,
+    pub their_commit: ConflictCommit,
 }
 
 impl<'repo> Conflict<'repo> {
@@ -56,6 +56,13 @@ impl<'repo> Conflict<'repo> {
         let mut index: git2::Index = self.repository.index()?;
         let path = PathBuf::from(&filename);
         index.add_path(&path)?;
+        index.write()?;
+        Ok(self)
+    }
+
+    pub fn stage_all(&self) -> Result<&Self, git2::Error> {
+        let mut index: git2::Index = self.repository.index()?;
+        index.add_all([""], git2::IndexAddOption::DEFAULT, None)?;
         index.write()?;
         Ok(self)
     }
@@ -168,8 +175,8 @@ impl<'repo> RebaseOperation<'repo> {
                         .to_str()
                         .ok_or_else(|| git2::Error::from_str("path isn\'t utf8"))?
                         .to_string(),
-                    left,
-                    right,
+                    our: left,
+                    their: right,
                     previous,
                 });
                 Ok(())
@@ -199,8 +206,8 @@ impl<'repo> RebaseOperation<'repo> {
         Ok(Conflict {
             repository: self.repository,
             files: result,
-            left_commit: ConflictCommit::from_git_commit(&remote_commit),
-            right_commit: ConflictCommit::from_git_commit(&local_commit),
+            our_commit: ConflictCommit::from_git_commit(&remote_commit),
+            their_commit: ConflictCommit::from_git_commit(&local_commit),
         })
     }
 
