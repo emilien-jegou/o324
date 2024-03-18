@@ -1,0 +1,15 @@
+[package]
+name = "git-document-db-macros"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "git_document_db_macros"
+path = "lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"

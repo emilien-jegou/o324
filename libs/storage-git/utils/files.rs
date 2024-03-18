@@ -10,14 +10,6 @@ pub fn check_path_is_directory(path: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn check_path_is_git_directory(path: &Path) -> eyre::Result<()> {
-    check_path_is_directory(path)?;
-    match git2::Repository::discover(path) {
-        Ok(_) => Ok(()),
-        Err(_) => Err(eyre::eyre!("Path {:?} is not a git directory", path)),
-    }
-}
-
 /// Create directory and all necessary parent directories of a given path
 pub fn create_dir_if_not_exists_deep(path: &Path) -> eyre::Result<()> {
     std::fs::create_dir_all(path)?;

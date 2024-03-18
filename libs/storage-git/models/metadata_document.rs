@@ -1,8 +1,11 @@
-use serde_derive::{Deserialize, Serialize};
+use git_document_db::{prelude::*, Document};
 use std::collections::BTreeSet;
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Debug, Default, Document)]
 pub struct MetadataDocument {
+    #[document(id)]
+    pub id: String,
+
     /// Current task id
     pub current: Option<String>,
 
