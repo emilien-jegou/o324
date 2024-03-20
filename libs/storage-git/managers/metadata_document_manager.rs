@@ -1,14 +1,16 @@
-use teloc::Dependency;
-
-use crate::{models::metadata_document::MetadataDocument, module::GitService};
+use crate::models::metadata_document::MetadataDocument;
+use git_document_db::{IQueryRunner, SharedQueryRunner};
 use std::collections::BTreeSet;
 
-#[derive(Dependency)]
-pub struct MetadataDocumentManager {
-    storage: GitService,
+pub struct MetadataDocumentManager<'a> {
+    query_runner: &'a SharedQueryRunner<'a>,
 }
 
-impl MetadataDocumentManager {
+impl<'a> MetadataDocumentManager<'a> {
+    pub fn load(query_runner: &'a SharedQueryRunner<'a>) -> Self {
+        Self { query_runner }
+    }
+
     /// Get the name of the metadata document
     pub fn get_metadata_document_id(&self) -> &'static str {
         "__metadata"
@@ -18,8 +20,7 @@ impl MetadataDocumentManager {
     pub fn get_document(&self) -> eyre::Result<MetadataDocument> {
         let document_id = self.get_metadata_document_id();
         let mut data = self
-            .storage
-            .0
+            .query_runner
             .get::<MetadataDocument>(document_id)?
             .unwrap_or_default();
         data.id = document_id.to_string();
@@ -28,7 +29,7 @@ impl MetadataDocumentManager {
 
     /// Set the current metadata document
     pub fn set_document(&self, meta: MetadataDocument) -> eyre::Result<()> {
-        self.storage.0.save(&meta)?;
+        self.query_runner.save(&meta)?;
         Ok(())
     }
 

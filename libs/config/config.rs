@@ -26,3 +26,12 @@ pub struct Config {
     pub core: CoreConfig,
     pub profile: HashMap<String, ProfileConfig>,
 }
+
+impl CoreConfig {
+    /// Return the default profile name is set or "default"
+    pub fn get_default_profile_name(&self) -> String {
+        self.default_profile_name
+            .clone()
+            .unwrap_or("default".to_owned())
+    }
+}

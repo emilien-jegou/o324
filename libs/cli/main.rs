@@ -1,5 +1,7 @@
+use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use o324_core::Core;
+use directories_next::ProjectDirs;
 
 mod commands {
     pub mod cancel;
@@ -14,6 +16,9 @@ mod commands {
     pub mod stop;
     pub mod sync;
 }
+
+mod tracing;
+mod dbus;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -42,7 +47,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn execute(self, core: &Core) -> eyre::Result<()> {
+    pub async fn execute(self, core: &Core, no_dbus: bool) -> eyre::Result<()> {
         use commands::*;
         match self {
             Self::Start(o) => start::handle(o, core).await?,
@@ -82,14 +87,31 @@ struct Args {
     /// Subcommand to execute
     #[command(subcommand)]
     command: Command,
+
+    #[arg(long)]
+    no_dbus: bool,
 }
 
 impl Args {
     fn get_config(&self) -> eyre::Result<String> {
-        let config_path = self
-            .config
-            .clone()
-            .unwrap_or("~/.config/o324/config.toml".to_owned());
+        let config_path = match &self.config {
+            Some(x) => Ok(x.clone()),
+            None => {
+                // Retrieve project directories specifically for your application
+                if let Some(proj_dirs) = ProjectDirs::from("", "emje.dev", "o324") {
+                    // Get the path to the configuration directory
+                    let config_dir = proj_dirs.config_dir();
+                    let config_path: PathBuf = config_dir.join("config.toml");
+
+                    config_path
+                        .to_str()
+                        .map(|t| t.to_owned())
+                        .ok_or_else(|| eyre::eyre!("couldn't convert os path to string"))
+                } else {
+                    Err(eyre::eyre!("Project directories could not be found."))
+                }
+            }
+        }?;
 
         Ok(shellexpand::full(&config_path)?.into_owned())
     }
@@ -100,8 +122,11 @@ pub async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let config_path = args.get_config()?;
 
+    color_eyre::install()?;
+    tracing::setup()?;
+
     let storage_config = o324_core::load(&config_path, args.profile_name)?;
 
-    args.command.execute(&storage_config).await?;
+    args.command.execute(&storage_config, args.no_dbus).await?;
     Ok(())
 }

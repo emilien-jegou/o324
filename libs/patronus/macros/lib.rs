@@ -6,22 +6,40 @@ use syn::{parse_macro_input, spanned::Spanned, Data, DeriveInput, Fields};
 
 /// Usage:
 /// `
-/// #[patronus("TaskUpdate")]
+/// #[patronus(name = "TaskUpdate", derives = "Clone")]
 /// struct Task { id: String }
-/// `
 #[proc_macro_attribute]
 pub fn patronus(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    // "TaskUpdate"
-    let name = parse_macro_input!(attr as syn::LitStr);
+    let attr_args = parse_macro_input!(attr as syn::AttributeArgs);
 
-    // "Task"
     let struct_name = input.clone().ident;
+    let mut derives = Vec::new();
+    let mut updated_struct_name = None;
 
+    for arg in attr_args {
+        match arg {
+            syn::NestedMeta::Meta(syn::Meta::NameValue(nv)) if nv.path.is_ident("name") => {
+                if let syn::Lit::Str(lit) = nv.lit {
+                    updated_struct_name = Some(syn::Ident::new(&lit.value(), struct_name.span()));
+                }
+            },
+            syn::NestedMeta::Meta(syn::Meta::NameValue(nv)) if nv.path.is_ident("derives") => {
+                if let syn::Lit::Str(lit) = nv.lit {
+                    derives = lit.value().split(',').map(|s| s.trim().to_string()).collect();
+                }
+            },
+            _ => {}
+        }
+    }
+    //
     // `updated_struct_name` will be the identifier "TaskUpdate"
-    let updated_struct_name = syn::Ident::new(&name.value(), struct_name.span());
+    let updated_struct_name = updated_struct_name.expect("missing 'name' field");
 
-    // Extract the fields of the "Task" struct
+    let derives_tokens = derives.iter().map(|d| {
+        syn::Ident::new(d, struct_name.span())
+    });
+
     let fields = if let Data::Struct(data) = input.clone().data {
         if let Fields::Named(fields) = data.fields {
             fields.named
@@ -32,44 +50,36 @@ pub fn patronus(attr: TokenStream, item: TokenStream) -> TokenStream {
         panic!("the macro can only be applied on struct with named fields")
     };
 
-    // Generate field definitions for TaskUpdate
     let field_definitions = fields.iter().map(|f| {
-        let name = &f.ident; // "id"
-        let ty = &f.ty; // String
+        let name = &f.ident;
+        let ty = &f.ty;
         quote! {
-            pub #name: ::patronus::Setter<#ty>,
+            pub #name: Option<#ty>,
         }
     });
 
-    // Generate setter and reset methods for each field in TaskUpdate
     let setters = fields.iter().map(|f| {
-        let name = &f.ident; // "id"
-        let ty = &f.ty; // String
-
-        // "set_id"
+        let name = &f.ident;
+        let ty = &f.ty;
         let set_fn_name = syn::Ident::new(&format!("set_{}", name.as_ref().unwrap()), name.span());
-        // "unset_id"
-        let unset_fn_name =
-            syn::Ident::new(&format!("unset_{}", name.as_ref().unwrap()), name.span());
+        let unset_fn_name = syn::Ident::new(&format!("unset_{}", name.as_ref().unwrap()), name.span());
         quote! {
             pub fn #set_fn_name(mut self, value: impl Into<#ty>) -> Self {
-                self.#name = ::patronus::Setter::Set(value.into());
+                self.#name = Some(value.into());
                 self
             }
 
             pub fn #unset_fn_name(mut self) -> Self {
-                self.#name = ::patronus::Setter::Unset;
+                self.#name = None;
                 self
             }
         }
     });
 
-    // The expanded code that will be inserted into the user's crate
-    // This creates a new struct, TaskUpdate, based on Task
     let expanded = quote! {
         #input
 
-        #[derive(Default, Debug, PartialEq)]
+        #[derive(#(#derives_tokens),*)]
         pub struct #updated_struct_name {
             #(#field_definitions)*
         }

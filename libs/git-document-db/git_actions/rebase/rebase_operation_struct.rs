@@ -52,27 +52,9 @@ pub struct Conflict<'repo> {
 }
 
 impl<'repo> Conflict<'repo> {
-    pub fn stage_file(&self, filename: &str) -> Result<&Self, git2::Error> {
-        let mut index: git2::Index = self.repository.index()?;
-        let path = PathBuf::from(&filename);
-        index.add_path(&path)?;
-        index.write()?;
-        Ok(self)
-    }
-
     pub fn stage_all(&self) -> Result<&Self, git2::Error> {
         let mut index: git2::Index = self.repository.index()?;
         index.add_all([""], git2::IndexAddOption::DEFAULT, None)?;
-        index.write()?;
-        Ok(self)
-    }
-
-    pub fn stage_conflicted(&self) -> Result<&Self, git2::Error> {
-        let mut index: git2::Index = self.repository.index()?;
-        for it in self.files.iter() {
-            let path = PathBuf::from(&it.relative_file_path);
-            index.add_path(&path)?;
-        }
         index.write()?;
         Ok(self)
     }

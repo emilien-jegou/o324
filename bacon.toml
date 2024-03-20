@@ -1,0 +1,42 @@
+default_job = "check-all"
+
+[jobs]
+
+[jobs.check]
+command = ["cargo", "check", "--color", "always"]
+need_stdout = true
+watch = ["libs"]
+
+[jobs.check-all]
+command = [
+	"cargo", "check",
+	"--all-targets",
+	"--color", "always",
+]
+watch = ["libs"]
+
+[jobs.clippy]
+command = [
+	"cargo", "clippy",
+	"--color", "always",
+	"--",
+	"-A", "clippy::match_like_matches_macro",
+	"-A", "clippy::collapsible_if",
+	"-A", "clippy::collapsible_else_if",
+	"-A", "clippy::module_inception",
+	"-A", "clippy::bool_to_int_with_if",
+	"-A", "clippy::manual_clamp",
+]
+need_stdout = false
+watch = ["libs"]
+
+[jobs.test]
+command = ["cargo", "test", "--color", "always"]
+need_stdout = true
+watch = ["libs"]
+
+[jobs.doc]
+command = ["cargo", "doc", "--color", "always", "--no-deps"]
+need_stdout = false
+watch = ["libs"]
+

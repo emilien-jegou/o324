@@ -1,10 +1,13 @@
-use patronus::{patronus, Setter};
+use patronus::patronus;
 use serde_derive::{Deserialize, Serialize};
 
 pub type TaskId = String;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-#[patronus("TaskUpdate")]
+#[patronus(
+    name = "TaskUpdate",
+    derives = "Default, Debug, Deserialize, PartialEq, Clone"
+)]
 pub struct Task {
     pub ulid: TaskId,
     pub task_name: String,
@@ -12,6 +15,7 @@ pub struct Task {
     pub tags: Vec<String>,
     pub start: u64,
     pub end: Option<u64>,
+    pub __version: u32,
 }
 
 impl TaskUpdate {
@@ -47,20 +51,21 @@ impl TaskUpdate {
 
     pub fn merge_with_task(self, task: &Task) -> Task {
         Task {
-            ulid: self.ulid.or(task.ulid.clone()),
-            task_name: self.task_name.or(task.task_name.clone()),
-            project: self.project.or(task.project.clone()),
-            tags: self.tags.or(task.tags.clone()),
-            start: self.start.or(task.start),
-            end: self.end.or(task.end),
+            ulid: self.ulid.unwrap_or(task.ulid.clone()),
+            task_name: self.task_name.unwrap_or(task.task_name.clone()),
+            project: self.project.unwrap_or(task.project.clone()),
+            tags: self.tags.unwrap_or(task.tags.clone()),
+            start: self.start.unwrap_or(task.start),
+            end: self.end.unwrap_or(task.end),
+            __version: self.__version.unwrap_or(task.__version) + 1,
         }
     }
 
     // This is an helper method
     pub fn get_ulid(&self) -> eyre::Result<String> {
         match &self.ulid {
-            Setter::Set(ulid) => Ok(ulid.clone()),
-            Setter::Unset => Err(eyre::eyre!("task ulid is a required field")),
+            Some(ulid) => Ok(ulid.clone()),
+            None => Err(eyre::eyre!("task ulid is a required field")),
         }
     }
 }

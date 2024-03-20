@@ -4,7 +4,7 @@ mod rebase_operation_struct;
 mod rebase_struct;
 
 pub use rebase_iterator_struct::RebaseIterator;
-pub use rebase_operation_struct::{Conflict, ConflictFile, RebaseOperation};
+pub use rebase_operation_struct::RebaseOperation;
 pub use rebase_struct::Rebase;
 
 pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Error> {
@@ -130,7 +130,7 @@ mod tests {
         assert_eq!(conflict.files.len(), 0);
 
         // Works even when no changes need applying
-        conflict.stage_conflicted().unwrap();
+        conflict.stage_all().unwrap();
         operation.commit_changes().unwrap();
 
         // no more conflict
@@ -271,7 +271,7 @@ mod tests {
 
             file.write("Hey").unwrap();
 
-            conflict.stage_conflicted().unwrap();
+            conflict.stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -290,7 +290,7 @@ mod tests {
             assert_eq!(file.previous, Some("World".to_string()));
 
             file.write("Hey 2").unwrap();
-            conflict.stage_conflicted().unwrap();
+            conflict.stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -302,7 +302,7 @@ mod tests {
     fn test_rebase_current_branch_ignore_patch_skip() {
         let (_keep, local1, _local2, origin) = create_repository_test_setup().unwrap();
 
-        // This tests verify non conflicted changes
+        // This tests verify non all changes
         add_commit_on_head(&origin, "REMOTE", hmap![ "Hello" => "World" ]).unwrap();
         add_commit_on_head(&local1, "LOCAL 1", hmap![ "Hello" => "Foo", ]).unwrap();
         add_commit_on_head(&local1, "LOCAL 2", hmap![ "Hello" => "Bar", ]).unwrap();
@@ -327,7 +327,7 @@ mod tests {
             assert_eq!(file.previous, None);
 
             file.write(&file.our.clone()).unwrap();
-            conflict.stage_conflicted().unwrap();
+            conflict.stage_all().unwrap();
 
             // Since the two commit are identical the local
             // commit will be deleted
@@ -349,7 +349,7 @@ mod tests {
 
             // We choose local changes here
             file.write(&file.their.clone()).unwrap();
-            conflict.stage_conflicted().unwrap();
+            conflict.stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 
@@ -405,7 +405,7 @@ mod tests {
             // files with the local changes.
             file.write(&file.their.clone()).unwrap();
 
-            conflict.stage_conflicted().unwrap();
+            conflict.stage_all().unwrap();
             operation.commit_changes().unwrap();
         }
 

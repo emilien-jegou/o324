@@ -22,6 +22,9 @@ impl GitFileFormatType {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct GitStorageConfig {
+    /// Name of the connection, will appear in commit history
+    pub connection_name: Option<String>,
+
     /// Path of git directory where tasks are stored (default to ~/.local/share/o324/git-storage-data)
     pub git_storage_path: Option<String>,
 
@@ -33,6 +36,12 @@ pub struct GitStorageConfig {
 }
 
 impl GitStorageConfig {
+    pub fn get_connection_name(&self) -> String {
+        self.connection_name
+            .clone()
+            .unwrap_or_else(|| String::from("o324"))
+    }
+
     pub fn get_file_format_type(&self) -> eyre::Result<GitFileFormatType> {
         self.git_file_format_type
             .as_ref()

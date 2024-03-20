@@ -41,15 +41,16 @@ impl Command {
 
 pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
     let task_update = TaskUpdate {
-        task_name: command.name.clone().into(),
-        project: command.parse_project_value().into(),
-        tags: command.tags.into(),
-        start: command.start.into(),
-        end: command.end.map(Option::Some).into(),
+        task_name: command.name.clone(),
+        project: command.parse_project_value(),
+        tags: command.tags,
+        start: command.start,
+        end: command.end.map(Option::Some),
         ..Default::default()
     };
 
-    core.edit_task(command.task_ref, task_update).await?;
+    let actions = core.edit_task(command.task_ref, task_update).await?;
+    crate::dbus::dbus_notify_task_changes(actions)?;
 
     Ok(())
 }

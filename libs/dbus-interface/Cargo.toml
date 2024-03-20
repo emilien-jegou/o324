@@ -1,0 +1,15 @@
+[package]
+name = "o324-dbus-interface"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "o324_dbus_interface"
+path = "lib.rs"
+
+[dependencies]
+zbus = "4.1"
+eyre = "0.6.9"
+serde = "1.0"
+o324-storage = { path = "../storage" }
