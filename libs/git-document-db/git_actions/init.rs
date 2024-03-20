@@ -1,11 +1,7 @@
-use std::{error::Error, path::PathBuf};
-
+use std::path::PathBuf;
 use git2::Signature;
 
-pub fn init(
-    repository_path: &PathBuf,
-    remote_origin_url: &str,
-) -> Result<git2::Repository, Box<dyn Error>> {
+pub fn init(repository_path: &PathBuf, remote_origin_url: &str) -> eyre::Result<git2::Repository> {
     // Create git directory if not exists
     std::fs::create_dir_all(repository_path)?;
     let repo = git2::Repository::init(repository_path)?;

@@ -1,38 +1,39 @@
-use crate::{models::task_document::TaskDocument, module::GitService};
+use crate::models::task_document::TaskDocument;
 use chrono::{DateTime, Utc};
-use git_document_db::StoreResult;
+use git_document_db::{IQueryRunner, SharedQueryRunner, StoreResult};
 use lazy_regex::Regex;
 use o324_storage_core::{Task, TaskId, TaskUpdate};
 use std::collections::HashSet;
-use teloc::Dependency;
 use ulid::Ulid;
 
-#[derive(Dependency)]
-pub struct TaskDocumentManager {
-    storage: GitService,
+pub struct TaskDocumentManager<'a> {
+    query_runner: &'a SharedQueryRunner<'a>,
 }
 
-impl TaskDocumentManager {
+impl<'a> TaskDocumentManager<'a> {
+    pub fn load(query_runner: &'a SharedQueryRunner<'a>) -> Self {
+        Self { query_runner }
+    }
+
     pub fn get_task_document_id(&self, ulid: &TaskId) -> eyre::Result<String> {
         let date: DateTime<Utc> = Ulid::from_string(ulid)?.datetime().into();
         let formatted_date = date.format("%Y-%m-%d").to_string();
         Ok(formatted_date)
     }
 
-    pub fn get_task_document_regex(&self) -> eyre::Result<Regex> {
+    pub fn get_task_document_regex() -> eyre::Result<Regex> {
         Regex::new(r"20\d{2}-\d{2}-\d{2}").map_err(From::from)
     }
 
     pub fn create_task(&self, task: Task) -> eyre::Result<()> {
         let document_id = self.get_task_document_id(&task.ulid)?;
         let mut data = self
-            .storage
-            .0
+            .query_runner
             .get::<TaskDocument>(&document_id)?
             .unwrap_or_default();
         data.tasks.insert(task.ulid.clone(), task);
         data.id = document_id;
-        self.storage.0.save(&data)?;
+        self.query_runner.save(&data)?;
         Ok(())
     }
 
@@ -50,8 +51,7 @@ impl TaskDocumentManager {
 
         for (document_name, tasks) in document_hashmap.iter() {
             let mut data: TaskDocument = self
-                .storage
-                .0
+                .query_runner
                 .get(document_name)?
                 .unwrap_or_else(Default::default);
 
@@ -59,7 +59,7 @@ impl TaskDocumentManager {
                 data.tasks.insert(task.ulid.to_string(), (*task).clone());
             }
 
-            self.storage.0.save(&data)?;
+            self.query_runner.save(&data)?;
         }
 
         Ok(())
@@ -76,8 +76,7 @@ impl TaskDocumentManager {
         let documents = document_names
             .into_iter()
             .map(|path| {
-                self.storage
-                    .0
+                self.query_runner
                     .get::<TaskDocument>(&path)
                     .map(|d| d.unwrap_or_default())
             })
@@ -97,8 +96,7 @@ impl TaskDocumentManager {
     pub fn get_task(&self, task_id: &TaskId) -> eyre::Result<Task> {
         let document_name = self.get_task_document_id(task_id)?;
         let data = self
-            .storage
-            .0
+            .query_runner
             .get::<TaskDocument>(&document_name)?
             .unwrap_or_default();
 
@@ -110,33 +108,30 @@ impl TaskDocumentManager {
         Ok(task.clone())
     }
 
-    pub fn update_task(&self, task_id: &TaskId, updated_task: TaskUpdate) -> eyre::Result<()> {
+    pub fn update_task(&self, task_id: &TaskId, updated_task: TaskUpdate) -> eyre::Result<Task> {
         let document_name = self.get_task_document_id(task_id)?;
         let mut data = self
-            .storage
-            .0
+            .query_runner
             .get::<TaskDocument>(&document_name)?
             .unwrap_or_default();
-
-        println!("{:?} {:?}", document_name, updated_task);
 
         let task = data
             .tasks
             .get(task_id)
             .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
-        data.tasks
-            .insert(task.ulid.clone(), updated_task.merge_with_task(task));
+        let merged = updated_task.merge_with_task(task);
+        data.tasks.insert(task.ulid.clone(), merged.clone());
 
-        self.storage.0.save(&data)?;
-        Ok(())
+        self.query_runner.save(&data)?;
+
+        Ok(merged)
     }
 
     pub fn delete_task(&self, task_id: &TaskId) -> eyre::Result<()> {
         let document_name = self.get_task_document_id(task_id)?;
         let mut data = self
-            .storage
-            .0
+            .query_runner
             .get::<TaskDocument>(&document_name)?
             .unwrap_or_default();
 
@@ -144,13 +139,13 @@ impl TaskDocumentManager {
             .remove(task_id)
             .ok_or_else(|| eyre::eyre!("Task not found"))?;
 
-        self.storage.0.save(&data)?;
+        self.query_runner.save(&data)?;
         Ok(())
     }
 
     pub fn get_all_tasks(&self) -> eyre::Result<Vec<Task>> {
-        let re = self.get_task_document_regex()?;
-        let all_task_documents: Vec<TaskDocument> = self.storage.0.find_matching(&re)?;
+        let re = Self::get_task_document_regex()?;
+        let all_task_documents: Vec<TaskDocument> = self.query_runner.find_matching(&re)?;
 
         // Extract and combine every tasks
         let all_tasks = all_task_documents

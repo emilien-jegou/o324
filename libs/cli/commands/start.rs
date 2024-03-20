@@ -16,11 +16,15 @@ pub struct Command {
 }
 
 pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    core.start_new_task(StartTaskInput {
-        task_name: command.task_name,
-        project: command.project,
-        tags: command.tags,
-    })
-    .await?;
+    let actions = core
+        .start_new_task(StartTaskInput {
+            task_name: command.task_name,
+            project: command.project,
+            tags: command.tags,
+        })
+        .await?;
+
+    crate::dbus::dbus_notify_task_changes(actions)?;
+
     Ok(())
 }

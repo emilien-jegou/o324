@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-
 use git2::{build::CheckoutBuilder, BranchType, Repository, Signature};
+use rand::{distributions::Alphanumeric, Rng};
 use serde::{Serialize, Serializer};
+use std::collections::HashMap;
 use tempfile::{tempdir, TempDir};
 
 #[macro_export]
@@ -95,6 +95,16 @@ pub fn get_branches_commits(
     }
 
     Ok(branches_vec)
+}
+
+pub fn random_string(len: usize) -> String {
+    let mut rng = rand::thread_rng();
+    let s: String = std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(len)
+        .collect();
+    s
 }
 
 #[derive(PartialEq, Debug, serde_derive::Deserialize)]
@@ -267,6 +277,27 @@ pub fn debug_tempdir(dir: TempDir) {
     let persistent_dir = dir.into_path();
 
     println!("TEMPDIR: {:?}", persistent_dir);
+}
+
+/// Runs a given closure in a separate thread and returns the result.
+#[allow(dead_code)]
+pub fn thread_runner<F, T>(func: F) -> T
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let (sender, receiver) = std::sync::mpsc::channel();
+
+    std::thread::spawn(move || {
+        let result = func(); // Execute the provided function
+        sender
+            .send(result)
+            .expect("Failed to send result from thread");
+    });
+
+    receiver
+        .recv()
+        .expect("Failed to receive result from thread")
 }
 
 #[cfg(test)]

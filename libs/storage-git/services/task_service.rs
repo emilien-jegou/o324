@@ -1,17 +1,29 @@
 use crate::managers::metadata_document_manager::MetadataDocumentManager;
 use crate::managers::task_document_manager::TaskDocumentManager;
 use crate::utils;
+use git_document_db::SharedQueryRunner;
 use o324_storage_core::{Task, TaskUpdate};
 use std::ops::Bound::{Excluded, Included};
 use teloc::Dependency;
 
 #[derive(Dependency)]
-pub struct TaskService {
-    metadata_document_manager: MetadataDocumentManager,
-    task_document_manager: TaskDocumentManager,
+pub struct TaskService {}
+
+pub struct TaskServiceLoaded<'a> {
+    metadata_document_manager: MetadataDocumentManager<'a>,
+    task_document_manager: TaskDocumentManager<'a>,
 }
 
-impl TaskService {
+impl<'a> TaskService {
+    pub fn load(&'a self, query_runner: &'a SharedQueryRunner<'a>) -> TaskServiceLoaded<'a> {
+        TaskServiceLoaded {
+            metadata_document_manager: MetadataDocumentManager::load(query_runner),
+            task_document_manager: TaskDocumentManager::load(query_runner),
+        }
+    }
+}
+
+impl<'a> TaskServiceLoaded<'a> {
     pub fn create_task(&self, task: Task) -> eyre::Result<()> {
         self.metadata_document_manager
             .save_task_reference(&task.ulid)?;
@@ -60,10 +72,10 @@ impl TaskService {
         Ok(tasks)
     }
 
-    pub fn update_task(&self, task_id: String, updated_task: TaskUpdate) -> eyre::Result<()> {
-        self.task_document_manager
+    pub fn update_task(&self, task_id: String, updated_task: TaskUpdate) -> eyre::Result<Task> {
+        let task = self.task_document_manager
             .update_task(&task_id, updated_task)?;
-        Ok(())
+        Ok(task)
     }
 
     pub fn delete_task(&self, task_id: String) -> eyre::Result<()> {

@@ -5,9 +5,10 @@ members = [
   "libs/storage",
   "libs/storage-core",
   "libs/storage-git",
+  "libs/dbus-interface",
   "libs/cli",
-  "libs/gui",
   "libs/patronus",
   "libs/config",
   "libs/git-document-db",
+  "libs/gui/src-tauri",
 ]

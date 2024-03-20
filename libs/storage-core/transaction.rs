@@ -2,19 +2,19 @@ use std::sync::Arc;
 
 use derive_more::Deref;
 
-use crate::PinFuture;
+use crate::{storage::StorageClient, PinFuture};
 
 #[derive(Deref, Clone)]
 #[deref(forward)]
 #[must_use]
-pub struct TransactionBox(Arc<dyn Transaction>);
+pub struct TransactionContainer(Arc<dyn Transaction>);
 
-impl TransactionBox {
+impl TransactionContainer {
     pub fn new(transaction: Arc<dyn Transaction>) -> Self {
         Self(transaction)
     }
 }
 
-pub trait Transaction: Send + Sync {
+pub trait Transaction: StorageClient {
     fn release(&self) -> PinFuture<eyre::Result<()>>;
 }

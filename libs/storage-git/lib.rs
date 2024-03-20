@@ -26,9 +26,10 @@ pub(crate) mod managers {
 }
 
 pub(crate) mod services {
+    pub mod git_service;
     pub mod metadata_service;
-    pub mod task_service;
     pub mod storage_sync_service;
+    pub mod task_service;
 }
 
 pub(crate) mod utils {

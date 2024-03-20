@@ -2,7 +2,7 @@ build:
 	cargo build
 
 watch CRATE:
-	cargo-watch -x 'build --color=always -p {{CRATE}}'
+	cargo-watch -x 'check --color=always -p {{CRATE}}'
 
 clear:
 	rm -rf ./target
