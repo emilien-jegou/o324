@@ -18,6 +18,7 @@ export default component$(() => {
   const tasks = useStore<Record<string, Task>>({});
   const sortedTasks = useSignal<Task[]>([]);
   const startTaskModalIsVisible = useSignal<boolean>(false);
+  const settingsModalIsVisible = useSignal<boolean>(false);
   const editModalTaskId = useSignal<Task['ulid'] | null>(null);
   const clock = useSignal<number | null>(null);
 
@@ -108,6 +109,10 @@ export default component$(() => {
                 onClick$={stopCurrentTask$}>Stop current task</button>
               <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
                 onClick$={synchronize$}>Synchronize</button>
+              <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                onClick$={() => {
+                  settingsModalIsVisible.value = true;
+                }}>Settings</button>
             </div>
             <p class="font-bold text-xl">{clock.value !== null ? getTimer$(clock.value) : ''}</p>
           </div>
@@ -145,7 +150,7 @@ export default component$(() => {
           editModalTaskId.value = null;
         }} class="absolute top-0 left-0 z-50 w-screen h-screen bg-black/10">
           <div onClick$={(e) => e.stopPropagation()} class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-black shadow-sm">
-            <h1 class="text-xl font-bold mb-6">Start new task</h1>
+            <h1 class="text-xl font-bold mb-6">Update a task</h1>
             <form preventdefault:submit onSubmit$={async (e: any) => {
               const formData = new FormData(e.target);
 
@@ -200,6 +205,42 @@ export default component$(() => {
             }} class="flex flex-col gap-4">
               <div class="flex gap-2 flex-row">
                 <label for="task_name" class="font-medium w-[150px]">Task name *</label>
+                <input id="task_name" class="h-8 w-full" name="task_name" />
+              </div>
+
+              <div class="flex gap-2 flex-row">
+                <label for="project" class="font-medium w-[150px]">Project</label>
+                <input id="project" class="h-8 w-full" name="project" />
+              </div>
+
+              <div class="flex gap-2 flex-row">
+                <label for="tags" class="font-medium w-[150px]">Tags</label>
+                <input id="tags" class="h-8 w-full" name="tags" />
+              </div>
+
+              <button type="submit" class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              >Submit</button>
+            </form>
+          </div>
+        </div>}
+
+        {settingsModalIsVisible.value == true && <div onClick$={() => {
+          settingsModalIsVisible.value = false;
+        }} class="absolute top-0 left-0 z-50 w-screen h-screen bg-black/10">
+          <div onClick$={(e) => e.stopPropagation()} class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-black shadow-sm">
+            <h1 class="text-xl font-bold mb-6">Settings</h1>
+            <form preventdefault:submit onSubmit$={async (e: any) => {
+              const formData = new FormData(e.target);
+
+              const task_name = String(formData.get('task_name') ?? '');
+              const project = String(formData.get('project') ?? '');
+              const tags = String(formData.get('tags') || '').split(',');
+
+              await invoke('start_new_task', { data: { task_name, project, tags } });
+              settingsModalIsVisible.value = false;
+            }} class="flex flex-col gap-4">
+              <div class="flex gap-2 flex-row">
+                <label for="task_name" class="font-medium w-[150px]">Task name</label>
                 <input id="task_name" class="h-8 w-full" name="task_name" />
               </div>
 

@@ -1,22 +1,22 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  #androidEnv = pkgs.androidenv.composeAndroidPackages {
-  #  includeEmulator = true;  # Set to true if you need to use the emulator
-  #  includeSources = false;
-  #  includeSystemImages = true;
-  #  includeNDK = true;
-  #  useGoogleAPIs = false;
-  #  useGoogleTVAddOns = false;
-  #  platformVersions = [ "29" "33" ];
-  #  abiVersions = [ "x86_64" ];
-  #  systemImageTypes = [ "google_apis_playstore" ];
-  #  buildToolsVersions = [ "30.0.3" ];
-  #  includeExtras = [];
-  #};
+  androidEnv = pkgs.androidenv.composeAndroidPackages {
+    includeEmulator = true;  # Set to true if you need to use the emulator
+    includeSources = false;
+    includeSystemImages = true;
+    includeNDK = true;
+    useGoogleAPIs = false;
+    useGoogleTVAddOns = false;
+    platformVersions = [ "29" "33" ];
+    abiVersions = [ "x86_64" ];
+    systemImageTypes = [ "google_apis_playstore" ];
+    buildToolsVersions = [ "30.0.3" ];
+    includeExtras = [];
+  };
 in pkgs.mkShell {
     buildInputs = [
-      #androidEnv.androidsdk
+      androidEnv.androidsdk
     ];
 
     nativeBuildInputs = [
@@ -77,11 +77,13 @@ in pkgs.mkShell {
       ## Android development
       export LD_LIBRARY_PATH="${pkgs.python310Packages.libxml2.out}/lib:${pkgs.llvmPackages.libcxx}/lib:$LD_LIBRARY_PATH"
       export JAVA_HOME="${pkgs.jdk17}"
-      #export ANDROID_HOME={androidEnv.androidsdk}/libexec/android-sdk
+      export ANDROID_HOME=${androidEnv.androidsdk}/libexec/android-sdk
       export ANDROID_SDK_ROOT=$ANDROID_HOME
-      #export NDK_HOME="{androidEnv.androidsdk}/libexec/android-sdk/ndk/26.1.10909125"
+      export NDK_HOME="${androidEnv.androidsdk}/libexec/android-sdk/ndk/$(ls ${androidEnv.androidsdk}/libexec/android-sdk/ndk/ | head -n 1)"
 
       # patchelf --set-interpreter /nix/store/ddwyrxif62r8n6xclvskjyy6szdhvj60-glibc-2.39-5/lib/ld-linux-x86-64.so.2 --set-rpath $(echo /nix/store/*-glibc-2.39-5/lib | tr ' ' ':') /home/emilien/.gradle/caches/transforms-3/b513380069e1d9d23b85e25896d2a7a2/transformed/aapt2-8.0.0-9289358-linux/aapt2
+
+      # avdmanager create avd -n avd_name -k "system-images;android-29;google_apis_playstore;x86_64" --device "pixel_xl"
 
       ## Linux development
       # Without this the ui may not display properly, see issue:

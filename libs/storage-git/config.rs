@@ -1,4 +1,5 @@
 use inflector::cases::pascalcase::to_pascal_case;
+use serde::Serialize;
 use serde_derive::Deserialize;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
@@ -20,7 +21,7 @@ impl GitFileFormatType {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GitStorageConfig {
     /// Name of the connection, will appear in commit history
     pub connection_name: Option<String>,
