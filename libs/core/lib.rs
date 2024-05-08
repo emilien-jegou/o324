@@ -11,8 +11,8 @@ use ulid::Ulid;
 mod utils;
 
 pub struct Core {
-    config: o324_config::CoreConfig,
-    storage: StorageContainer,
+    pub config: o324_config::CoreConfig,
+    pub storage: StorageContainer,
 }
 
 #[derive(Error, Debug)]
@@ -221,7 +221,6 @@ impl Core {
                 qr.set_current_task_id(None).await?;
             }
         } else {
-            println!("There");
             qr.update_task(task_id, update_task).await?;
         }
 
