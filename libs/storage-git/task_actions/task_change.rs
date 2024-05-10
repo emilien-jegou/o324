@@ -75,6 +75,8 @@ pub fn apply_task_change_object(
 
 #[cfg(test)]
 mod tests {
+    use o324_storage_core::TaskBuilder;
+
     use crate::tasks_vec;
 
     use super::*;
@@ -93,14 +95,17 @@ mod tests {
 
         let res = build_task_change_object(&le, &ri).unwrap();
 
-        let expected = vec![TaskChangeObject::Created(Task {
-            ulid: "b2".to_owned(),
-            task_name: "0".to_owned(),
-            project: None,
-            tags: Vec::new(),
-            start: 5,
-            end: Some(6),
-        })];
+        let expected = vec![TaskChangeObject::Created(
+            TaskBuilder::default()
+                .ulid("b2".to_owned())
+                .task_name("0".to_owned())
+                .project(None)
+                .tags(Vec::new())
+                .start(5)
+                .end(Some(6))
+                .try_build()
+                .unwrap(),
+        )];
 
         assert_eq!(res, expected);
     }

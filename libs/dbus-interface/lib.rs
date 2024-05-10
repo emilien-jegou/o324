@@ -1,5 +1,5 @@
-use o324_storage::Task;
 use o324_storage::TaskAction;
+use o324_storage::TaskBuilder;
 use serde::{Deserialize, Serialize};
 use zbus::blocking::connection;
 use zbus::blocking::Connection;
@@ -30,7 +30,6 @@ pub struct DbusTaskActionUpsert {
     pub tags: Vec<String>,
     pub start: u64,
     pub end: Optional<u64>,
-    pub __version: u32,
 }
 
 #[derive(OwnedValue)]
@@ -47,10 +46,9 @@ impl TryFrom<TaskAction> for DbusTaskAction {
                 ulid: task.ulid,
                 task_name: task.task_name,
                 project: task.project.into(),
-                tags: task.tags,
+                tags: task.tags.clone(),
                 start: task.start,
                 end: task.end.into(),
-                __version: task.__version
             })?),
             TaskAction::Delete(ulid) => Ok(DbusTaskAction::try_new_delete(DbusTaskActionDelete {
                 ulid,
@@ -66,15 +64,16 @@ impl TryFrom<DbusTaskAction> for TaskAction {
         Ok(match value.action_type {
             DbusTaskActionType::Upsert => {
                 let mut action = DbusTaskActionUpsert::try_from(value.action)?;
-                TaskAction::Upsert(Task {
-                    ulid: action.ulid.clone(),
-                    task_name: action.task_name.clone(),
-                    project: action.project.take(),
-                    tags: action.tags,
-                    start: action.start,
-                    end: action.end.take(),
-                    __version: action.__version,
-                })
+                TaskAction::Upsert(
+                    TaskBuilder::default()
+                        .ulid(action.ulid.clone())
+                        .task_name(action.task_name.clone())
+                        .project(action.project.take())
+                        .tags(action.tags)
+                        .start(action.start)
+                        .end(action.end.take())
+                        .try_build()?,
+                )
             }
             DbusTaskActionType::Delete => {
                 let action = DbusTaskActionDelete::try_from(value.action)?;

@@ -11,7 +11,7 @@ type Task = {
   start: number,
   tags: string[],
   task_name: string,
-  __version: number
+  __hash: number
 }
 
 export default component$(() => {
@@ -124,7 +124,7 @@ export default component$(() => {
             </thead>
             <tbody>
               {sortedTasks.value.map((task) =>
-                <tr key={`${task.ulid}:${task.__version}`} class="even:bg-blue-50 text-left">
+                <tr key={[task.ulid, task.__hash].join()} class="even:bg-blue-50 text-left">
                   <th class="px-2 py-1">{task.ulid}</th>
                   <td class="px-2">{task.task_name}</td>
                   <td class="px-2">{task.project}</td>

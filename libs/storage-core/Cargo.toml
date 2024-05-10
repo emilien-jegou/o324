@@ -15,3 +15,4 @@ serde = "1.0"
 serde_derive = "1.0"
 eyre = "0.6.9"
 derive_more = { version = "1.0.0-beta.6", features = ["deref", "deref_mut"] }
+derive_builder = "0.20.0"

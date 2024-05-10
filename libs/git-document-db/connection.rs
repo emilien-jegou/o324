@@ -111,6 +111,7 @@ mod tests {
         );
 
         let config = ConnectionConfig::builder()
+            .connection_name("Foo".into())
             .document_parser(JsonParser::get())
             .repository_path(repo_path.clone())
             .remote_origin_url(origin_url)
