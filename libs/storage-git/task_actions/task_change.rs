@@ -100,6 +100,7 @@ mod tests {
             tags: Vec::new(),
             start: 5,
             end: Some(6),
+            __version: 0
         })];
 
         assert_eq!(res, expected);

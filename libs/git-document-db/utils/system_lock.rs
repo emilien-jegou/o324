@@ -56,6 +56,7 @@ impl Drop for SystemLock {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use crate::utils::test_utilities;
     use nix::unistd::{fork, ForkResult};

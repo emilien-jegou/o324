@@ -86,8 +86,6 @@ impl Drop for AdvisoryLock {
 #[cfg(test)]
 mod tests {
     use nix::unistd::{fork, ForkResult};
-    use shared_memory::Shmem;
-    use shared_memory::ShmemConf;
     use std::time::Duration;
     use tempfile::tempdir;
 
@@ -96,7 +94,8 @@ mod tests {
 
     use super::*;
 
-    fn append_str_to_shared_memory(shmem: &Shmem, data: &str) -> io::Result<()> {
+    #[cfg(target_os = "android")]
+    fn append_str_to_shared_memory(shmem: &shared_memory::Shmem, data: &str) -> io::Result<()> {
         let max_size = shmem.len();
         let current_content_len = unsafe {
             let data_slice = std::slice::from_raw_parts(shmem.as_ptr(), max_size);
@@ -134,10 +133,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "android")]
     fn test_lock_unlock_multi_process() {
         let lock_name = test_utilities::random_string(16);
         let tmp = tempdir().unwrap();
-        let shmem = ShmemConf::new()
+        let shmem = shared_memory::ShmemConf::new()
             .flink(tmp.path().join("sytem_lock_shared_memory_test"))
             .size(1024)
             .force_create_flink()

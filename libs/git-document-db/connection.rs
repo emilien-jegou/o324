@@ -12,6 +12,7 @@ pub struct Connection {
     pub(crate) name: String,
     pub(crate) document_parser: DocumentParser,
     pub(crate) repository_path: PathBuf,
+    #[cfg(target_os = "linux")]
     pub(crate) repository: Arc<Mutex<git2::Repository>>,
 }
 
@@ -19,6 +20,7 @@ pub struct Connection {
 // TODO: clean up error handling
 impl Connection {
     pub fn initialize(config: ConnectionConfig) -> StoreResult<Connection> {
+        #[cfg(target_os = "linux")]
         let repository = git_actions::init(&config.repository_path, &config.remote_origin_url)
             .map_err(StoreError::git_error)?;
 
@@ -26,6 +28,7 @@ impl Connection {
             name: config.connection_name.clone(),
             document_parser: config.document_parser,
             repository_path: config.repository_path,
+            #[cfg(target_os = "linux")]
             repository: Arc::new(Mutex::new(repository)),
         })
     }
@@ -50,10 +53,11 @@ impl Connection {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
-    use crate::{document_parser::JsonParser, IQueryRunner};
     use crate::Document;
+    use crate::{document_parser::JsonParser, IQueryRunner};
     use git_document_db_macros::Document;
     use lazy_regex::Regex;
     use std::collections::BTreeSet;
