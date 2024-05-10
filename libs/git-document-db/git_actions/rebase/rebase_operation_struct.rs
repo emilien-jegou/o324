@@ -6,6 +6,7 @@ use std::{
 
 use super::diff;
 
+#[cfg(target_os = "linux")]
 pub struct RebaseOperation<'repo> {
     pub repository: &'repo git2::Repository,
     pub operation: git2::RebaseOperation<'repo>,
@@ -21,6 +22,7 @@ pub struct ConflictFile {
     pub previous: Option<String>,
 }
 
+#[cfg(target_os = "linux")]
 impl ConflictFile {
     #[cfg(test)]
     pub fn write(&mut self, content: &str) -> Result<(), git2::Error> {
@@ -35,6 +37,7 @@ pub struct ConflictCommit {
     pub timestamp: u64,
 }
 
+#[cfg(target_os = "linux")]
 impl ConflictCommit {
     pub fn from_git_commit(commit: &git2::Commit<'_>) -> Self {
         Self {
@@ -44,6 +47,7 @@ impl ConflictCommit {
     }
 }
 
+#[cfg(target_os = "linux")]
 pub struct Conflict<'repo> {
     repository: &'repo git2::Repository,
     pub files: Vec<ConflictFile>,
@@ -51,6 +55,7 @@ pub struct Conflict<'repo> {
     pub their_commit: ConflictCommit,
 }
 
+#[cfg(target_os = "linux")]
 impl<'repo> Conflict<'repo> {
     pub fn stage_all(&self) -> Result<&Self, git2::Error> {
         let mut index: git2::Index = self.repository.index()?;
@@ -61,6 +66,7 @@ impl<'repo> Conflict<'repo> {
 }
 
 /// Get the previous version of a file from a git repository relative to the current branch.
+#[cfg(target_os = "linux")]
 fn get_previous_file_content(
     repository: &git2::Repository,
     path: &Path,
@@ -82,6 +88,7 @@ fn get_previous_file_content(
     }
 }
 
+#[cfg(target_os = "linux")]
 impl<'repo> RebaseOperation<'repo> {
     pub fn new(
         repository: &'repo git2::Repository,

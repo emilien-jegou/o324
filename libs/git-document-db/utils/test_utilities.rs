@@ -1,8 +1,6 @@
-use git2::{build::CheckoutBuilder, BranchType, Repository, Signature};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Serialize, Serializer};
-use std::collections::HashMap;
-use tempfile::{tempdir, TempDir};
+use tempfile::TempDir;
 
 #[macro_export]
 macro_rules! assert_value_eq_json {
@@ -17,6 +15,7 @@ macro_rules! assert_value_eq_json {
 }
 
 #[macro_export]
+#[cfg(target_os = "linux")]
 macro_rules! assert_branches_eq_json {
     ($remote:expr, $branch_type:expr, $($json:tt)*) => {
         let v = $crate::utils::test_utilities::get_branches_commits(
@@ -28,6 +27,7 @@ macro_rules! assert_branches_eq_json {
 }
 
 #[macro_export]
+#[cfg(target_os = "linux")]
 macro_rules! assert_branch_eq_json {
     ($remote:expr, $branch_type:expr, $branch_name:expr, $($json:tt)*) => {
         let v = $crate::utils::test_utilities::get_branch_commits(
@@ -48,8 +48,9 @@ macro_rules! tasks_vec {
     }};
 }
 
+#[cfg(target_os = "linux")]
 pub fn get_branch_commits(
-    repo: &Repository,
+    repo: &git2::Repository,
     branch_name: &str,
     branch_type: git2::BranchType,
 ) -> eyre::Result<Vec<Commit>> {
@@ -76,9 +77,10 @@ pub fn get_branch_commits(
     Ok(commits)
 }
 
+#[cfg(target_os = "linux")]
 pub fn get_branches_commits(
-    repo: &Repository,
-    branch_type: BranchType,
+    repo: &git2::Repository,
+    branch_type: git2::BranchType,
 ) -> eyre::Result<Vec<Branch>> {
     let mut branches_vec = Vec::new();
 
@@ -129,8 +131,8 @@ pub struct Branch {
     commits: Vec<Commit>,
 }
 
-#[allow(dead_code)]
-pub fn list_uncommitted_changes(repo: &Repository) -> Result<Vec<String>, git2::Error> {
+#[cfg(target_os = "linux")]
+pub fn list_uncommitted_changes(repo: &git2::Repository) -> Result<Vec<String>, git2::Error> {
     let statuses = repo.statuses(Some(
         git2::StatusOptions::new()
             .include_untracked(true)
@@ -151,12 +153,13 @@ pub fn list_uncommitted_changes(repo: &Repository) -> Result<Vec<String>, git2::
     Ok(uncommited_changes)
 }
 
+#[cfg(target_os = "linux")]
 pub fn add_commit_on_head(
-    repo: &Repository,
+    repo: &git2::Repository,
     commit_name: &str,
     files: HashMap<&str, &str>,
 ) -> eyre::Result<()> {
-    let sig = Signature::now("Unit Test", "unit@example.com")?;
+    let sig = git2::Signature::now("Unit Test", "unit@example.com")?;
 
     // Attempt to retrieve the current HEAD commit, handling the case where it does not exist
     let head_result = repo.head();
@@ -208,10 +211,11 @@ pub fn add_commit_on_head(
     )?;
 
     // This fail on bare repository
-    let _ = repo.checkout_head(Some(CheckoutBuilder::default().force()));
+    let _ = repo.checkout_head(Some(git2::CheckoutBuilder::default().force()));
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn force_sync_local_with_origin(repo: &git2::Repository) -> Result<(), git2::Error> {
     // Ensure we are up to date with remote
     let mut remote = repo.find_remote("origin")?;
@@ -222,7 +226,7 @@ fn force_sync_local_with_origin(repo: &git2::Repository) -> Result<(), git2::Err
     let commit = remote_branch_ref.peel_to_commit()?;
 
     // Checkout the local main branch to the commit of origin/main forcefully
-    let mut checkout_builder = CheckoutBuilder::new();
+    let mut checkout_builder = git2::CheckoutBuilder::new();
     checkout_builder.force();
 
     repo.branch("main", &commit, false)?;
@@ -238,13 +242,18 @@ fn force_sync_local_with_origin(repo: &git2::Repository) -> Result<(), git2::Err
 }
 
 // A utility function to create a temporary directory and initialize a Git repository
-pub fn create_repository_test_setup() -> eyre::Result<(TempDir, Repository, Repository, Repository)>
-{
+#[cfg(target_os = "linux")]
+pub fn create_repository_test_setup() -> eyre::Result<(
+    TempDir,
+    git2::Repository,
+    git2::Repository,
+    git2::Repository,
+)> {
     let temp = tempdir()?;
 
     // Create the remote repository
     let origin_repo_path = temp.path().join("origin");
-    let origin = Repository::init_bare(&origin_repo_path)?;
+    let origin = git2::Repository::init_bare(&origin_repo_path)?;
     let origin_url = format!(
         "file://{}",
         origin_repo_path
@@ -254,12 +263,12 @@ pub fn create_repository_test_setup() -> eyre::Result<(TempDir, Repository, Repo
 
     // Create first local repository
     let local1_path = temp.path().join("local_1");
-    let local1 = Repository::init(local1_path)?;
+    let local1 = git2::Repository::init(local1_path)?;
     local1.remote("origin", &origin_url)?;
 
     // Create second local repository
     let local2_path = temp.path().join("local_2");
-    let local2 = Repository::init(local2_path)?;
+    let local2 = git2::Repository::init(local2_path)?;
     local2.remote("origin", &origin_url)?;
 
     add_commit_on_head(&origin, "INIT", sugars::hmap![ "text.txt" => "" ])?;
@@ -301,6 +310,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use crate::utils::test_utilities::create_repository_test_setup;
 

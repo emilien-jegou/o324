@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use crate::git_actions::rebase;
 use crate::query_runner::IQueryRunner;
 use crate::{git_actions, Connection, Document, QueryRunner, StoreError, StoreResult};
@@ -18,6 +19,7 @@ impl<'a> SyncRunner<'a> {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn rebase_action<F>(&self, rebase: &mut rebase::Rebase<'_>, mut callback: F) -> eyre::Result<()>
     where
         F: FnMut(&QueryRunner<'_>, &mut Vec<SyncConflict>) -> eyre::Result<()>,
@@ -78,15 +80,19 @@ impl<'a> SyncRunner<'a> {
     where
         F: FnMut(&QueryRunner<'_>, &mut Vec<SyncConflict>) -> eyre::Result<()>,
     {
+        #[cfg(target_os = "linux")]
         let repository = self
             .connection
             .repository
             .lock()
             .map_err(StoreError::system_error)?;
+        #[cfg(target_os = "linux")]
         git_actions::fetch(&repository).map_err(StoreError::git_error)?;
+        #[cfg(target_os = "linux")]
         let mut rebase =
             git_actions::rebase_current_branch(&repository).map_err(StoreError::git_error)?;
 
+        #[cfg(target_os = "linux")]
         match self.rebase_action(&mut rebase, callback) {
             Ok(()) => Ok(rebase.finalize().map_err(StoreError::operation_failed)?),
             Err(e) => {
@@ -96,6 +102,7 @@ impl<'a> SyncRunner<'a> {
         }
         .map_err(StoreError::operation_failed)?;
 
+        #[cfg(target_os = "linux")]
         git_actions::push(&repository).map_err(StoreError::git_error)?;
         Ok(())
     }

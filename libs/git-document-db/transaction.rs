@@ -35,12 +35,14 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn commit_on_change(&self, action: &str) -> eyre::Result<()> {
+        #[cfg(target_os = "linux")]
         let repository = self
             .connection
             .repository
             .lock()
             .map_err(StoreError::system_error)?;
         let rg = format!("*\\.{}", self.connection.document_parser.file_extension());
+        #[cfg(target_os = "linux")]
         git_actions::stage_and_commit_changes(&repository, &format!("Hey - {action}"), &[&rg])?;
         Ok(())
     }
@@ -52,12 +54,14 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn abort(&self) -> eyre::Result<()> {
+        #[cfg(target_os = "linux")]
         let repository = self
             .connection
             .repository
             .lock()
             .map_err(StoreError::system_error)?;
         let rg = format!("*\\.{}", self.connection.document_parser.file_extension());
+        #[cfg(target_os = "linux")]
         git_actions::reset_to_head(&repository, &[&rg])?;
         self.lock_manager.release_all()?;
         Ok(())

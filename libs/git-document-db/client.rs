@@ -12,10 +12,7 @@ pub struct Client<'a> {
 }
 
 impl<'a> Client<'a> {
-    pub fn new(
-        connection: &'a Connection,
-        query_runner: QueryRunner<'a>,
-    ) -> Self {
+    pub fn new(connection: &'a Connection, query_runner: QueryRunner<'a>) -> Self {
         Self {
             lock_manager: LockManager::default(),
             query_runner,
@@ -24,13 +21,19 @@ impl<'a> Client<'a> {
     }
 
     fn commit_on_change(&self, action: &str) -> eyre::Result<()> {
+        #[cfg(target_os = "linux")]
         let repository = self
             .connection
             .repository
             .lock()
             .map_err(StoreError::system_error)?;
         let rg = format!("*\\.{}", self.connection.document_parser.file_extension());
-        git_actions::stage_and_commit_changes(&repository, &format!("{} - {}", self.connection.name, action), &[&rg])?;
+        #[cfg(target_os = "linux")]
+        git_actions::stage_and_commit_changes(
+            &repository,
+            &format!("{} - {}", self.connection.name, action),
+            &[&rg],
+        )?;
         Ok(())
     }
 }

@@ -85,22 +85,28 @@ async fn synchronize_tasks(core: tauri::State<'_, Core>) -> std::result::Result<
 pub fn run_mobile() {
     use o324_config::{Config, CoreConfig, ProfileConfig};
 
+    eprintln!("Test println 2");
+    println!("Test println 2");
+    init_logging();
+
+    println!("Test println");
+    log::error!("Test");
     let config = Config {
         core: CoreConfig {
             computer_name: "android".into(),
             default_profile_name: None,
         },
         profile: sugars::hmap! {
-                "default".to_string() => ProfileConfig {
-            storage_type: "git".to_string(),
+            "default".to_string() => ProfileConfig {
+        storage_type: "git".to_string(),
         details: toml::from_str(toml::to_string(&GitStorageConfig {
-            connection_name: None,
-            git_storage_path: None,
-            git_remote_origin_url: "/tmp/aaaaaaa".to_string(),
-            git_file_format_type: None,
-        }).unwrap().as_str()).unwrap()
-                    },
-            },
+        connection_name: None,
+        git_storage_path: None,
+        git_remote_origin_url: "/tmp/aaaaaaa".to_string(),
+        git_file_format_type: None,
+            }).unwrap().as_str()).unwrap()
+                },
+        },
     };
 
     let choosen_profile: &ProfileConfig = config.profile.get("default").unwrap();
@@ -128,7 +134,6 @@ fn init_logging() {
 }
 
 pub fn run(core: o324_core::Core) {
-    init_logging();
     let mut builder = tauri::Builder::default()
         .manage(core)
         .plugin(tauri_plugin_shell::init());

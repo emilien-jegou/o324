@@ -17,28 +17,40 @@ pub(crate) mod sync_runner;
 pub(crate) mod transaction;
 
 mod utils {
+    pub(crate) mod advisory_lock;
     pub(crate) mod files;
     pub(crate) mod system_lock;
-    pub(crate) mod advisory_lock;
-    pub(crate) mod thread_lock;
     #[cfg(test)]
     pub(crate) mod test_utilities;
+    pub(crate) mod thread_lock;
 }
 
 mod git_actions {
+    #[cfg(target_os = "linux")]
     mod fetch;
+    #[cfg(target_os = "linux")]
     mod init;
+    #[cfg(target_os = "linux")]
     mod push;
+    #[cfg(target_os = "linux")]
     pub mod rebase;
-    mod stage_and_commit_changes;
+    #[cfg(target_os = "linux")]
     mod reset_to_head;
+    #[cfg(target_os = "linux")]
+    mod stage_and_commit_changes;
 
+    #[cfg(target_os = "linux")]
     pub use fetch::fetch;
+    #[cfg(target_os = "linux")]
     pub use init::init;
+    #[cfg(target_os = "linux")]
     pub use push::push;
+    #[cfg(target_os = "linux")]
     pub use rebase::rebase_current_branch;
-    pub use stage_and_commit_changes::stage_and_commit_changes;
+    #[cfg(target_os = "linux")]
     pub use reset_to_head::reset_to_head;
+    #[cfg(target_os = "linux")]
+    pub use stage_and_commit_changes::stage_and_commit_changes;
 }
 
 pub trait Document: Serialize + DeserializeOwned + std::fmt::Debug {

@@ -1,6 +1,11 @@
-#[allow(dead_code)]
-pub fn push(repo: &git2::Repository) -> Result<(), git2::Error> {
+#[cfg(target_os = "linux")]
+use git2::{Repository, Signature};
+#[cfg(target_os = "android")]
+use gix::Repository;
+
+pub fn push(repo: &Repository) -> eyre::Result<()> {
     // Configure push options (no authentication needed for local file path remotes)
+    #[cfg(target_os = "linux")]
     let mut push_options = git2::PushOptions::new();
 
     // Locate the remote named "origin" which points to the fake_origin
@@ -17,6 +22,7 @@ pub fn push(repo: &git2::Repository) -> Result<(), git2::Error> {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use sugars::hmap;
 

@@ -6,6 +6,7 @@ pub fn fetch(repo: &git2::Repository) -> Result<(), git2::Error> {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use crate::{
         assert_branch_eq_json,

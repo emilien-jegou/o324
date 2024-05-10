@@ -3,10 +3,13 @@ mod rebase_iterator_struct;
 mod rebase_operation_struct;
 mod rebase_struct;
 
+#[cfg(target_os = "linux")]
 pub use rebase_iterator_struct::RebaseIterator;
+#[cfg(target_os = "linux")]
 pub use rebase_operation_struct::RebaseOperation;
 pub use rebase_struct::Rebase;
 
+#[cfg(target_os = "linux")]
 pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Error> {
     match repo.find_reference("refs/remotes/origin/main") {
         Ok(_) => Ok(()), // `origin/main` exists, no action needed
@@ -35,6 +38,7 @@ pub fn ensure_origin_main_exists(repo: &git2::Repository) -> Result<(), git2::Er
 
 // TODO: right now we always rebase onto main, this should be changed, we should allow users to
 // set a different branch if they feel like it.
+#[cfg(target_os = "linux")]
 pub fn rebase_current_branch(repo: &git2::Repository) -> Result<Rebase<'_>, git2::Error> {
     ensure_origin_main_exists(repo)?;
 
@@ -60,6 +64,7 @@ pub fn rebase_current_branch(repo: &git2::Repository) -> Result<Rebase<'_>, git2
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use std::{thread, time::Duration};
 

@@ -40,6 +40,7 @@ impl_errordata!(eyre::Report);
 impl_errordata!(serde_json::Error);
 impl_errordata!(regex::Error);
 impl_errordata!(std::io::Error);
+#[cfg(target_os = "linux")]
 impl_errordata!(git2::Error);
 impl_errordata!(&str);
 

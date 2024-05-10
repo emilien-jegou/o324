@@ -17,6 +17,8 @@ let
 in pkgs.mkShell {
     buildInputs = [
       androidEnv.androidsdk
+      androidEnv.ndk-bundles
+      androidEnv.cmake
     ];
 
     nativeBuildInputs = [
@@ -45,6 +47,9 @@ in pkgs.mkShell {
       pkgs.gpgme
       pkgs.gnupg
       pkgs.libgpg-error
+
+      # android
+      pkgs.zlib-ng
 
       ## GUI
       # We only install packages needed for local development
@@ -80,6 +85,10 @@ in pkgs.mkShell {
       export ANDROID_HOME=${androidEnv.androidsdk}/libexec/android-sdk
       export ANDROID_SDK_ROOT=$ANDROID_HOME
       export NDK_HOME="${androidEnv.androidsdk}/libexec/android-sdk/ndk/$(ls ${androidEnv.androidsdk}/libexec/android-sdk/ndk/ | head -n 1)"
+      export ANDROID_NDK_HOME="${androidEnv.androidsdk}/libexec/android-sdk/ndk/$(ls ${androidEnv.androidsdk}/libexec/android-sdk/ndk/ | head -n 1)"
+
+      # Disable emulator audio
+      export QEMU_AUDIO_DRV=none
 
       # patchelf --set-interpreter /nix/store/ddwyrxif62r8n6xclvskjyy6szdhvj60-glibc-2.39-5/lib/ld-linux-x86-64.so.2 --set-rpath $(echo /nix/store/*-glibc-2.39-5/lib | tr ' ' ':') /home/emilien/.gradle/caches/transforms-3/b513380069e1d9d23b85e25896d2a7a2/transformed/aapt2-8.0.0-9289358-linux/aapt2
 
@@ -89,5 +98,18 @@ in pkgs.mkShell {
       # Without this the ui may not display properly, see issue:
       # https://github.com/NixOS/nixpkgs/issues/32580
       export WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+      export TOOLCHAIN=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+
+      # Other
+      export TARGET=x86_64-linux-android
+      export API=21  # Minimum API level supported by your application
+      export AR=$TOOLCHAIN/bin/llvm-ar
+      export AS=$TOOLCHAIN/bin/$TARGET-as
+      #export CC=$TOOLCHAIN/bin/$TARGET$API-clang
+      #export CXX=$TOOLCHAIN/bin/$TARGET$API-clang++
+      export LD=$TOOLCHAIN/bin/ld
+      export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+      export STRIP=$TOOLCHAIN/bin/llvm-strip
     '';
 }
