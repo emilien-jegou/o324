@@ -1,5 +1,5 @@
 use o324_config::ProfileConfig;
-use o324_storage::{StorageContainer, Task, TaskAction, TaskUpdate};
+use o324_storage::{StorageContainer, Task, TaskBuilder, TaskAction, TaskUpdate};
 use serde::Deserialize;
 use std::{
     str::FromStr,
@@ -93,15 +93,15 @@ impl Core {
         }
 
         let task_id = Ulid::new().to_string();
-        let new_task = Task {
-            ulid: task_id.clone(),
-            task_name: input.task_name,
-            project: input.project,
-            tags: input.tags,
-            start: current_timestamp,
-            end: None,
-            __version: 0,
-        };
+        let new_task = TaskBuilder::default()
+            .ulid(task_id.clone())
+            .task_name(input.task_name)
+            .project(input.project)
+            .tags(input.tags)
+            .start(current_timestamp)
+            .end(None)
+            .try_build()?;
+
         qr.create_task(new_task.clone()).await?;
         qr.set_current_task_id(Some(task_id)).await?;
         let actions = qr.release()?;

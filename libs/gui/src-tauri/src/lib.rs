@@ -88,7 +88,7 @@ pub fn run(core: o324_core::Core) {
     tauri::Builder::default()
         .manage(core)
         .plugin(tauri_plugin_shell::init())
-        .plugin(dbus_plugin::init());
+        .plugin(dbus_plugin::init())
         .invoke_handler(tauri::generate_handler![
             delete_task_by_ulid,
             edit_task,

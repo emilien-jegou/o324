@@ -7,7 +7,7 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
 pub use o324_storage_core::{
-    LockType, StorageClient, StorageContainer, Task, TaskAction, TaskId, TaskUpdate,
+    LockType, StorageClient, StorageContainer, Task, TaskAction, TaskBuilder, TaskId, TaskUpdate,
     TransactionContainer,
 };
 
