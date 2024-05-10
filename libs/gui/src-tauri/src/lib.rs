@@ -81,19 +81,14 @@ async fn synchronize_tasks(core: tauri::State<'_, Core>) -> std::result::Result<
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run_mobile() {
-    //let core = o324_core::load(&config_path, args.profile_name)?;
-
-    panic!()
-    //run(core)
-    //args.command.execute(&storage_config).await?;
+    unimplemented!()
 }
 
 pub fn run(core: o324_core::Core) {
     tauri::Builder::default()
         .manage(core)
         .plugin(tauri_plugin_shell::init())
-        // TODO: should be linux only
-        .plugin(dbus_plugin::init())
+        .plugin(dbus_plugin::init());
         .invoke_handler(tauri::generate_handler![
             delete_task_by_ulid,
             edit_task,
