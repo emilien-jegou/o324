@@ -45,6 +45,7 @@ impl Connection {
     where
         F: FnMut(&QueryRunner<'_>, &mut Vec<SyncConflict>) -> eyre::Result<()>,
     {
+        // TODO: verify if remote config changed before sync
         SyncRunner::try_new(self).sync(callback)
     }
 }

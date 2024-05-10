@@ -3,6 +3,7 @@
 
 use clap::Parser;
 use directories_next::ProjectDirs;
+use o324_gui_lib::AppConfigInner;
 use std::path::PathBuf;
 
 mod tracing;
@@ -25,9 +26,10 @@ struct Args {
     #[arg(short, long)]
     config: Option<String>,
 
-    /// Do not load dbus daemon
-    #[arg(long)]
-    no_dbus: bool,
+    // TODO:
+    // Do not load dbus daemon
+    //#[arg(long)]
+    //no_dbus: bool,
 }
 
 impl Args {
@@ -63,8 +65,14 @@ pub async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     tracing::setup()?;
 
-    let core = o324_core::load(&config_path, args.profile_name)?;
+    let core = o324_core::load(&config_path, args.profile_name.clone())?;
 
-    o324_gui_lib::run(core);
+    o324_gui_lib::run(
+        core,
+        AppConfigInner {
+            profile_name: args.profile_name,
+            config_path: config_path.to_string(),
+        },
+    );
     Ok(())
 }
