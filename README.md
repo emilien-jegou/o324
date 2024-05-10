@@ -11,9 +11,9 @@ This project aims to create an open-source time tracking solution featuring a cu
 # Roadmap
 
 ## Storage types
-- [~] Git
-- [ ] File storage (no sync)
-- [ ] Server
+- [~] git
+- [ ] file storage (no sync)
+- [ ] server
 - [ ] P2P
 
 ## CLI commands
@@ -21,28 +21,39 @@ This project aims to create an open-source time tracking solution featuring a cu
 - [x] delete
 - [x] edit
 - [x] init
-- [~] log
+- [x] log
 - [x] restart
 - [x] start
 - [ ] stats
 - [ ] status
 - [x] stop
-- [~] sync
+- [x] sync
 
 ## GUI
-
-- [ ] Onboarding
-- [x] Setup
-- [~] Latest task view
-- [~] Calendar view
+- [~] basic actions
+  - [x] create
+  - [~] edit
+  - [x] delete
+  - [x] stop
+  - [x] task list
+  - [x] synchronization
+  - [ ] settings
+- [x] hot-reload on change (IPC)
+- [ ] design implementation
+  - [ ] onboarding
+  - [~] latest task view
+  - [~] calendar view
+  - [~] settings view
+- [ ] auto synchronization
+- [ ] CLI interface
 
 ## Core
-
-- [~] Configuration profiles
+- [x] configuration profiles
+- [~] documentation website
 
 ## Mobile
 
-Currently experimenting with [Tauri mobile](https://beta.tauri.app/fr/blog/tauri-mobile-alpha/#preview).
+Currently experimenting with [Tauri mobile](https://beta.tauri.app/fr/blog/tauri-mobile-alpha/#preview). Check the `dev-android` branch.
 
 # Screens
 
