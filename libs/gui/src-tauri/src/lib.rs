@@ -13,9 +13,12 @@ async fn list_last_tasks(
     count: u64,
 ) -> std::result::Result<Vec<Task>, String> {
     trace!(count = count, "tauri command - list_last_tasks");
-    core.list_last_tasks(count)
-        .await
-        .map_err(|e| format!("{}", e))
+    core.list_last_tasks(count).await.map_err(error_handler)
+}
+
+fn error_handler(e: impl std::fmt::Display + std::fmt::Debug) -> String {
+    error!("Tauri error during command: {e:?}");
+    format!("{}", e)
 }
 
 #[tauri::command]
@@ -25,11 +28,8 @@ async fn start_new_task(
     window: Window,
 ) -> std::result::Result<(), String> {
     trace!(data = format!("{data:?}"), "tauri command - start_new_task");
-    let actions = core.start_new_task(data).await.map_err(|e| {
-        error!("Error durring start_new_task {e:?}");
-        format!("{}", e)
-    })?;
-    window_emitter::send_task_action_events(&window, &actions).map_err(|e| format!("{}", e))?;
+    let actions = core.start_new_task(data).await.map_err(error_handler)?;
+    window_emitter::send_task_action_events(&window, &actions).map_err(error_handler)?;
     Ok(())
 }
 
@@ -41,12 +41,11 @@ async fn edit_task(
     window: Window,
 ) -> std::result::Result<(), String> {
     trace!(data = format!("{data:?}"), "tauri command - start_new_task");
-    println!("data -> {:?}", data);
-    let actions = core.edit_task(TaskRef::Id(ulid), data).await.map_err(|e| {
-        error!("Error durring start_new_task {e:?}");
-        format!("{}", e)
-    })?;
-    window_emitter::send_task_action_events(&window, &actions).map_err(|e| format!("{}", e))?;
+    let actions = core
+        .edit_task(TaskRef::Id(ulid), data)
+        .await
+        .map_err(error_handler)?;
+    window_emitter::send_task_action_events(&window, &actions).map_err(error_handler)?;
     Ok(())
 }
 
@@ -57,8 +56,8 @@ async fn delete_task_by_ulid(
     window: Window,
 ) -> std::result::Result<(), String> {
     trace!(ulid = ulid, "tauri command - delete_task_by_ulid");
-    let actions = core.delete_task(ulid).await.map_err(|e| format!("{}", e))?;
-    window_emitter::send_task_action_events(&window, &actions).map_err(|e| format!("{}", e))?;
+    let actions = core.delete_task(ulid).await.map_err(error_handler)?;
+    window_emitter::send_task_action_events(&window, &actions).map_err(error_handler)?;
     Ok(())
 }
 
@@ -68,19 +67,15 @@ async fn stop_current_task(
     window: Window,
 ) -> std::result::Result<(), String> {
     trace!("tauri command - stop_current_task");
-    let actions = core
-        .stop_current_task()
-        .await
-        .map_err(|e| format!("{}", e))?;
-    window_emitter::send_task_action_events(&window, &actions).map_err(|e| format!("{}", e))?;
+    let actions = core.stop_current_task().await.map_err(error_handler)?;
+    window_emitter::send_task_action_events(&window, &actions).map_err(error_handler)?;
     Ok(())
 }
 
 #[tauri::command]
 async fn synchronize_tasks(core: tauri::State<'_, Core>) -> std::result::Result<(), String> {
     trace!("tauri command - synchronize_tasks");
-    let result = core.synchronize().await;
-    println!("RES -> {:?}", result);
+    core.synchronize().await.map_err(error_handler)?;
     Ok(())
 }
 
