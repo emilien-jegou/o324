@@ -1,6 +1,7 @@
 use crate::window_emitter;
 use o324_dbus_interface::DbusTaskAction;
 use o324_storage::TaskAction;
+use tracing::trace;
 use std::future::pending;
 use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
@@ -16,7 +17,7 @@ impl<R: Runtime> DbusInterface<R> {
     /// Refresh the frontend with updated task without diffing the task store
     /// Mainly used for propagating CLI updates to the GUI on linux
     fn notify_task_change(&mut self, action: DbusTaskAction) -> String {
-        println!("Received task change action: {action:?}");
+        trace!("Received task change action: {action:?}");
         action
             .try_into()
             .map(|task_action: TaskAction| {
@@ -37,7 +38,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             tokio::task::spawn(async move {
                 let entry = DbusInterface { app_handle: app };
                 let _conn = o324_dbus_interface::create_server(entry).unwrap();
-                println!("server is now running");
+                trace!("dbus server is now running");
                 // Dbus server is now running...
                 pending::<()>().await;
             });

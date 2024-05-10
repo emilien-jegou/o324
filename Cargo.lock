@@ -2892,6 +2892,7 @@ dependencies = [
  "o324-config",
  "o324-storage",
  "patronus",
+ "rand 0.8.5",
  "serde",
  "serde_derive",
  "thiserror",

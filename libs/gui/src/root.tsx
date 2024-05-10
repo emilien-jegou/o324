@@ -1,4 +1,4 @@
-import { $, useVisibleTask$, useTask$, useSignal, useStore, component$ } from "@builder.io/qwik";
+import { $, useVisibleTask$, useTask$, Resource, useResource$, useSignal, useStore, component$ } from "@builder.io/qwik";
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event'
 
@@ -18,6 +18,9 @@ export default component$(() => {
   const tasks = useStore<Record<string, Task>>({});
   const sortedTasks = useSignal<Task[]>([]);
   const startTaskModalIsVisible = useSignal<boolean>(false);
+  const configModalIsVisible = useSignal<boolean>(false);
+  const chooseProfileModalIsVisible = useSignal<boolean>(false);
+  // TODO: this should be done through the app reload event
   const editModalTaskId = useSignal<Task['ulid'] | null>(null);
   const clock = useSignal<number | null>(null);
 
@@ -40,6 +43,15 @@ export default component$(() => {
     await invoke('synchronize_tasks', {});
   });
 
+  const configResource = useResource$(async ({ track }) => {
+    track(() => configModalIsVisible.value);
+    if (configModalIsVisible.value == false) {
+      return null;
+    } else {
+      return await invoke('get_current_config', {});
+    }
+  });
+
   const getTimer$ = $(async (time: number) => {
     const secs = String(Math.floor(time % 60)).padStart(2, '0');
     const minutes = String(Math.floor((time % 3600) / 60)).padStart(2, '0');
@@ -51,7 +63,6 @@ export default component$(() => {
 
   useVisibleTask$(async () => {
     await listen('task-action', (e: any) => {
-      console.log(e);
       if (e.payload.Upsert) {
         const newTask = e.payload.Upsert;
         const currentTask = tasks[newTask.ulid] ?? {};
@@ -61,6 +72,9 @@ export default component$(() => {
         delete tasks[taskId];
       }
     });
+
+    await listen('config-reload', () => refresh$());
+
     await refresh$();
   });
 
@@ -108,6 +122,14 @@ export default component$(() => {
                 onClick$={stopCurrentTask$}>Stop current task</button>
               <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
                 onClick$={synchronize$}>Synchronize</button>
+              <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                onClick$={() => {
+                  configModalIsVisible.value = true;
+                }}>config</button>
+              <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                onClick$={() => {
+                  chooseProfileModalIsVisible.value = true;
+                }}>profile</button>
             </div>
             <p class="font-bold text-xl">{clock.value !== null ? getTimer$(clock.value) : ''}</p>
           </div>
@@ -145,7 +167,7 @@ export default component$(() => {
           editModalTaskId.value = null;
         }} class="absolute top-0 left-0 z-50 w-screen h-screen bg-black/10">
           <div onClick$={(e) => e.stopPropagation()} class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-black shadow-sm">
-            <h1 class="text-xl font-bold mb-6">Start new task</h1>
+            <h1 class="text-xl font-bold mb-6">Update a task</h1>
             <form preventdefault:submit onSubmit$={async (e: any) => {
               const formData = new FormData(e.target);
 
@@ -213,6 +235,59 @@ export default component$(() => {
                 <input id="tags" class="h-8 w-full" name="tags" />
               </div>
 
+              <button type="submit" class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              >Submit</button>
+            </form>
+          </div>
+        </div>}
+
+        {configModalIsVisible.value == true && <div onClick$={() => {
+          configModalIsVisible.value = false;
+        }} class="absolute top-0 left-0 z-50 w-screen h-screen bg-black/10">
+          <div onClick$={(e) => e.stopPropagation()} class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-black shadow-sm">
+            <h1 class="text-xl font-bold mb-6">config</h1>
+            <form preventdefault:submit onSubmit$={async (e: any) => {
+              const formData = new FormData(e.target);
+
+              const config = String(formData.get('config') ?? '');
+
+              console.info(config);
+              const result = await invoke('save_new_config', { config: JSON.parse(config) });
+              console.error(result);
+              configModalIsVisible.value = false;
+            }} class="flex flex-col gap-4">
+              <Resource
+                value={configResource}
+                onPending={() => <></>}
+                onRejected={(reason: any) => <div>Error: {reason}</div>}
+                onResolved={(data: any) =>
+                  <textarea id="config" class="h-80 w-full" name="config" defaultValue={JSON.stringify(data, null, 2)} />
+                }
+              />
+
+              <button type="submit" class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              >Submit</button>
+            </form>
+          </div>
+        </div>}
+
+        {chooseProfileModalIsVisible.value == true && <div onClick$={() => {
+          chooseProfileModalIsVisible.value = false;
+        }} class="absolute top-0 left-0 z-50 w-screen h-screen bg-black/10">
+          <div onClick$={(e) => e.stopPropagation()} class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-black shadow-sm">
+            <h1 class="text-xl font-bold mb-6">config</h1>
+            <form preventdefault:submit onSubmit$={async (e: any) => {
+              const formData = new FormData(e.target);
+              const profile = String(formData.get('profile_name'));
+              const result = await invoke('load_profile', { profile });
+              console.log(result);
+              chooseProfileModalIsVisible.value = false;
+            }} class="flex flex-col gap-4">
+
+              <div class="flex gap-2 flex-row">
+                <label for="profile_name" class="font-medium w-[150px]">Profile name *</label>
+                <input id="profile_name" class="h-8 w-full" name="profile_name" />
+              </div>
               <button type="submit" class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
               >Submit</button>
             </form>

@@ -1,5 +1,5 @@
-use o324_config::ProfileConfig;
-use o324_storage::{StorageContainer, Task, TaskBuilder, TaskAction, TaskUpdate};
+use o324_storage::{StorageContainer, Task, TaskAction, TaskBuilder, TaskUpdate};
+use rand::{distributions::Alphanumeric, Rng};
 use serde::Deserialize;
 use std::{
     str::FromStr,
@@ -8,27 +8,38 @@ use std::{
 use thiserror::Error;
 use ulid::Ulid;
 
+pub use o324_config::{
+    load as load_config, save as save_config, Config as BaseConfig, CoreConfig, ProfileConfig,
+};
+
 mod utils;
 
 pub struct Core {
-    config: o324_config::CoreConfig,
+    name: String,
+    config: BaseConfig,
     storage: StorageContainer,
+}
+
+impl std::fmt::Display for Core {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Core({:?})", self.name)
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum LoadError {
     #[error("An error occured when trying to open the configuration file '{0}': {1}")]
     LoadConfigError(String, String),
-    #[error("Couldn't find profile '{0}' in configuration file '{1}'")]
-    ProfileNotFound(String, String),
+    #[error("Couldn't find profile '{0}' in configuration file")]
+    ProfileNotFound(String),
     #[error("{0}")]
     ConfigError(String),
 }
 
-pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, LoadError> {
-    let config = o324_config::load(config_path)
-        .map_err(|e| LoadError::LoadConfigError(config_path.to_string(), e.to_string()))?;
-
+pub fn load_from_config(
+    config: BaseConfig,
+    profile_name: Option<String>,
+) -> Result<Core, LoadError> {
     let choosen_profile_name =
         profile_name.unwrap_or_else(|| config.core.get_default_profile_name());
 
@@ -36,16 +47,28 @@ pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, Loa
         .profile
         .iter()
         .find(|(key, _)| *key == &choosen_profile_name)
-        .ok_or_else(|| LoadError::ProfileNotFound(choosen_profile_name, config_path.to_string()))?
+        .ok_or(LoadError::ProfileNotFound(choosen_profile_name))?
         .1;
 
     let storage = o324_storage::load_builtin_storage_from_profile(choosen_profile)
         .map_err(|e| LoadError::ConfigError(e.to_string()))?;
 
     Ok(Core {
+        name: rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(8)
+            .map(char::from)
+            .collect(),
         storage,
-        config: config.core,
+        config,
     })
+}
+
+pub fn load(config_path: &str, profile_name: Option<String>) -> Result<Core, LoadError> {
+    let config = load_config(config_path)
+        .map_err(|e| LoadError::LoadConfigError(config_path.to_string(), e.to_string()))?;
+
+    load_from_config(config, profile_name)
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -78,8 +101,12 @@ impl FromStr for TaskRef {
 // TODO: prevent invalid character in task name (e.g. '#', '-')
 impl Core {
     pub async fn initialize(&self) -> eyre::Result<()> {
-        self.storage.init(&self.config).await?;
+        self.storage.init(&self.config.core).await?;
         Ok(())
+    }
+
+    pub fn get_loaded_config(&self) -> BaseConfig {
+        self.config.clone()
     }
 
     pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<Vec<TaskAction>> {
@@ -221,7 +248,6 @@ impl Core {
                 qr.set_current_task_id(None).await?;
             }
         } else {
-            println!("There");
             qr.update_task(task_id, update_task).await?;
         }
 

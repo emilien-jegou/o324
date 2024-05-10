@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
 use serde_derive::Deserialize;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CoreConfig {
     /// Name of this computer
     pub computer_name: String,
@@ -11,7 +12,7 @@ pub struct CoreConfig {
     pub default_profile_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ProfileConfig {
     /// Type of storage (e.g. git)
     pub storage_type: String,
@@ -21,7 +22,7 @@ pub struct ProfileConfig {
     pub details: toml::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub core: CoreConfig,
     pub profile: HashMap<String, ProfileConfig>,
