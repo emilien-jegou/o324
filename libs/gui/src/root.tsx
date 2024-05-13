@@ -1,8 +1,7 @@
 import { $, useVisibleTask$, useTask$, Resource, useResource$, useSignal, useStore, component$ } from "@builder.io/qwik";
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event'
 
 import "./global.css";
+import { configReloadListener, deleteTaskByUlid, editTask, getCurrentConfig, listLastTasks, loadProfile, saveNewConfig, startNewTask, stopCurrentTask, synchronizeTasks, taskActionListener } from "./api";
 
 type Task = {
   ulid: string,
@@ -25,30 +24,18 @@ export default component$(() => {
   const clock = useSignal<number | null>(null);
 
   const refresh$ = $(async () => {
-    let result: Task[] = await invoke('list_last_tasks', { count: 30 })
+    let result = await listLastTasks(30);
     Object.keys(tasks).forEach(key => delete tasks[key]);
     result.sort((a, b) => b.start - a.start);
     result.forEach((t) => tasks[t.ulid] = t);
   });
 
-  const stopCurrentTask$ = $(async () => {
-    await invoke('stop_current_task', {});
-  });
-
-  const deleteTaskById$ = $(async (task_id: Task['ulid']) => {
-    await invoke('delete_task_by_ulid', { ulid: task_id });
-  });
-
-  const synchronize$ = $(async () => {
-    await invoke('synchronize_tasks', {});
-  });
-
-  const configResource = useResource$(async ({ track }) => {
+  const configResource = useResource$(({ track }) => {
     track(() => configModalIsVisible.value);
     if (configModalIsVisible.value == false) {
       return null;
     } else {
-      return await invoke('get_current_config', {});
+      return getCurrentConfig();
     }
   });
 
@@ -62,7 +49,7 @@ export default component$(() => {
   });
 
   useVisibleTask$(async () => {
-    await listen('task-action', (e: any) => {
+    await taskActionListener((e) => {
       if (e.payload.Upsert) {
         const newTask = e.payload.Upsert;
         const currentTask = tasks[newTask.ulid] ?? {};
@@ -73,8 +60,7 @@ export default component$(() => {
       }
     });
 
-    await listen('config-reload', () => refresh$());
-
+    await configReloadListener(refresh$);
     await refresh$();
   });
 
@@ -119,9 +105,9 @@ export default component$(() => {
                   startTaskModalIsVisible.value = true;
                 }}>Start new task</button>
               <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
-                onClick$={stopCurrentTask$}>Stop current task</button>
+                onClick$={() => stopCurrentTask()}>Stop current task</button>
               <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
-                onClick$={synchronize$}>Synchronize</button>
+                onClick$={() => synchronizeTasks()}>Synchronize</button>
               <button class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-4 py-2"
                 onClick$={() => {
                   configModalIsVisible.value = true;
@@ -154,7 +140,7 @@ export default component$(() => {
                   <td class="px-2">{task.start} - {task.end ?? 'Nil'}</td>
                   <td class="flex gap-2 px-2">
                     <button onClick$={() => { editModalTaskId.value = task.ulid }} class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-1 py-1">edit</button>
-                    <button onClick$={() => deleteTaskById$(task.ulid)} class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-1 py-1">X</button>
+                    <button onClick$={() => deleteTaskByUlid(task.ulid)} class="border cursor-pointer hover:bg-slate-200 bg-slate-100 px-1 py-1">X</button>
                   </td>
 
                 </tr>
@@ -171,15 +157,12 @@ export default component$(() => {
             <form preventdefault:submit onSubmit$={async (e: any) => {
               const formData = new FormData(e.target);
 
-              const task_name = formData.get('task_name') || undefined;
-              const project = formData.get('project') || undefined;
-              const tags = formData.get('tags') ? String(formData.get('tags')).split(',') : undefined;
+              const task_name = String(formData.get('task_name')) || null;
+              const project = String(formData.get('project')) || null;
+              const tags = formData.get('tags') ? String(formData.get('tags')).split(',') : null;
 
-              console.info('invoking', { task_name, project, tags });
-              const t = await invoke('edit_task', { ulid: editModalTaskId.value, data: { task_name, project, tags } });
+              await editTask(editModalTaskId.value!, { task_name, project, tags });
 
-              console.info(t);
-              console.info('there');
               editModalTaskId.value = null;
             }} class="flex flex-col gap-4">
               <div class="flex gap-2 flex-row">
@@ -215,9 +198,7 @@ export default component$(() => {
               const project = String(formData.get('project') ?? '');
               const tags = String(formData.get('tags') || '').split(',');
 
-              console.info('invoking');
-              await invoke('start_new_task', { data: { task_name, project, tags } });
-              console.info('there');
+              await startNewTask({ task_name, project, tags });
               startTaskModalIsVisible.value = false;
             }} class="flex flex-col gap-4">
               <div class="flex gap-2 flex-row">
@@ -251,9 +232,7 @@ export default component$(() => {
 
               const config = String(formData.get('config') ?? '');
 
-              console.info(config);
-              const result = await invoke('save_new_config', { config: JSON.parse(config) });
-              console.error(result);
+              const result = saveNewConfig(JSON.parse(config));
               configModalIsVisible.value = false;
             }} class="flex flex-col gap-4">
               <Resource
@@ -279,8 +258,7 @@ export default component$(() => {
             <form preventdefault:submit onSubmit$={async (e: any) => {
               const formData = new FormData(e.target);
               const profile = String(formData.get('profile_name'));
-              const result = await invoke('load_profile', { profile });
-              console.log(result);
+              const result = await loadProfile(profile);
               chooseProfileModalIsVisible.value = false;
             }} class="flex flex-col gap-4">
 
