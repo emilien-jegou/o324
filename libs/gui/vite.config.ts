@@ -2,7 +2,6 @@ import { qwikVite } from "@builder.io/qwik/optimizer";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vite";
 import { internalIpV4 } from "internal-ip";
-import { qwikCity } from "@builder.io/qwik-city/vite";
 
 // @ts-expect-error process is a nodejs global
 const mobile = !!/android|ios/.exec(process.env.TAURI_ENV_PLATFORM);
