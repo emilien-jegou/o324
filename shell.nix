@@ -1,40 +1,41 @@
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.mkShell {
-    nativeBuildInputs = [
+    nativeBuildInputs = with pkgs; [
       ## Tauri dependencies
-      pkgs.webkitgtk_4_1
-      pkgs.librsvg
-      pkgs.stdenv.cc.cc.lib
-      pkgs.gnumake
-      pkgs.cmake
-      pkgs.jdk17
-      pkgs.llvmPackages.libcxx # libc++.so
-      pkgs.python310Packages.libxml2 # libxml2.2.so
-      pkgs.libxml2
+      webkitgtk_4_1
+      librsvg
+      stdenv.cc.cc.lib
+      gnumake
+      cmake
+      jdk17
+      llvmPackages.libcxx # libc++.so
+      python310Packages.libxml2 # libxml2.2.so
+      libxml2
+      libappindicator-gtk3
 
       ## Rust build dependencies
-      pkgs.rustup
-      pkgs.gcc
-      pkgs.openssl
-      pkgs.pkg-config
+      rustup
+      gcc
+      openssl
+      pkg-config
 
       ## Utilities
-      pkgs.zx
-      pkgs.just
+      zx
+      just
 
       ## Versio
-      pkgs.gpgme
-      pkgs.gnupg
-      pkgs.libgpg-error
+      gpgme
+      gnupg
+      libgpg-error
 
       ## GUI
       # We only install packages needed for local development
-      pkgs.libsoup
-      pkgs.webkitgtk
-      pkgs.wget
-      pkgs.nodejs_18
-      pkgs.nodePackages.typescript-language-server
+      libsoup
+      webkitgtk
+      wget
+      nodejs_18
+      nodePackages.typescript-language-server
    ];
 
     NIX_ENFORCE_PURITY = false;
@@ -51,6 +52,8 @@ pkgs.mkShell {
       [ ! -f .packages/bin/versio ] && cargo install versio --root .packages/
 
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";
+
+      export LD_LIBRARY_PATH=${pkgs.libappindicator-gtk3}/lib:$LD_LIBRARY_PATH
 
       ## Linux development
       # Without this the ui may not display properly, see issue:

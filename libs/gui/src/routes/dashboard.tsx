@@ -1,12 +1,11 @@
-import { $, useVisibleTask$, useTask$, Resource, useResource$, useSignal, useStore, component$ } from "@builder.io/qwik";
-import { Task, configReloadListener, deleteTaskByUlid, editTask, getCurrentConfig, listLastTasks, loadProfile, saveNewConfig, startNewTask, stopCurrentTask, synchronizeTasks, taskActionListener } from "./api";
-import { twMerge } from "tailwind-merge";
+import { $, useVisibleTask$, useComputed$, useTask$, Resource, useResource$, useSignal, useStore, component$ } from "@builder.io/qwik";
+import { Task, configReloadListener, deleteTaskByUlid, editTask, getCurrentConfig, listLastTasks, loadProfile, saveNewConfig, startNewTask, stopCurrentTask, synchronizeTasks, taskActionListener, updateTrayIcon } from "../api";
 
-type AppProps = {
+type DashboardProps = {
   class: string;
 }
 
-export const App = component$((props: AppProps) => {
+export const Dashboard = component$((props: DashboardProps) => {
   const tasks = useStore<Record<string, Task>>({});
   const sortedTasks = useSignal<Task[]>([]);
   const startTaskModalIsVisible = useSignal<boolean>(false);
@@ -57,17 +56,19 @@ export const App = component$((props: AppProps) => {
     await refresh$();
   });
 
+  let currentTask = useComputed$(() => Object.values(tasks).find((t) => !t.end));
+
   useTask$(({ track }) => {
     track(() => JSON.stringify(tasks));
     let taskList = Object.values(tasks).sort((a, b) => b.start - a.start);
     sortedTasks.value = taskList;
 
-    let currentTask = taskList.find((t) => !t.end);
+    const current = currentTask.value
 
-    if (currentTask) {
+    if (current) {
       // Create clock
       const computeClockValue = () => {
-        clock.value = (Date.now() - currentTask.start) / 1000;
+        clock.value = (Date.now() - current.start) / 1000;
       }
 
       computeClockValue();
@@ -81,6 +82,11 @@ export const App = component$((props: AppProps) => {
 
     return () => { };
   })
+
+  useTask$(({ track }) => {
+    track(() => !currentTask.value);
+    updateTrayIcon(!!currentTask.value);
+  });
 
   return (
     <div class={props.class}>
@@ -273,3 +279,4 @@ export const App = component$((props: AppProps) => {
     </div>
   );
 });
+

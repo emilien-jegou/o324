@@ -1,12 +1,12 @@
 use crate::window_emitter;
 use o324_dbus_interface::DbusTaskAction;
 use o324_storage::TaskAction;
-use tracing::trace;
 use std::future::pending;
 use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
     AppHandle, Runtime,
 };
+use tracing::trace;
 
 struct DbusInterface<R: Runtime> {
     app_handle: AppHandle<R>,

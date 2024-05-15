@@ -23,3 +23,5 @@ type SaveNewConfigInput = Record<string, any>;
 export const saveNewConfig = (config: SaveNewConfigInput) => invoke('save_new_config', { config: config });
 
 export const loadProfile = (profile: string) => invoke('load_profile', { profile });
+
+export const updateTrayIcon = (active: boolean) => invoke('update_tray_icon', { active });
