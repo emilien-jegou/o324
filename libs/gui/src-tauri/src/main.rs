@@ -3,7 +3,8 @@
 
 use clap::Parser;
 use directories_next::ProjectDirs;
-use o324_gui_lib::AppConfigInner;
+use eyre::OptionExt;
+use o324_gui_lib::state::AppConfigInner;
 use std::path::PathBuf;
 
 mod tracing;
@@ -25,7 +26,6 @@ struct Args {
     /// Path of configuration file (default: "~/.config/o324/config.toml")
     #[arg(short, long)]
     config: Option<String>,
-
     // TODO:
     // Do not load dbus daemon
     //#[arg(long)]
@@ -46,7 +46,7 @@ impl Args {
                     config_path
                         .to_str()
                         .map(|t| t.to_owned())
-                        .ok_or_else(|| eyre::eyre!("couldn't convert os path to string"))
+                        .ok_or_eyre("couldn't convert os path to string")
                 } else {
                     Err(eyre::eyre!("Project directories could not be found."))
                 }
