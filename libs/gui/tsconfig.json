@@ -28,10 +28,6 @@
       "~/*": ["./src/*"]
     }
   },
-  "files": [
-    "./.eslintrc.cjs",
-    "./.prettierrc.cjs"
-  ],
+  "files": ["./.eslintrc.cjs", "./.prettierrc.cjs"],
   "include": ["src", "./*.d.ts", "./*.config.ts"]
 }
-

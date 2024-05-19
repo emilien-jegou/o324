@@ -1,10 +1,19 @@
-import { Slot, JSXOutput, ContextId, QRL, component$, useContext, useComputed$, Signal, useSignal, createContextId, useContextProvider } from "@builder.io/qwik";
+import {
+  Slot,
+  component$,
+  useContext,
+  useComputed$,
+  useSignal,
+  createContextId,
+  useContextProvider,
+} from '@builder.io/qwik';
+import type { JSXOutput, ContextId, QRL, Signal } from '@builder.io/qwik';
 
 type RouteData<T> = { load: QRL<(data: T) => JSXOutput> };
 
 type RouterContextData<T extends string> = {
-  selected: Signal<T>,
-  routes: Record<T, RouteData<unknown>>
+  selected: Signal<T>;
+  routes: Record<T, RouteData<unknown>>;
 };
 
 export function defineRouterContext<T extends string>() {
@@ -12,10 +21,12 @@ export function defineRouterContext<T extends string>() {
 }
 
 type StateRouterPortalProps<T extends string> = {
-  context: ContextId<RouterContextData<T>>,
-}
+  context: ContextId<RouterContextData<T>>;
+};
 
-export const StateRouterPortal = component$(function <T extends string>(props: StateRouterPortalProps<T>) {
+export const StateRouterPortal = component$(function <T extends string>(
+  props: StateRouterPortalProps<T>,
+) {
   const context = useContext(props.context);
   const node = useComputed$(() => {
     const routeData = context.routes[context.selected.value];
@@ -23,16 +34,18 @@ export const StateRouterPortal = component$(function <T extends string>(props: S
     return routeData.load(undefined as any);
   });
 
-  return node.value
+  return node.value;
 });
 
 type StateRouterProviderProps<T extends string> = {
   defaultRoute: T;
   routes: Record<T, RouteData<any>>;
-  context: ContextId<RouterContextData<T>>,
-}
+  context: ContextId<RouterContextData<T>>;
+};
 
-export const StateRouterProvider = component$(function <T extends string>(props: StateRouterProviderProps<T>) {
+export const StateRouterProvider = component$(function <T extends string>(
+  props: StateRouterProviderProps<T>,
+) {
   const context = {
     selected: useSignal(props.defaultRoute),
     routes: props.routes,
@@ -40,5 +53,5 @@ export const StateRouterProvider = component$(function <T extends string>(props:
 
   useContextProvider(props.context, context);
 
-  return <Slot />
+  return <Slot />;
 });
