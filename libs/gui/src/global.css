@@ -1,21 +1,20 @@
-@import "tailwindcss";
-
+@import 'tailwindcss';
 
 @theme {
   /* Background */
-  --color-bg-subtle: #F2F2F2;
-  --color-bg-default: #FFF;
+  --color-bg-subtle: #f2f2f2;
+  --color-bg-default: #fff;
 
   /* Text */
   --color-text-default: #000;
-  --color-text-subtle: #6F6F6F;
-  --color-text-subtler: #CACACA;
-  --color-text-disabled: #C0C0C0;
+  --color-text-subtle: #6f6f6f;
+  --color-text-subtler: #cacaca;
+  --color-text-disabled: #c0c0c0;
 
   /* Border */
   --color-border-default: #181818;
   --color-border-subtle: #cacaca;
-  --color-border-subtler: #EBEBEB;
+  --color-border-subtler: #ebebeb;
 
   /* Other */
   --color-focused: rgba(0, 0, 0, 0.15);
