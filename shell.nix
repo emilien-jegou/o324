@@ -36,6 +36,7 @@ pkgs.mkShell {
       wget
       nodejs_18
       nodePackages.typescript-language-server
+      vscode-langservers-extracted
    ];
 
     NIX_ENFORCE_PURITY = false;

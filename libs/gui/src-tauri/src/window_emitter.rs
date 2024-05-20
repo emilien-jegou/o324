@@ -19,9 +19,7 @@ pub fn send_task_action_events<R: Runtime>(
     Ok(())
 }
 
-pub fn send_config_reload<R: Runtime>(
-    manager: &impl Manager<R>,
-) -> eyre::Result<()> {
+pub fn send_config_reload<R: Runtime>(manager: &impl Manager<R>) -> eyre::Result<()> {
     manager.emit("config_reload", true)?;
     Ok(())
 }

@@ -1,0 +1,3 @@
+.TooltipContainer:hover > .Tooltip {
+  opacity: 1;
+}

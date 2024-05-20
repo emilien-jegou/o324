@@ -8,9 +8,9 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:qwik/recommended',
     'plugin:import/recommended',
     'plugin:prettier/recommended',
+    'plugin:qwik/recommended',
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -43,7 +43,7 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-this-alias': 'off',
     '@typescript-eslint/no-unnecessary-condition': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error'],
+    '@typescript-eslint/no-unused-vars': 'warn',
     'no-case-declarations': 'off',
     'no-console': 'off',
     'prefer-spread': 'off',

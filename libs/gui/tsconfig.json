@@ -17,6 +17,9 @@
     "incremental": true,
     "isolatedModules": true,
     "noEmit": true,
+    "declaration": true,
+    "declarationDir": "lib-types",
+    "checkJs": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "noUnusedLocals": false,
@@ -29,5 +32,6 @@
     }
   },
   "files": ["./.eslintrc.cjs", "./.prettierrc.cjs"],
+  "exclude": ["node_modules"],
   "include": ["src", "./*.d.ts", "./*.config.ts"]
 }

@@ -1,4 +1,5 @@
 import { qwikVite } from '@builder.io/qwik/optimizer';
+import svgx from "@svgx/vite-plugin-qwik";
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vite';
 import { internalIpV4 } from 'internal-ip';
@@ -8,7 +9,11 @@ const mobile = !!/android|ios/.exec(process.env.TAURI_ENV_PLATFORM);
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-  plugins: [qwikVite({ srcDir: 'src' }), tsconfigPaths({ root: '.' })],
+  plugins: [
+    qwikVite({ srcDir: 'src' }),
+    svgx(),
+    tsconfigPaths({ root: '.' }),
+  ],
   dev: {
     headers: {
       'Cache-Control': 'public, max-age=0',
@@ -34,10 +39,10 @@ export default defineConfig(async () => ({
     host: mobile ? '0.0.0.0' : false,
     hmr: mobile
       ? {
-          protocol: 'ws',
-          host: await internalIpV4(),
-          port: 1421,
-        }
+        protocol: 'ws',
+        host: await internalIpV4(),
+        port: 1421,
+      }
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`

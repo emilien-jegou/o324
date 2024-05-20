@@ -124,7 +124,7 @@ impl<R: Runtime> AppTray<R> {
     pub fn set_app_icon_variant(&self, variant: SystemAppIconVariant) -> eyre::Result<()> {
         let icon = match variant {
             SystemAppIconVariant::Active => Image::from_path("./icons/32x32-active.png"),
-            SystemAppIconVariant::Inactive=> Image::from_path("./icons/32x32-inactive.png"),
+            SystemAppIconVariant::Inactive => Image::from_path("./icons/32x32-inactive.png"),
         }?;
 
         self.tray_icon.set_icon(Some(icon))?;
