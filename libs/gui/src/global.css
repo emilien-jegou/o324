@@ -1,22 +1,37 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* Background */
-  --color-bg-subtle: #f2f2f2;
-  --color-bg-default: #fff;
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  text-rendering: optimizelegibility;
+}
 
-  /* Text */
-  --color-text-default: #000;
-  --color-text-subtle: #6f6f6f;
-  --color-text-subtler: #cacaca;
-  --color-text-disabled: #c0c0c0;
+body {
+  overflow: hidden;
+}
 
-  /* Border */
-  --color-border-default: #181818;
-  --color-border-subtle: #cacaca;
-  --color-border-subtler: #ebebeb;
+* {
+  scroll-margin-top: 40px;
+}
 
-  /* Other */
-  --color-focused: rgba(0, 0, 0, 0.15);
-  --color-contrast: #000;
+.one-line {
+  @apply text-ellipsis overflow-hidden text-nowrap;
+}
+
+.one-line * {
+  @apply text-ellipsis text-nowrap;
+}
+
+.no-interaction {
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+.no-interaction * {
+    pointer-events: none !important;
+    user-select: none !important;
 }

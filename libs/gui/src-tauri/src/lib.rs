@@ -26,6 +26,7 @@ pub fn run(core: o324_core::Core, app_config: state::AppConfigInner) {
     let notifier_state = Arc::new(state::AppNotifier::new());
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .on_window_event({
             let notifier_state = notifier_state.clone();
             move |_w, event| match event {

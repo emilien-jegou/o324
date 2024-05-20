@@ -1,6 +1,6 @@
 use crate::models::task_document::TaskDocument;
 use chrono::{DateTime, Utc};
-use git_document_db::{IQueryRunner, SharedQueryRunner, StoreResult};
+use git_document_db::{SharedQueryRunner, StoreResult};
 use lazy_regex::Regex;
 use o324_storage_core::{Task, TaskId, TaskUpdate};
 use std::collections::HashSet;

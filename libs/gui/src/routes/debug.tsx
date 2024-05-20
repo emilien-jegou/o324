@@ -9,6 +9,8 @@ import {
   useStore,
   component$,
 } from '@builder.io/qwik';
+import * as R from 'remeda';
+import { twMerge } from 'tailwind-merge';
 import {
   configReloadListener,
   deleteTaskByUlid,
@@ -22,14 +24,63 @@ import {
   synchronizeTasks,
   taskActionListener,
   updateTrayIcon,
-} from '../api';
-import type { Task } from '../api';
+} from '~/api';
+import { MultiSelect } from '~/ui/common/multi-select';
+import type { Task } from '~/api';
+import type { MultiSelectOption } from '~/ui/common/multi-select';
 
-type DashboardProps = {
-  class: string;
+type DebugProps = {
+  class?: string;
 };
 
-export const Dashboard = component$((props: DashboardProps) => {
+export const Debug = component$(() => {
+  const val = useSignal([]);
+  const input = useSignal<string | undefined>(undefined);
+  const options = useSignal<MultiSelectOption[]>([
+    { label: 'nextjs', value: 'Nextjs' },
+    { label: 'Vite', value: 'vite' },
+    { label: 'Nuxt', value: 'nuxt' },
+    { label: 'Vue', value: 'vue' },
+    { label: 'Remix', value: 'remix' },
+    { label: 'Svelte', value: 'svelte' },
+    { label: 'Angular', value: 'angular' },
+    { label: 'Ember', value: 'ember' },
+    { label: 'React', value: 'react' },
+    { label: 'Gatsby', value: 'gatsby' },
+    { label: 'Astro', value: 'astro' },
+  ]);
+
+  return (
+    <div class="m-4">
+      <MultiSelect
+        error={false}
+        bind:value={val}
+        class="'w-full'"
+        onSelect$={(v) => {
+          options.value = R.pipe(
+            options.value,
+            R.concat([{ value: v, label: v }]),
+            R.uniqueBy((o) => o.value),
+          );
+        }}
+        onSearchInput$={(v) => {
+          input.value = v || undefined;
+        }}
+        placeholder="Select frameworks you like..."
+        options={R.pipe(
+          [
+            input.value?.length ? { label: input.value, value: input.value } : undefined,
+            ...options.value,
+          ],
+          R.filter((x): x is MultiSelectOption => !!x),
+          R.uniqueBy((o) => o.value),
+        )}
+      />
+    </div>
+  );
+});
+
+export const Debug2 = component$((props: DebugProps) => {
   const tasks = useStore<Record<string, Task>>({});
   const sortedTasks = useSignal<Task[]>([]);
   const startTaskModalIsVisible = useSignal<boolean>(false);
@@ -112,18 +163,18 @@ export const Dashboard = component$((props: DashboardProps) => {
   });
 
   return (
-    <div class={props.class}>
+    <div class={twMerge('bg-space-900 text-white', props.class)}>
       <div>
         <div class="flex items-center justify-between m-4">
           <div class="flex gap-4">
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={refresh$}
             >
               Refresh
             </button>
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={() => {
                 startTaskModalIsVisible.value = true;
               }}
@@ -131,19 +182,19 @@ export const Dashboard = component$((props: DashboardProps) => {
               Start new task
             </button>
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={() => stopCurrentTask()}
             >
               Stop current task
             </button>
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={() => synchronizeTasks()}
             >
               Synchronize
             </button>
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={() => {
                 configModalIsVisible.value = true;
               }}
@@ -151,7 +202,7 @@ export const Dashboard = component$((props: DashboardProps) => {
               config
             </button>
             <button
-              class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+              class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               onClick$={() => {
                 chooseProfileModalIsVisible.value = true;
               }}
@@ -163,7 +214,7 @@ export const Dashboard = component$((props: DashboardProps) => {
         </div>
         <div class="w-full px-4">
           <table class="text-sm w-full">
-            <thead class="bg-blue-800 text-white text-left">
+            <thead class="bg-space-1000 text-white text-left">
               <tr>
                 <th class="px-2 py-1">ID</th>
                 <th class="px-2">Name</th>
@@ -175,7 +226,7 @@ export const Dashboard = component$((props: DashboardProps) => {
             </thead>
             <tbody>
               {sortedTasks.value.map((task) => (
-                <tr key={[task.ulid, task.__hash].join()} class="even:bg-blue-50 text-left">
+                <tr key={[task.ulid, task.__hash].join()} class="even:bg-space-800 text-left">
                   <th class="px-2 py-1">{task.ulid}</th>
                   <td class="px-2">{task.task_name}</td>
                   <td class="px-2">{task.project}</td>
@@ -188,13 +239,13 @@ export const Dashboard = component$((props: DashboardProps) => {
                       onClick$={() => {
                         editModalTaskId.value = task.ulid;
                       }}
-                      class="border border-gray-300 cursor-pointer hover:bg-slate-200 bg-slate-100 px-1 py-1"
+                      class="border border-space-600 cursor-pointer hover:bg-space-800 bg-space-600 px-1 py-1"
                     >
                       edit
                     </button>
                     <button
                       onClick$={() => deleteTaskByUlid(task.ulid)}
-                      class="border  border-gray-300 cursor-pointer hover:bg-slate-200 bg-slate-100 px-1 py-1"
+                      class="border  border-space-600 cursor-pointer hover:bg-space-800 bg-space-600 px-1 py-1"
                     >
                       X
                     </button>
@@ -215,7 +266,7 @@ export const Dashboard = component$((props: DashboardProps) => {
         >
           <div
             onClick$={(e) => e.stopPropagation()}
-            class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-gray-300 shadow-sm"
+            class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-space-900 border border-space-600 shadow-sm"
           >
             <h1 class="text-xl font-bold mb-6">Update a task</h1>
             <form
@@ -256,7 +307,7 @@ export const Dashboard = component$((props: DashboardProps) => {
 
               <button
                 type="submit"
-                class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               >
                 Submit
               </button>
@@ -274,7 +325,7 @@ export const Dashboard = component$((props: DashboardProps) => {
         >
           <div
             onClick$={(e) => e.stopPropagation()}
-            class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-gray-300 shadow-sm"
+            class="w-md p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-space-900 border border-space-600 shadow-sm"
           >
             <h1 class="text-xl font-bold mb-6">Start new task</h1>
             <form
@@ -314,7 +365,7 @@ export const Dashboard = component$((props: DashboardProps) => {
 
               <button
                 type="submit"
-                class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               >
                 Submit
               </button>
@@ -332,7 +383,7 @@ export const Dashboard = component$((props: DashboardProps) => {
         >
           <div
             onClick$={(e) => e.stopPropagation()}
-            class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-gray-300 shadow-sm"
+            class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-space-900 border border-space-600 shadow-sm"
           >
             <h1 class="text-xl font-bold mb-6">config</h1>
             <form
@@ -363,7 +414,7 @@ export const Dashboard = component$((props: DashboardProps) => {
 
               <button
                 type="submit"
-                class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               >
                 Submit
               </button>
@@ -381,7 +432,7 @@ export const Dashboard = component$((props: DashboardProps) => {
         >
           <div
             onClick$={(e) => e.stopPropagation()}
-            class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-white border border-gray-300 shadow-sm"
+            class="w-xl p-6 mx-auto mt-[10vh] max-h-[80vh] overflow-y-auto bg-space-900 border border-space-600 shadow-sm"
           >
             <h1 class="text-xl font-bold mb-6">config</h1>
             <form
@@ -402,7 +453,7 @@ export const Dashboard = component$((props: DashboardProps) => {
               </div>
               <button
                 type="submit"
-                class="border cursor-pointer border-gray-300 hover:bg-slate-200 bg-slate-100 px-4 py-2"
+                class="border cursor-pointer border-space-600 hover:bg-space-800 bg-space-600 px-4 py-2"
               >
                 Submit
               </button>

@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "path:default",
     "event:default",
@@ -11,6 +13,13 @@
     "resources:default",
     "menu:default",
     "tray:default",
-    "window:allow-set-title"
+    "window:allow-set-title",
+    "store:allow-get",
+    "store:allow-set",
+    "store:allow-has",
+    "store:allow-delete",
+    "store:allow-entries",
+    "store:allow-save",
+    "store:allow-load"
   ]
 }

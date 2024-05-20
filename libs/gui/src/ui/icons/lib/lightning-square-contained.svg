@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="lightning-square-contained">
+<g id="Icon">
+<path d="M5.9999 21.6001C4.01168 21.6001 2.3999 19.9883 2.3999 18.0001V5.99996C2.3999 4.01174 4.01168 2.39996 5.9999 2.39996H17.9999C19.9881 2.39996 21.5999 4.01174 21.5999 5.99996L21.5999 18.0001C21.5999 19.9883 19.9881 21.6001 17.9999 21.6001H5.9999Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+<path d="M7.1999 13.6L12.7999 5.99996V11.2H16.7999L11.1999 18V13.6H7.1999Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+</g>
+</g>
+</svg>
