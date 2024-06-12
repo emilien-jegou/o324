@@ -20,7 +20,7 @@ export const routes = {
   calendar: { load: $(() => <Calendar />) },
   stats: { load: $(() => <Stats />) },
   settings: { load: $(() => <Settings />) },
-  debug: { load: $(() => <Debug class="w-full" />) },
+  debug: { load: $(() => <Debug />) },
 };
 
 export const routerContext = defineRouterContext<keyof typeof routes>();
@@ -28,7 +28,7 @@ export const routerContext = defineRouterContext<keyof typeof routes>();
 export default component$(() => {
   return (
     <TaskContextProvider>
-      <StateRouterProvider context={routerContext} defaultRoute="dashboard" routes={routes}>
+      <StateRouterProvider context={routerContext} defaultRoute="settings" routes={routes}>
         <head>
           <meta charSet="utf-8" />
           <link rel="manifest" href="/manifest.json" />

@@ -22,9 +22,15 @@ export const Field = ({
   children,
 }: FieldProps) => (
   <div class={className}>
-    <Label info={info} classes={{ root: 'mb-2' }} text={label} required={required} />
+    <Label
+      info={info}
+      classes={{ root: 'mb-2' }}
+      text={label}
+      required={required}
+      tooltipPosition="bottom-left"
+    />
     {children}
-    <p class={twMerge('mt-1 text-xs text-white select-none', error && 'text-red-500')}>
+    <p class={twMerge('mt-1 text-sm text-space-400 select-none', error && 'text-red-500')}>
       {error || helperText}&nbsp;
     </p>
   </div>

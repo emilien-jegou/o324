@@ -1,6 +1,6 @@
 import { component$ } from '@builder.io/qwik';
 import { twMerge } from 'tailwind-merge';
-import { Label } from '../label';
+import { Field } from '../field';
 import { Select } from '../select';
 import type { SelectProps } from '../select';
 import type { JSXChildren } from '@builder.io/qwik';
@@ -18,12 +18,15 @@ export type SelectFieldProps = {
 
 export const SelectField = component$(
   ({ classes, info, label, required, error, helperText, ...props }: SelectFieldProps) => (
-    <div class={classes?.root}>
-      <Label info={info} classes={{ root: 'mb-2' }} text={label} required={required} />
+    <Field
+      class={classes?.root}
+      info={info}
+      label={label}
+      required={required}
+      error={error}
+      helperText={helperText}
+    >
       <Select error={Boolean(error)} class={twMerge('w-full', classes?.select)} {...props} />
-      <p class={twMerge('mt-1 text-xs text-subtler select-none', error && 'text-error')}>
-        {error || helperText}&nbsp;
-      </p>
-    </div>
+    </Field>
   ),
 );

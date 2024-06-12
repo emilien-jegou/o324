@@ -29,14 +29,13 @@ pub fn run(core: o324_core::Core, app_config: state::AppConfigInner) {
         .plugin(tauri_plugin_store::Builder::new().build())
         .on_window_event({
             let notifier_state = notifier_state.clone();
-            move |_w, event| match event {
-                tauri::WindowEvent::CloseRequested { api, .. } => {
+            move |_w, event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     notifier_state
                         .app_visibility_emitter
                         .notify(&SystemAppVisibility::Hide);
                     api.prevent_close();
                 }
-                _ => {}
             }
         })
         .manage(state::AppCore::new(core))
