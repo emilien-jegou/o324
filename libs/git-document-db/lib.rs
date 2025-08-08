@@ -1,5 +1,3 @@
-#![feature(map_entry_replace)]
-
 use erased_serde::Serialize;
 use serde::de::DeserializeOwned;
 

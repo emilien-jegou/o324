@@ -16,7 +16,7 @@ mod utils;
 
 pub struct Core {
     name: String,
-    config: BaseConfig,
+    pub config: BaseConfig,
     storage: StorageContainer,
 }
 
@@ -76,6 +76,7 @@ pub struct StartTaskInput {
     pub task_name: String,
     pub project: Option<String>,
     pub tags: Vec<String>,
+    pub computer_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -124,6 +125,7 @@ impl Core {
             .ulid(task_id.clone())
             .task_name(input.task_name)
             .project(input.project)
+            .computer_name(input.computer_name)
             .tags(input.tags)
             .start(current_timestamp)
             .end(None)

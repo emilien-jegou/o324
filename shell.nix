@@ -32,9 +32,9 @@ pkgs.mkShell {
       ## GUI
       # We only install packages needed for local development
       libsoup
-      webkitgtk
+      #webkitgtk
       wget
-      nodejs_18
+      nodejs_24
       nodePackages.typescript-language-server
       vscode-langservers-extracted
    ];
@@ -50,7 +50,17 @@ pkgs.mkShell {
       [ ! -f .packages/bin/cargo-tauri ] && cargo install tauri-cli --root .packages/
       [ ! -f .packages/bin/bacon ] && cargo install bacon --locked --root .packages/
       [ ! -f .packages/bin/cargo-watch ] && cargo install cargo-watch --root .packages/
-      [ ! -f .packages/bin/versio ] && cargo install versio --root .packages/
+
+      if [ ! -f .packages/bin/versio ]; then
+        echo "Building versio from source..."
+        build_dir=$(mktemp -d -t versio-build-XXXXXX)
+        current_path=$(pwd)
+        git clone https://github.com/emilien-jegou/versio.git $build_dir/versio
+        cd $build_dir/versio && cargo build --release --bin versio
+        cp target/release/versio $current_path/.packages/bin
+        cd $current_path
+        rm -rf $build_dir
+      fi
 
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";
 

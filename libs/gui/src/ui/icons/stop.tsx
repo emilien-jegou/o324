@@ -6,4 +6,3 @@ export const StopIcon = (props: IconProps) => (
     <path d="M0 16V0H16V16H0Z" fill="currentColor" />
   </SvgIcon>
 );
-

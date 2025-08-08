@@ -8,7 +8,19 @@ type AppStore<T> = {
   onKeyChange(listener: (value: T | null) => void): Promise<() => void>;
 };
 
-const globalStore = new Store('o324-store.bin');
+//import { Store } from '@tauri-apps/plugin-store'
+
+//const store = await Store.load('settings.json')
+
+//await store.set('some-key', { value: 5 })
+
+//const val = await store.get<{ value: number }>('some-key')
+
+//if (val) {
+//console.log(val)
+//} else {
+//console.log('val is null')
+const globalStore = Store.load('o324-store.bin') as unknown as Store;
 
 export const getStore = <T>(key: string, defaultValue: T): AppStore<T> => {
   return {
@@ -20,7 +32,7 @@ export const getStore = <T>(key: string, defaultValue: T): AppStore<T> => {
     has: (): Promise<boolean> => globalStore.has(key),
     delete: (): Promise<boolean> => globalStore.delete(key),
     onKeyChange: (listener: (value: T) => void): Promise<() => void> =>
-      globalStore.onKeyChange(key, (v: T | null) => {
+      globalStore.onKeyChange(key, (v?: T | null) => {
         listener(v ?? defaultValue);
       }),
   };

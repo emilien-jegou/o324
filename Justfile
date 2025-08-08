@@ -7,8 +7,6 @@ watch CRATE:
 clear:
 	rm -rf ./target
 
-
-
 gui-dev:
 
 clear-all: _confirm_prompt clear
