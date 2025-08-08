@@ -1,29 +1,94 @@
-use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
-use chrono_humanize::HumanTime;
+use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 use clap::Args;
-use colored::Colorize;
+use color_eyre::owo_colors::OwoColorize;
+use colored::{ColoredString, Colorize};
 use o324_core::Core;
 use o324_storage::Task;
-use prettytable::{format, row, Table};
+use std::collections::HashMap;
+
+// --- Data Structures ---
+
+/// Represents a unique identifier with its calculated shortest unique prefix length.
+#[derive(Debug, Clone)]
+pub struct UniqueId {
+    pub full_id: String,
+    pub unique_prefix_len: usize,
+}
+
+/// A wrapper struct for display purposes, bundling a task with its unique ID info.
+#[derive(Debug)]
+pub struct DisplayTask<'a> {
+    task: &'a Task,
+    id: UniqueId,
+}
+
+/// A summary of statistics for a single day.
+#[derive(Debug)]
+pub struct DaySummary {
+    pub date: NaiveDate,
+    pub total_active_duration: Duration,
+    pub total_session_duration: Duration,
+    pub session_count: usize,
+}
+
+impl DaySummary {
+    /// Calculates the combined activity percentage for the day.
+    pub fn activity_percentage(&self) -> i64 {
+        if self.total_session_duration.num_seconds() > 0 {
+            (self.total_active_duration.num_seconds() * 100)
+                / self.total_session_duration.num_seconds()
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum NestedElem<'a> {
+    BreakSeparator(Duration),
+    Task(DisplayTask<'a>),
+}
+
+#[derive(Debug)]
+pub struct Session<'a> {
+    pub start_time: DateTime<Local>,
+    pub end_time: DateTime<Local>,
+    pub total_duration: Duration,
+    pub active_duration: Duration,
+    pub elements: Vec<NestedElem<'a>>,
+}
+
+impl<'a> Session<'a> {
+    pub fn activity_percentage(&self) -> i64 {
+        if self.total_duration.num_seconds() > 0 {
+            (self.active_duration.num_seconds() * 100) / self.total_duration.num_seconds()
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum TopLevelElem<'a> {
+    DateSeparator(DaySummary),
+    BreakSeparator(Duration),
+    Session(Session<'a>),
+}
+
+// --- CLI Command and Handler ---
 
 #[derive(Args, Debug)]
 pub struct Command {
-    /// show verbose output
-    #[clap(short, long)]
-    verbose: bool,
-
     /// show json output (override the verbose option)
     #[clap(long)]
     json: bool,
 }
 
 pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    let tasks = core.list_last_tasks(20).await?;
+    let tasks = core.list_last_tasks(50).await?;
 
     if command.json {
         json_output(&tasks).await?;
-    } else if command.verbose {
-        verbose_output(&tasks).await?;
     } else {
         short_output(&tasks).await?;
     }
@@ -31,133 +96,467 @@ pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
     Ok(())
 }
 
-// Helper function to format the duration into a more readable format
-fn format_duration(duration: Duration) -> String {
-    let seconds = duration.num_seconds();
-    let minutes = seconds / 60;
-    let hours = minutes / 60;
-    let days = hours / 24;
-
-    if days > 0 {
-        format!("{}d", days)
-    } else if hours > 0 {
-        format!("{}H", hours)
-    } else if minutes > 0 {
-        format!("{}m", minutes)
-    } else {
-        format!("{}s", seconds)
-    }
-}
+// --- Logic and Presentation Separation ---
 
 pub async fn short_output(tasks: &[Task]) -> eyre::Result<()> {
-    // Create the table
-    let mut table = Table::new();
-
-    table.set_format(format::FormatBuilder::new().padding(0, 1).build());
-
-    for task in tasks.iter() {
-        let start_naive = NaiveDateTime::from_timestamp_opt(task.start as i64, 0)
-            .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
-        let start_time = Utc.from_utc_datetime(&start_naive);
-
-        //let end_time = if let Some(end) = task.end {
-        let (humanized, duration) = if let Some(end) = task.end {
-            let end_naive = NaiveDateTime::from_timestamp_opt(end as i64, 0)
-                .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
-            let end_time = Utc.from_utc_datetime(&end_naive);
-            let humanized = HumanTime::from(end_time - Utc::now()).to_string();
-            let duration = end_time - start_time;
-            (humanized, format_duration(duration))
-        } else {
-            let duration = Utc::now() - start_time;
-            ("Ongoing".to_string(), format_duration(duration))
-        };
-
-        table.add_row(row![
-            match task.end {
-                Some(_) => "".to_string(),
-                None => "*".red().bold().to_string(),
-            },
-            duration.bold().cyan(),
-            format!("({}) ", humanized).cyan(),
-            format!(
-                "{}{}  {}",
-                match task.project.as_deref() {
-                    Some(project) => format!("{} - ", project.bold()),
-                    None => "".to_string(),
-                },
-                task.task_name,
-                task.tags
-                    .iter()
-                    .map(|x| format!("#{}", x).yellow().to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            ),
-        ]);
+    if tasks.is_empty() {
+        println!("No tasks to show.");
+        return Ok(());
     }
 
-    table.printstd();
+    let log_structure = build_log_structure(tasks)?;
+    if !log_structure.is_empty() {
+        print_log_structure(&log_structure)?;
+    }
 
     Ok(())
 }
 
-pub async fn verbose_output(tasks: &[Task]) -> eyre::Result<()> {
-    // Create the table
-    let mut table = Table::new();
+/// Calculates the shortest unique prefix length for a list of IDs.
+fn calculate_unique_ids(all_ulids: &[&str]) -> HashMap<String, UniqueId> {
+    let mut unique_ids = HashMap::new();
 
-    table.set_format(format::FormatBuilder::new().padding(1, 1).build());
+    for (i, &ulid) in all_ulids.iter().enumerate() {
+        let mut min_len = 1;
+        for len in 1..=ulid.len() {
+            let prefix = &ulid[..len];
+            let mut is_unique = true;
+            for (j, &other_ulid) in all_ulids.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                if other_ulid.starts_with(prefix) {
+                    is_unique = false;
+                    break;
+                }
+            }
+            if is_unique {
+                min_len = len;
+                break;
+            }
+            min_len = len;
+        }
+        unique_ids.insert(
+            ulid.to_string(),
+            UniqueId {
+                full_id: ulid.to_string(),
+                unique_prefix_len: min_len,
+            },
+        );
+    }
+    unique_ids
+}
 
-    // Add a row per time
-    table.add_row(row![
-        "ID".cyan().bold(),
-        "Project".cyan().bold(),
-        "Activity".cyan().bold(),
-        "Start".cyan().bold(),
-        "End".cyan().bold(),
-        "Tags".cyan().bold()
-    ]);
-
-    for task in tasks.iter() {
-        // Convert UNIX timestamp to NaiveDateTime
-        let start_naive = NaiveDateTime::from_timestamp_opt(task.start as i64, 0)
-            .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
-        let start_time = Utc
-            .from_utc_datetime(&start_naive)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string();
-
-        let end_time = if let Some(end) = task.end {
-            let end_naive = NaiveDateTime::from_timestamp_opt(end as i64, 0)
-                .ok_or_else(|| eyre::eyre!("Failed to create NaiveDateTime"))?;
-            Utc.from_utc_datetime(&end_naive)
-                .format("%Y-%m-%d %H:%M:%S")
-                .to_string()
-        } else {
-            "ONGOING".to_string()
-        };
-
-        let tags = if !task.tags.is_empty() {
-            format!("{:?}", task.tags)
-        } else {
-            "-".to_string()
-        };
-
-        table.add_row(row![
-            task.ulid,
-            task.project.as_deref().unwrap_or("-"),
-            task.task_name,
-            start_time,
-            end_time,
-            tags
-        ]);
+/// Builds the hierarchical log structure from a flat list of tasks.
+fn build_log_structure<'a>(tasks: &'a [Task]) -> eyre::Result<Vec<TopLevelElem<'a>>> {
+    if tasks.is_empty() {
+        return Ok(vec![]);
     }
 
-    table.printstd();
+    let all_ulids: Vec<&str> = tasks.iter().map(|t| t.ulid.as_str()).collect();
+    let unique_id_map = calculate_unique_ids(&all_ulids);
 
+    let mut sorted_tasks: Vec<&Task> = tasks.iter().collect();
+    sorted_tasks.sort_by_key(|t| t.start);
+
+    // 1. Group tasks into sessions based on a time threshold
+    let session_break_threshold = Duration::minutes(30);
+    let mut sessions_of_tasks: Vec<Vec<&'a Task>> = Vec::new();
+    if !sorted_tasks.is_empty() {
+        sessions_of_tasks.push(vec![sorted_tasks[0]]);
+        for i in 1..sorted_tasks.len() {
+            let prev_task = sorted_tasks[i - 1];
+            let current_task = sorted_tasks[i];
+            let prev_end_ms = prev_task.end.unwrap_or(current_task.start);
+            let prev_end_time = ms_to_datetime(prev_end_ms)?;
+            let current_start_time = ms_to_datetime(current_task.start)?;
+
+            if current_start_time - prev_end_time > session_break_threshold {
+                sessions_of_tasks.push(vec![current_task]);
+            } else {
+                sessions_of_tasks.last_mut().unwrap().push(current_task);
+            }
+        }
+    }
+
+    // --- STAGE 1: Process all sessions and calculate daily statistics ---
+    let mut all_sessions: Vec<Session<'a>> = Vec::new();
+    let mut daily_stats: HashMap<NaiveDate, (Duration, Duration, usize)> = HashMap::new();
+
+    for session_tasks in sessions_of_tasks {
+        let session_start_utc = ms_to_datetime(session_tasks.first().unwrap().start)?;
+        let session_start_local = session_start_utc.with_timezone(&Local);
+        let session_date = session_start_local.date_naive();
+
+        let session_end_utc = match session_tasks.last().unwrap().end {
+            Some(end_ms) => ms_to_datetime(end_ms)?,
+            None => Utc::now(),
+        };
+        let session_end_local = session_end_utc.with_timezone(&Local);
+
+        let total_duration = session_end_utc - session_start_utc;
+        let active_duration: Duration = session_tasks
+            .iter()
+            .map(|task| {
+                let start = ms_to_datetime(task.start).unwrap();
+                let end = task
+                    .end
+                    .map(|e| ms_to_datetime(e).unwrap())
+                    .unwrap_or_else(Utc::now);
+                end - start
+            })
+            .sum();
+
+        // Update daily statistics
+        let stats =
+            daily_stats
+                .entry(session_date)
+                .or_insert((Duration::zero(), Duration::zero(), 0));
+        stats.0 += active_duration;
+        stats.1 += total_duration;
+        stats.2 += 1;
+
+        let mut elements: Vec<NestedElem<'a>> = Vec::new();
+        for (task_idx, &task) in session_tasks.iter().enumerate() {
+            let unique_id = unique_id_map.get(&task.ulid).unwrap().clone();
+            elements.push(NestedElem::Task(DisplayTask {
+                task,
+                id: unique_id,
+            }));
+
+            if task_idx < session_tasks.len() - 1 {
+                let end_time = task
+                    .end
+                    .map(ms_to_datetime)
+                    .transpose()?
+                    .unwrap_or_else(Utc::now);
+                let next_start_time = ms_to_datetime(session_tasks[task_idx + 1].start)?;
+                let intra_break_dur = next_start_time - end_time;
+                if intra_break_dur >= Duration::seconds(30) {
+                    elements.push(NestedElem::BreakSeparator(intra_break_dur));
+                }
+            }
+        }
+
+        all_sessions.push(Session {
+            start_time: session_start_local,
+            end_time: session_end_local,
+            total_duration,
+            active_duration,
+            elements,
+        });
+    }
+
+    // --- STAGE 2: Build the final TopLevelElem vector using pre-calculated stats ---
+    let mut result: Vec<TopLevelElem<'a>> = Vec::new();
+    let mut last_session_end_time: Option<DateTime<Utc>> = None;
+    let mut last_date: Option<NaiveDate> = None;
+
+    for session in all_sessions {
+        let current_date = session.start_time.date_naive();
+
+        if let Some(last_end) = last_session_end_time {
+            let break_dur = session.start_time.with_timezone(&Utc) - last_end;
+            if last_date.unwrap() != current_date {
+                result.push(TopLevelElem::BreakSeparator(break_dur));
+                let (total_active, total_session, session_count) =
+                    daily_stats.get(&current_date).unwrap().clone();
+                result.push(TopLevelElem::DateSeparator(DaySummary {
+                    date: current_date,
+                    total_active_duration: total_active,
+                    total_session_duration: total_session,
+                    session_count,
+                }));
+            } else if break_dur >= Duration::minutes(1) {
+                result.push(TopLevelElem::BreakSeparator(break_dur));
+            }
+        } else {
+            let (total_active, total_session, session_count) =
+                daily_stats.get(&current_date).unwrap().clone();
+            result.push(TopLevelElem::DateSeparator(DaySummary {
+                date: current_date,
+                total_active_duration: total_active,
+                total_session_duration: total_session,
+                session_count,
+            }));
+        }
+
+        last_session_end_time = Some(session.end_time.with_timezone(&Utc));
+        last_date = Some(current_date);
+        result.push(TopLevelElem::Session(session));
+    }
+
+    Ok(result)
+}
+
+/// Colors the activity percentage string based on its value using absolute RGB.
+fn colorize_percentage(percentage: i64) -> ColoredString {
+    let text = format!("{}% active", percentage);
+    if percentage <= 55 {
+        colored::Colorize::truecolor(&*text, 230, 60, 60)
+    } else if percentage <= 65 {
+        colored::Colorize::truecolor(&*text, 255, 165, 0)
+    } else if percentage <= 75 {
+        colored::Colorize::truecolor(&*text, 230, 230, 50)
+    } else {
+        colored::Colorize::truecolor(&*text, 50, 200, 50)
+    }
+}
+
+/// Prints a log structure to the console with proper formatting.
+fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
+    let total_sessions = log_items
+        .iter()
+        .filter(|item| matches!(item, TopLevelElem::Session(_)))
+        .count();
+    let mut session_progress_count = 0;
+    let mut daily_session_number = 0;
+
+    // --- MODIFICATION: Use an indexed loop to allow peeking at the next item ---
+    for (idx, item) in log_items.iter().enumerate() {
+        match item {
+            TopLevelElem::DateSeparator(summary) => {
+                daily_session_number = 0;
+
+                let duration_string = format_duration_pretty(summary.total_session_duration);
+                let duration_part = duration_string.bold();
+
+                let sessions_string = format!(
+                    "{} {} {}",
+                    "in".dimmed(),
+                    summary.session_count.bold(),
+                    "sessions".dimmed()
+                );
+
+                let active_part_string = format!(
+                    "{}{}{}",
+                    "[".dimmed(),
+                    colorize_percentage(summary.activity_percentage()),
+                    "]".dimmed()
+                );
+
+                println!("{}", "│".dimmed());
+                println!(
+                    "{}{} - {} {} {}",
+                    "◆ ".blue().bold(),
+                    summary.date.format("%Y-%m-%d").blue().bold(),
+                    duration_part,
+                    sessions_string,
+                    active_part_string
+                );
+                println!("{}", "│".dimmed());
+            }
+
+            TopLevelElem::BreakSeparator(duration) => {
+                println!("{}", "│".dimmed());
+                println!(
+                    "{} {} {}",
+                    "┊".dimmed(),
+                    "⋯".dimmed(),
+                    format_duration_pretty(*duration).dimmed(),
+                );
+
+                // --- MODIFICATION: Add a spacer only if the next item is a Session ---
+                if let Some(next_item) = log_items.get(idx + 1) {
+                    if matches!(next_item, TopLevelElem::Session(_)) {
+                        println!("{}", "│".dimmed());
+                    }
+                }
+            }
+            TopLevelElem::Session(session) => {
+                session_progress_count += 1;
+                daily_session_number += 1;
+                let is_last_session_overall = session_progress_count == total_sessions;
+                let header_prefix = if is_last_session_overall {
+                    "╰➤"
+                } else {
+                    "├➤"
+                };
+
+                let title_string = format!("Session {}", daily_session_number);
+                let session_title = title_string.dimmed();
+
+                let time_header_string = format!(
+                    "{}{} → {} - {}{}",
+                    "[".dimmed(),
+                    session.start_time.format("%H:%M").cyan(),
+                    session.end_time.format("%H:%M").cyan(),
+                    format_duration_pretty(session.total_duration).bold(),
+                    "]".dimmed()
+                );
+
+                let active_header_string = format!(
+                    "{}{}{}",
+                    "[".dimmed(),
+                    colorize_percentage(session.activity_percentage()),
+                    "]".dimmed()
+                );
+                println!(
+                    "{} {} {} {}",
+                    header_prefix.dimmed(),
+                    session_title,
+                    time_header_string,
+                    active_header_string
+                );
+
+                let content_prefix = if is_last_session_overall {
+                    "  "
+                } else {
+                    "│ "
+                };
+
+                for (elem_idx, element) in session.elements.iter().enumerate() {
+                    match element {
+                        NestedElem::BreakSeparator(duration) => {
+                            println!(
+                                "{} {}  {} {}",
+                                content_prefix.dimmed(),
+                                "┊".dimmed(),
+                                "⋯".dimmed(),
+                                format_duration_pretty(*duration).dimmed()
+                            );
+                        }
+                        NestedElem::Task(display_task) => {
+                            let is_last_element_in_session = elem_idx == session.elements.len() - 1;
+
+                            let task = display_task.task;
+                            let start_time = ms_to_datetime(task.start)?.with_timezone(&Local);
+                            let task_start_time_utc = ms_to_datetime(task.start)?;
+                            let task_end_time_utc = task
+                                .end
+                                .map(|e| ms_to_datetime(e).unwrap())
+                                .unwrap_or_else(Utc::now);
+                            let task_duration = task_end_time_utc - task_start_time_utc;
+
+                            let duration_string = format_duration_pretty(task_duration);
+                            let duration_segment = format!(
+                                "{}{}{}",
+                                "(".dimmed(),
+                                duration_string.cyan().bold(),
+                                ")".dimmed()
+                            );
+
+                            let (status_icon, time_segment) = if let Some(end_ms) = task.end {
+                                let end_dt = ms_to_datetime(end_ms)?.with_timezone(&Local);
+                                (
+                                    "✓".green(),
+                                    format!(
+                                        "{} → {}",
+                                        start_time.format("%H:%M"),
+                                        end_dt.format("%H:%M")
+                                    ).dimmed().to_string(),
+                                )
+                            } else {
+                                (
+                                    "▶".yellow(),
+                                    format!(
+                                        "{} {} {}",
+                                        start_time.format("%H:%M").dimmed(),
+                                        "→".dimmed(),
+                                        "CURRENT".red().bold()
+                                    ),
+                                )
+                            };
+                            let task_connector = if is_last_element_in_session {
+                                "╰─"
+                            } else {
+                                "├─"
+                            };
+                            let full_id = &display_task.id.full_id;
+                            let unique_len = display_task.id.unique_prefix_len;
+                            let display_len = std::cmp::max(8, unique_len);
+                            let final_display_len = std::cmp::min(display_len, full_id.len());
+                            let final_unique_len = std::cmp::min(unique_len, final_display_len);
+                            let red_part = &full_id[..final_unique_len];
+                            let dimmed_part = &full_id[final_unique_len..final_display_len];
+
+                            let formatted_id =
+                                format!("{}{}", red_part.yellow().bold(), dimmed_part.dimmed());
+
+                            println!(
+                                "{} {} {} {} - {} - {} {}",
+                                content_prefix.dimmed(),
+                                task_connector.dimmed(),
+                                status_icon,
+                                formatted_id,
+                                &task.computer_name.dimmed(),
+                                time_segment,
+                                duration_segment
+                            );
+                            let desc_line_prefix = if is_last_element_in_session {
+                                format!("{}      ", content_prefix.dimmed())
+                            } else {
+                                format!("{} {}    ", content_prefix.dimmed(), "│".dimmed())
+                            };
+                            let tags = task
+                                .tags
+                                .iter()
+                                .map(|t| format!("#{}", t))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                                .dimmed()
+                                .to_string();
+                            println!(
+                                "{}{} {} {}",
+                                desc_line_prefix,
+                                match task.project.as_deref() {
+                                    Some(p) => format!("{} -", p.bold()),
+                                    None => "".to_string(),
+                                },
+                                task.task_name,
+                                tags
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
+}
+
+// --- Helper and Other Output Functions ---
+
+fn format_duration_pretty(duration: Duration) -> String {
+    if duration < Duration::zero() {
+        return "0s".to_string();
+    }
+
+    let total_seconds = duration.num_seconds();
+    if total_seconds < 60 {
+        return format!("{}s", total_seconds);
+    }
+
+    let total_minutes = duration.num_minutes();
+    if total_minutes < 60 {
+        return format!("{}m", total_minutes);
+    }
+
+    let total_hours = duration.num_hours();
+    if total_hours < 24 {
+        let minutes = total_minutes % 60;
+        if minutes > 0 {
+            return format!("{}h{}m", total_hours, minutes);
+        } else {
+            return format!("{}h", total_hours);
+        }
+    }
+
+    let days = total_hours / 24;
+    let hours = total_hours % 24;
+    if hours > 0 {
+        format!("{}d{}h", days, hours)
+    } else {
+        format!("{}d", days)
+    }
+}
+
+fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
+    DateTime::from_timestamp_millis(ms as i64)
+        .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
 
 pub async fn json_output(tasks: &[Task]) -> eyre::Result<()> {
-    println!("{}", serde_json::to_string(tasks)?);
+    println!("{}", serde_json::to_string_pretty(tasks)?);
     Ok(())
 }

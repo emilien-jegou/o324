@@ -1,4 +1,12 @@
-import { $, component$, useComputed$, useId, useOnDocument, useSignal, useTask$ } from '@builder.io/qwik';
+import {
+  $,
+  component$,
+  useComputed$,
+  useId,
+  useOnDocument,
+  useSignal,
+  useTask$,
+} from '@builder.io/qwik';
 import { twMerge } from 'tailwind-merge';
 import { SelectExpandIcon } from '~/ui/icons/select-expand';
 import { FocusCycleController } from '~/ui/logics/focus-cycle-controller';
@@ -128,7 +136,7 @@ export const MultiSelect = component$(
               'field w-full cursor-text flex items-center justify-between whitespace-nowrap rounded-md border border-space-600 bg-transparent px-3 py-2 shadow-sm ring-offset-background [&amp;>span]:line-clamp-1',
               (expanded.value || focused.value) && 'field-accent-500',
               props.disabled &&
-              'cursor-not-allowed shadow-sm outline-0 border-transparent bg-subtle text-space-300',
+                'cursor-not-allowed shadow-sm outline-0 border-transparent bg-subtle text-space-300',
               props.error && 'border-error',
             )}
           >
@@ -163,8 +171,7 @@ export const MultiSelect = component$(
                     selectCurrent$();
                     e.stopPropagation();
                     e.preventDefault();
-                  }
-                  else if (e.key === 'Delete' || e.key === 'Backspace') {
+                  } else if (e.key === 'Delete' || e.key === 'Backspace') {
                     if (!searchValue.value?.length && current.value.length > 0) {
                       unselect$(current.value[current.value.length - 1]);
                     }

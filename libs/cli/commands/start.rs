@@ -21,6 +21,7 @@ pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
             task_name: command.task_name,
             project: command.project,
             tags: command.tags,
+            computer_name: core.config.core.computer_name.clone(),
         })
         .await?;
 

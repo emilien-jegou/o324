@@ -15,4 +15,3 @@ export const SidebarItem = (props: SidebarItemProps) => {
     </button>
   );
 };
-

@@ -16,6 +16,7 @@ pub async fn handle(_: Command, core: &Core) -> eyre::Result<()> {
         task_name: task.task_name,
         project: task.project,
         tags: task.tags,
+        computer_name: task.computer_name
     })
     .await?;
 

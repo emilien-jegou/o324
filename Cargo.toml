@@ -10,5 +10,5 @@ members = [
   "libs/patronus",
   "libs/config",
   "libs/git-document-db",
-  "libs/gui/src-tauri",
+  #"libs/gui/src-tauri",
 ]

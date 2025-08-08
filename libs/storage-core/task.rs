@@ -18,6 +18,7 @@ pub struct Task {
     pub project: Option<String>,
     pub tags: Vec<String>,
     pub start: u64,
+    pub computer_name: String,
     pub end: Option<u64>,
     #[builder(setter(skip))]
     __hash: u64,
@@ -35,6 +36,7 @@ impl TaskBuilder {
                 .clone()
                 .ok_or_else(|| eyre::eyre!("field task_name is not set"))?,
             project: self.project.clone().unwrap_or_default(),
+            computer_name: self.computer_name.clone().unwrap_or_default(),
             tags: self.tags.clone().unwrap_or_default(),
             start: self
                 .start
@@ -106,6 +108,7 @@ impl TaskUpdate {
             ulid: self.ulid.unwrap_or(task.ulid.clone()),
             task_name: self.task_name.unwrap_or(task.task_name.clone()),
             project: self.project.unwrap_or(task.project.clone()),
+            computer_name: self.computer_name.unwrap_or(task.computer_name.clone()),
             tags: self.tags.unwrap_or(task.tags.clone()),
             start: self.start.unwrap_or(task.start),
             end: self.end.unwrap_or(task.end),

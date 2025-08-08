@@ -1,6 +1,3 @@
-#![feature(trait_upcasting)]
-#![feature(concat_idents)]
-
 mod config;
 pub(crate) mod module;
 mod storage;
