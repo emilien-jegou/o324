@@ -31,7 +31,7 @@ pkgs.mkShell {
 
       ## GUI
       # We only install packages needed for local development
-      libsoup
+      #libsoup
       #webkitgtk
       wget
       nodejs_24

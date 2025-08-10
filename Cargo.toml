@@ -7,6 +7,7 @@ members = [
   "libs/storage-git",
   "libs/dbus-interface",
   "libs/cli",
+  "libs/daemon",
   "libs/patronus",
   "libs/config",
   "libs/git-document-db",
