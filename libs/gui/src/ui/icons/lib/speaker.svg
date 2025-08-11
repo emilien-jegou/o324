@@ -1,9 +1,0 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="speaker">
-<g id="Icon">
-<path d="M3.59998 6.00002C3.59998 4.0118 5.21175 2.40002 7.19998 2.40002H16.8C18.7882 2.40002 20.4 4.0118 20.4 6.00002V18C20.4 19.9882 18.7882 21.6 16.8 21.6H7.19998C5.21175 21.6 3.59998 19.9882 3.59998 18V6.00002Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-<path d="M12.085 6.00002H12V6.0769H12.085V6.00002Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-<path d="M15.6 14.4C15.6 16.3882 13.9882 18 12 18C10.0118 18 8.39998 16.3882 8.39998 14.4C8.39998 12.4118 10.0118 10.8 12 10.8C13.9882 10.8 15.6 12.4118 15.6 14.4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-</g>
-</g>
-</svg>

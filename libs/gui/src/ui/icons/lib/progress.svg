@@ -1,8 +1,0 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="progress" opacity="0.9">
-<g id="Icon">
-<path d="M18 12C18 14.9745 15.8356 17.4434 12.9958 17.9178C12.4511 18.0088 12 17.5523 12 17V7.00002C12 6.44774 12.4511 5.99129 12.9958 6.08228C15.8356 6.55663 18 9.02557 18 12Z" stroke="currentColor" stroke-width="2"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M21.6 12C21.6 17.302 17.302 21.6 12 21.6C6.69809 21.6 2.40002 17.302 2.40002 12C2.40002 6.69809 6.69809 2.40002 12 2.40002C17.302 2.40002 21.6 6.69809 21.6 12Z" stroke="currentColor" stroke-width="2"/>
-</g>
-</g>
-</svg>
