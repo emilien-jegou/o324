@@ -75,8 +75,6 @@ pub enum TopLevelElem<'a> {
     Session(Session<'a>),
 }
 
-// --- CLI Command and Handler ---
-
 #[derive(Args, Debug)]
 pub struct Command {
     /// show json output (override the verbose option)
@@ -444,7 +442,9 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                                         "{} → {}",
                                         start_time.format("%H:%M"),
                                         end_dt.format("%H:%M")
-                                    ).dimmed().to_string(),
+                                    )
+                                    .dimmed()
+                                    .to_string(),
                                 )
                             } else {
                                 (
@@ -514,8 +514,6 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
     }
     Ok(())
 }
-
-// --- Helper and Other Output Functions ---
 
 fn format_duration_pretty(duration: Duration) -> String {
     if duration < Duration::zero() {

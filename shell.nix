@@ -1,7 +1,18 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+    url = "https://channels.nixos.org/nixos-25.05/nixexprs.tar.xz";
+  }) {} }:
 
+let
+  rust-overlay = import (builtins.fetchTarball {
+    url = "https://github.com/oxalica/rust-overlay/archive/master.tar.gz";
+  });
+
+  pkgs = import <nixpkgs> {
+    overlays = [ rust-overlay ];
+  };
+in
 pkgs.mkShell {
-    nativeBuildInputs = with pkgs; [
+    buildInputs = with pkgs; [
       ## Tauri dependencies
       webkitgtk_4_1
       librsvg
@@ -15,14 +26,23 @@ pkgs.mkShell {
       libappindicator-gtk3
 
       ## Rust build dependencies
-      rustup
       gcc
       openssl
+      wmctrl
       pkg-config
+      (pkgs.rust-bin.nightly."2025-07-07".default.override {
+        extensions = ["rust-src" "rustfmt" "rust-analyzer" "clippy"];
+        targets = ["wasm32-unknown-unknown" "x86_64-unknown-linux-gnu" ];
+      })
 
       ## Utilities
       zx
       just
+      wget
+      elixir
+      qemu
+      buildPackages.gcc
+      elixir-ls
 
       ## Versio
       gpgme
@@ -43,9 +63,6 @@ pkgs.mkShell {
 
     shellHook =
     ''
-      if ! rustup toolchain list | grep default | grep -q nightly; then
-        rustup default nightly
-      fi;
       [ ! -f .packages/bin/cargo-expand ] && cargo install cargo-expand --root .packages/
       [ ! -f .packages/bin/cargo-tauri ] && cargo install tauri-cli --root .packages/
       [ ! -f .packages/bin/bacon ] && cargo install bacon --locked --root .packages/
@@ -63,15 +80,14 @@ pkgs.mkShell {
       fi
 
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";
-
       export LD_LIBRARY_PATH=${pkgs.libappindicator-gtk3}/lib:$LD_LIBRARY_PATH
+      export VM_ISO_OUT_PATH="$(pwd)/.packages/iso/"
 
-      ## Linux development
       # Without this the ui may not display properly, see issue:
       # https://github.com/NixOS/nixpkgs/issues/32580
-      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      # export WEBKIT_DISABLE_COMPOSITING_MODE=1
 
-      ## !! You may want to run this command aswell !!
-      # rustup component add rust-analyzer --toolchain nightly
+      # Use this to override configurations
+      [ -f .localrc ] && source .localrc
     '';
 }

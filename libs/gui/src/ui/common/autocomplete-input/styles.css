@@ -1,4 +1,0 @@
-
-.select-expanded:not(:hover) .select-selected-option {
-  @apply bg-space-600;
-}
