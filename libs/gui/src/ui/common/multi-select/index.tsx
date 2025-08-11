@@ -7,10 +7,10 @@ import {
   useSignal,
   useTask$,
 } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { SelectExpandIcon } from '~/ui/icons/select-expand';
 import { FocusCycleController } from '~/ui/logics/focus-cycle-controller';
 import { FocusCycleNode } from '~/ui/logics/focus-cycle-node';
+import { cn } from '~/utils/cn';
 import { MultiSelectOption } from './option';
 import type { JSXOutput, PropFunction, QRL, Signal } from '@builder.io/qwik';
 
@@ -34,6 +34,7 @@ export type MultiSelectProps = {
   disabled?: boolean;
   placeholder?: string;
   options: MultiSelectOption[];
+  tabIndex?: number;
   renderEmpty$?: QRL<(args: RenderEmptyArgs) => JSXOutput>;
 };
 
@@ -44,6 +45,7 @@ export const MultiSelect = component$(
     options,
     onSelect$,
     onUnselect$,
+    tabIndex,
     ...props
   }: MultiSelectProps) => {
     const current = props['bind:value'];
@@ -66,7 +68,6 @@ export const MultiSelect = component$(
 
     useTask$(({ track }) => {
       track(() => options);
-      console.info('OPT', options);
     });
 
     const filteredOptions = useComputed$(() => {
@@ -101,7 +102,7 @@ export const MultiSelect = component$(
     });
 
     return (
-      <div ref={ref} class={twMerge('relative w-full h-min', props.class)}>
+      <div ref={ref} class={cn('relative w-full h-min', props.class)}>
         <FocusCycleController
           bind:position={cyclePosition}
           role="presentation"
@@ -111,6 +112,7 @@ export const MultiSelect = component$(
             ref={buttonRef}
             type="button"
             role="combobox"
+            tabIndex={tabIndex ?? 1}
             aria-controls={`radix-:${id}:`}
             aria-expanded={expanded.value}
             disabled={props.disabled}
@@ -132,7 +134,7 @@ export const MultiSelect = component$(
               }
             }}
             aria-autocomplete="none"
-            class={twMerge(
+            class={cn(
               'field w-full cursor-text flex items-center justify-between whitespace-nowrap rounded-md border border-space-600 bg-transparent px-3 py-2 shadow-sm ring-offset-background [&amp;>span]:line-clamp-1',
               (expanded.value || focused.value) && 'field-accent-500',
               props.disabled &&
@@ -197,7 +199,7 @@ export const MultiSelect = component$(
                 e.preventDefault();
                 inputRef.value?.focus();
               }}
-              class={twMerge(
+              class={cn(
                 'select-expanded flex flex-col border border-space-600 shadow-sm rounded-md absolute bg-space-800 z-50 top-[100%] mt-2 p-1 h-fit w-full max-h-[160px] overflow-y-auto',
               )}
             >

@@ -1,4 +1,5 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
+import { focusNext } from '~/utils/focus';
 import { Label } from '../label';
 import type { JSXChildren } from '@builder.io/qwik';
 
@@ -21,7 +22,14 @@ export const Field = ({
   helperText,
   children,
 }: FieldProps) => (
-  <div class={className}>
+  <div
+    onKeyDown$={(event) => {
+      if (event.key === 'Enter') {
+        focusNext();
+      }
+    }}
+    class={className}
+  >
     <Label
       info={info}
       classes={{ root: 'mb-2' }}
@@ -30,7 +38,7 @@ export const Field = ({
       tooltipPosition="bottom-left"
     />
     {children}
-    <p class={twMerge('mt-1 text-sm text-space-400 select-none', error && 'text-red-500')}>
+    <p class={cn('mt-1 text-sm text-space-400 select-none', error && 'text-red-500')}>
       {error || helperText}&nbsp;
     </p>
   </div>

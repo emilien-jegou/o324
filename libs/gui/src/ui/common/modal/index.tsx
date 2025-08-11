@@ -1,6 +1,6 @@
 import { $ } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { Portal } from '~/provider/portal-context';
+import { cn } from '~/utils/cn';
 import { Dialog } from '../dialog';
 import type { JSXChildren, Signal } from '@builder.io/qwik';
 
@@ -31,7 +31,7 @@ export const Modal = ({ 'bind:show': show, children, contentClass }: ModalProps)
             onMouseDown$={(e) => {
               e.stopPropagation();
             }}
-            class={twMerge(
+            class={cn(
               'modal-animation w-full max-w-2xl gap-4 border border-space-700 bg-space-800 p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg bg-space-900 text-white',
               contentClass,
             )}

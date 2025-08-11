@@ -1,43 +1,15 @@
-import { $, useContext, component$ } from '@builder.io/qwik';
-import { routerContext } from '~/root';
+import { component$ } from '@builder.io/qwik';
 import { Sidebar } from '~/ui/common/sidebar';
 import { SidebarItem } from '~/ui/common/sidebar-item';
 
 export const SidebarLayout = component$(() => {
-  const context = useContext(routerContext);
-
   return (
     <Sidebar>
-      <SidebarItem
-        onClick$={$(() => {
-          context.selected.value = 'dashboard';
-        })}
-        label="Dashboard"
-      />
-      <SidebarItem
-        onClick$={$(() => {
-          context.selected.value = 'calendar';
-        })}
-        label="Calendar"
-      />
-      <SidebarItem
-        onClick$={$(() => {
-          context.selected.value = 'stats';
-        })}
-        label="Statistics"
-      />
-      <SidebarItem
-        onClick$={$(() => {
-          context.selected.value = 'settings';
-        })}
-        label="Settings"
-      />
-      <SidebarItem
-        onClick$={$(() => {
-          context.selected.value = 'debug';
-        })}
-        label="Debug"
-      />
+      <SidebarItem href="/" label="Dashboard" />
+      <SidebarItem href="/calendar" label="Calendar" />
+      <SidebarItem href="/stats" label="Statistics" />
+      <SidebarItem href="/settings" label="Settings" />
+      <SidebarItem href="/debug" label="Debug" />
     </Sidebar>
   );
 });

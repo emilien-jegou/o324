@@ -7,7 +7,7 @@ import {
   useContext,
   useContextProvider,
   component$,
-  useTask$,
+  useVisibleTask$,
 } from '@builder.io/qwik';
 
 import { taskActionListener, configReloadListener, listLastTasks, type Task } from '~/api';
@@ -28,25 +28,35 @@ export const TaskContextProvider = component$(() => {
 
   const refresh$ = $(async () => {
     const result = await listLastTasks(30);
-    Object.keys(tasks).forEach((key) => delete tasks[key]);
-    result.sort((a, b) => b.start - a.start);
-    result.forEach((t) => (tasks[t.ulid] = t));
+    if (result.kind === 'success') {
+      const value = result.value;
+      Object.keys(tasks).forEach((key) => delete tasks[key]);
+      value.sort((a, b) => b.start - a.start);
+      value.forEach((t) => (tasks[t.ulid] = t));
+    } else {
+      console.error(result.error);
+    }
   });
 
-  useTask$(async () => {
-    await taskActionListener((e) => {
-      if (e.payload.Upsert) {
-        const newTask = e.payload.Upsert;
-        const currentTask = tasks[newTask.ulid] ?? {};
-        tasks[newTask.ulid] = { ...currentTask, ...newTask };
-      } else if (e.payload.Delete) {
-        const taskId = e.payload.Delete;
-        delete tasks[taskId];
-      }
-    });
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(async () => {
+    try {
+      await taskActionListener((e) => {
+        if (e.payload.Upsert) {
+          const newTask = e.payload.Upsert;
+          const currentTask = tasks[newTask.ulid] ?? {};
+          tasks[newTask.ulid] = { ...currentTask, ...newTask };
+        } else if (e.payload.Delete) {
+          const taskId = e.payload.Delete;
+          delete tasks[taskId];
+        }
+      });
 
-    await configReloadListener(refresh$);
-    await refresh$();
+      await configReloadListener(refresh$);
+      await refresh$();
+    } catch (e) {
+      console.error(e);
+    }
   });
 
   const currentTask = useComputed$(() => Object.values(tasks).find((t) => !t.end));

@@ -1,5 +1,5 @@
 import { useId, component$, useSignal } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import type { HTMLAttributes } from '@builder.io/qwik';
 
 type MultiSelectOptionProps = {
@@ -28,8 +28,8 @@ export const MultiSelectOption = component$((props: MultiSelectOptionProps) => {
       onMouseOver$={props.onMouseOver$}
       aria-labelledby={`radix-:${id}:`}
       aria-selected={props.selected}
-      tabIndex={0}
-      class={twMerge(
+      tabIndex={1}
+      class={cn(
         'flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         props.selected && 'select-selected-option bg-space-600',
       )}

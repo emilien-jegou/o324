@@ -1,4 +1,4 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import { Field } from '../field';
 import { Input } from '../input';
 import type { InputProps } from '../input';
@@ -31,6 +31,6 @@ export const InputField = ({
     error={error}
     helperText={helperText}
   >
-    <Input error={Boolean(error)} class={twMerge('w-full', classes?.input)} {...props} />
+    <Input error={Boolean(error)} class={cn('w-full', classes?.input)} {...props} />
   </Field>
 );

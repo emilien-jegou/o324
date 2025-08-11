@@ -16,7 +16,7 @@ export default {
         'border-subtle': '#cacaca',
         'border-subtler': '#ebebeb',
 
-        'focused': 'rgba(0, 0, 0, 0.15)',
+        'focused': '#C494FF',
         'contrast': '#000',
 
         'space': {
@@ -51,7 +51,7 @@ export default {
           400: '#978200',
           500: '#F2C94C',
           600: '#F2994A',
-          700: '#BB87FC',
+          700: '#BB87FC', // purple
           800: '#4EA7FC',
           900: '#95A2B3',
           1000: '#4CB782'

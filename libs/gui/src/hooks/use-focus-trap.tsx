@@ -4,6 +4,7 @@ import { failable } from '~/utils/result';
 import type { Signal } from '@builder.io/qwik';
 
 export const useFocusTrap = (ref: Signal<HTMLElement | undefined>) =>
+  // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(() => {
     if (!ref.value) return;
     try {

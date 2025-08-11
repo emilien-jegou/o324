@@ -1,4 +1,4 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import type { JSXChildren } from '@builder.io/qwik';
 
 type KeyboardHintProps = {
@@ -7,7 +7,5 @@ type KeyboardHintProps = {
 };
 
 export const KeyboardHint = (props: KeyboardHintProps) => (
-  <div class={twMerge('flex items-center justify-center p-1 rounded-sm', props.class)}>
-    {props.hint}
-  </div>
+  <div class={cn('flex items-center justify-center p-1 rounded-sm', props.class)}>{props.hint}</div>
 );

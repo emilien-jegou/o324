@@ -1,7 +1,7 @@
 import { $, component$, useComputed$, useOnDocument, useSignal } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { FocusCycleController } from '~/ui/logics/focus-cycle-controller';
 import { FocusCycleNode } from '~/ui/logics/focus-cycle-node';
+import { cn } from '~/utils/cn';
 import { AutocompleteOption } from './option';
 import type { PropFunction, QRL, Signal } from '@builder.io/qwik';
 
@@ -16,10 +16,11 @@ export type AutocompleteInputProps = {
   disabled?: boolean;
   placeholder?: string;
   options: string[];
+  tabIndex?: number;
 };
 
 export const AutocompleteInput = component$(
-  ({ onInput$, options, ...props }: AutocompleteInputProps) => {
+  ({ onInput$, options, tabIndex, ...props }: AutocompleteInputProps) => {
     const current = props['bind:value'];
     const ref = useSignal<HTMLDivElement>();
     const inputRef = useSignal<HTMLInputElement>();
@@ -54,7 +55,7 @@ export const AutocompleteInput = component$(
     });
 
     return (
-      <div ref={ref} class={twMerge('relative w-full h-min', props.class)}>
+      <div ref={ref} class={cn('relative w-full h-min', props.class)}>
         <FocusCycleController
           bind:position={cyclePosition}
           role="presentation"
@@ -63,7 +64,8 @@ export const AutocompleteInput = component$(
           <input
             ref={inputRef}
             aria-autocomplete="none"
-            class={twMerge(
+            tabIndex={tabIndex ?? 1}
+            class={cn(
               'field bg-space-900 w-min min-w-[30%] w-full cursor-text flex items-center justify-between whitespace-nowrap rounded-md border border-space-600 bg-transparent px-3 py-2 shadow-sm ring-offset-background [&amp;>span]:line-clamp-1 focus-visible:field-focused',
               props.disabled &&
                 'cursor-not-allowed shadow-sm outline-0 border-transparent bg-subtle text-space-300',
@@ -93,7 +95,7 @@ export const AutocompleteInput = component$(
           {expanded.value && !!filteredOptions.value.length && (
             <div
               role="presentation"
-              class={twMerge(
+              class={cn(
                 'select-expanded flex flex-col border border-space-600 shadow-sm rounded-md absolute bg-space-800 z-50 top-[100%] mt-2 p-1 h-fit w-full',
               )}
             >

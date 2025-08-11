@@ -14,6 +14,7 @@ pub struct RebaseOperation<'repo> {
 
 #[derive(Clone)]
 pub struct ConflictFile {
+    #[allow(dead_code)]
     pub repository_path: PathBuf,
     pub relative_file_path: String,
     pub our: String,
@@ -31,6 +32,7 @@ impl ConflictFile {
 }
 
 pub struct ConflictCommit {
+    #[allow(dead_code)]
     pub summary: Option<String>,
     pub timestamp: u64,
 }

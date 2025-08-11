@@ -58,7 +58,6 @@ export const PortalProvider = component$(() => {
       portal.close = $(() => {
         // eslint-disable-next-line qwik/valid-lexical-scope
         portals.value = portals.value.filter((p) => p !== portal);
-        console.info('WAAAAAAAAAAATTT');
       });
       portal.contexts.push({
         id: PortalCloseAPIContextId,

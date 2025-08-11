@@ -1,4 +1,4 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import type { HTMLAttributes, JSXOutput } from '@builder.io/qwik';
 
 type ButtonProps = {
@@ -13,11 +13,13 @@ export const Button = ({
   variant = 'filled',
   children,
   class: className,
+  tabIndex,
   ...props
 }: ButtonProps) => (
   <button
     type={type ?? 'button'}
-    class={twMerge(
+    tabIndex={tabIndex ?? 1}
+    class={cn(
       'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border px-4 py-2',
       variant === 'outlined' && 'border-space-600 bg-transparent shadow-sm hover:bg-space-600',
       variant === 'filled' &&

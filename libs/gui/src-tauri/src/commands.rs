@@ -7,7 +7,7 @@ use tracing::trace;
 
 use crate::{
     state::{AppConfig, AppCore, AppNotifier},
-    tray::{SystemAppIconVariant, SystemAppVisibility},
+    tray::SystemAppIconVariant,
     window_emitter,
 };
 

@@ -24,5 +24,16 @@ export default function (opts: RenderToStreamOptions) {
       lang: 'en-us',
       ...opts.containerAttributes,
     },
+    //prefetchStrategy: {
+    //   implementation: {
+    //     //workerFetchInsert: 'always',
+    //   },
+    //implementation: {
+    //  linkInsert: 'html-append',
+    //  linkRel: 'prefetch',
+    //  workerFetchInsert: 'no-link-support',
+    //},
+    // custom prefetching config
+    //},
   });
 }

@@ -47,7 +47,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn execute(self, core: &Core, no_dbus: bool) -> eyre::Result<()> {
+    pub async fn execute(self, core: &Core, _no_dbus: bool) -> eyre::Result<()> {
         use commands::*;
         match self {
             Self::Start(o) => start::handle(o, core).await?,

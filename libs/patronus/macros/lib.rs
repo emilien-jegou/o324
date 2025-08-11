@@ -64,11 +64,13 @@ pub fn patronus(attr: TokenStream, item: TokenStream) -> TokenStream {
         let set_fn_name = syn::Ident::new(&format!("set_{}", name.as_ref().unwrap()), name.span());
         let unset_fn_name = syn::Ident::new(&format!("unset_{}", name.as_ref().unwrap()), name.span());
         quote! {
+            #[allow(non_snake_case)]
             pub fn #set_fn_name(mut self, value: impl Into<#ty>) -> Self {
                 self.#name = Some(value.into());
                 self
             }
 
+            #[allow(non_snake_case)]
             pub fn #unset_fn_name(mut self) -> Self {
                 self.#name = None;
                 self

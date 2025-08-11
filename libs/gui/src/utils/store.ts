@@ -32,26 +32,30 @@ export const getStore = <T>(key: string, defaultValue: T): AppStore<T> => {
     has: (): Promise<boolean> => globalStore.has(key),
     delete: (): Promise<boolean> => globalStore.delete(key),
     onKeyChange: (listener: (value: T) => void): Promise<() => void> =>
-      globalStore.onKeyChange(key, (v?: T | null) => {
+      globalStore.onKeyChange(key, (v: T | null | undefined) => {
         listener(v ?? defaultValue);
       }),
   };
 };
 
 type KeyedStore<T> = {
-  at(subkey: string): AppStore<T>;
+  at(subkey: string): Promise<AppStore<T>>;
   getAll(): Promise<Record<string, T>>;
 };
 
-export const getKeyedStore = <T>(key: string, defaultValue: T): KeyedStore<T> => ({
-  at: (subkey: string): AppStore<T> => getStore([key, subkey].join('.'), defaultValue),
-  getAll: async (): Promise<Record<string, T>> => {
-    const entries = await globalStore.entries();
-    const keyStart = `${key}.`;
-    const entriesFiltered = entries
-      .filter(([k]) => k.startsWith(keyStart))
-      .map(([k, v]) => [k.slice(keyStart.length), v]);
+export const getKeyedStore = <T>(key: string, defaultValue: T): KeyedStore<T> => {
+  return {
+    at: (subkey: string): Promise<AppStore<T>> =>
+      getStore<T>([key, subkey].join('.'), defaultValue),
+    getAll: async (): Promise<Record<string, T>> => {
+      const globalStore = await Store.load('o324-store.bin');
+      const entries = await globalStore.entries();
+      const keyStart = `${key}.`;
+      const entriesFiltered = entries
+        .filter(([k]) => k.startsWith(keyStart))
+        .map(([k, v]) => [k.slice(keyStart.length), v]);
 
-    return Object.fromEntries(entriesFiltered);
-  },
-});
+      return Object.fromEntries(entriesFiltered);
+    },
+  };
+};

@@ -2,18 +2,23 @@ import { $, useOnDocument } from '@builder.io/qwik';
 import type { QRL, Signal } from '@builder.io/qwik';
 
 export const useClickOutside = (
-  ref: Signal<HTMLElement | undefined>,
+  refs: Signal<HTMLElement | undefined>[],
   onClickOut: QRL<() => void>,
 ) =>
   useOnDocument(
     'click',
     $((event) => {
-      if (!ref.value) {
-        return;
-      }
+      const refsVals: HTMLElement[] = refs
+        .map(({ value }) => value)
+        .filter((x): x is HTMLElement => !!x);
+
+      if (!refsVals.length) return;
       const target = event.target as HTMLElement;
-      if (!ref.value.contains(target)) {
-        onClickOut();
+
+      refsVals.map((val) => val.contains(target));
+      for (const it of refsVals) {
+        if (it.contains(target)) return;
       }
+      onClickOut();
     }),
   );

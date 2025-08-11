@@ -1,6 +1,6 @@
 import { $, useSignal, component$, useTask$ } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { DismissIcon } from '~/ui/icons/dismiss';
+import { cn } from '~/utils/cn';
 import type { AddPortal } from '~/provider/portal-context';
 
 type ToastProps = {
@@ -56,10 +56,10 @@ export const Toast = component$((props: ToastProps) => {
             }
           }}
           onMouseOut$={() => restartCloseTimer$()}
-          tabIndex={0}
+          tabIndex={1}
           data-state={isOpen.value ? 'open' : 'closed'}
           data-swipe-direction="right"
-          class={twMerge(
+          class={cn(
             'pointer-events-auto relative flex w-full items-center justify-between space-x-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full group border-destructive text-contrast',
             props.status === 'error' && 'bg-error',
             props.status === 'success' && 'bg-success',

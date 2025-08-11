@@ -6,7 +6,9 @@ mod dbus_plugin;
 mod event_emitter;
 mod tray;
 mod window_emitter;
+mod utils;
 
+#[allow(unexpected_cfgs)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run_mobile() {
     unimplemented!()

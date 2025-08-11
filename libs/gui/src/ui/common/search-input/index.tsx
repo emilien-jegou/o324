@@ -1,6 +1,6 @@
 import { $, component$, useId, useSignal, useVisibleTask$ } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { EnterKeyIcon } from '~/ui/icons/enter-key';
+import { cn } from '~/utils/cn';
 import { KeyboardHint } from '../keyboard-hint';
 import type { PropFunction, QwikFocusEvent } from '@builder.io/qwik';
 import type { FieldElement } from '@modular-forms/qwik';
@@ -44,7 +44,7 @@ export const SearchInput = component$(
         style={{
           transition: 'height 0.1s ease',
         }}
-        class={twMerge(
+        class={cn(
           'relative text-sm leading-none shadow-xs cursor-text border border-space-700 rounded-sm bg-space-800',
           focus && 'outline outline-2 outline-focused rounded-b-none',
           className,
@@ -64,7 +64,7 @@ export const SearchInput = component$(
           {...props}
         />
         <KeyboardHint
-          class={twMerge(
+          class={cn(
             'text-space-200 absolute right-4 top-1/2 -translate-y-1/2 transition-opacity',
             focus && 'opacity-0',
           )}

@@ -1,5 +1,5 @@
-import { twMerge } from 'tailwind-merge';
 import { HelpCircleIcon } from '~/ui/icons/help-circle-icon';
+import { cn } from '~/utils/cn';
 import { Tooltip } from '../tooltip';
 import type { TooltipPosition } from '../tooltip';
 import type { JSXChildren } from '@builder.io/qwik';
@@ -14,7 +14,7 @@ export type LabelProps = {
 };
 
 export const Label = ({ classes, text, info, required, tooltipPosition }: LabelProps) => (
-  <label class={twMerge('flex justify-between w-full flex gap-4 items-center', classes?.root)}>
+  <label class={cn('flex justify-between w-full flex gap-4 items-center', classes?.root)}>
     <span class="text-space-100 text-sm">
       {text}
       {required ? ' *' : ''}

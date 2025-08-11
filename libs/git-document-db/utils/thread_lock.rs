@@ -33,6 +33,7 @@ impl ThreadLockType {
         matches!(self, Self::Exclusive(_))
     }
 
+    #[allow(dead_code)]
     pub fn is_shared(&self) -> bool {
         matches!(self, Self::Shared(_))
     }

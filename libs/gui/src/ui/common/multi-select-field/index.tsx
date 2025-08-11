@@ -1,4 +1,4 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import { Field } from '../field';
 import { MultiSelect, type MultiSelectProps } from '../multi-select';
 import type { JSXChildren } from '@builder.io/qwik';
@@ -30,6 +30,6 @@ export const MultiSelectField = ({
     error={error}
     helperText={helperText}
   >
-    <MultiSelect class={twMerge('w-full', classes?.select)} error={!!error} {...props} />
+    <MultiSelect class={cn('w-full', classes?.select)} error={!!error} {...props} />
   </Field>
 );

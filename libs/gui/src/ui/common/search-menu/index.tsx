@@ -1,7 +1,7 @@
 import { $, component$, useOnDocument, useSignal } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
 import { useClickOutside } from '~/hooks/use-click-outside';
 import { SearchInput } from '~/ui/common/search-input';
+import { cn } from '~/utils/cn';
 import type { PropFunction, FunctionComponent } from '@builder.io/qwik';
 
 type SearchMenuProps = {
@@ -34,12 +34,13 @@ export const SearchMenu = component$(({ MenuContent, ...props }: SearchMenuProps
   );
 
   useClickOutside(
-    containerRef,
+    [containerRef],
     $(() => {
       isFocused.value = false;
       input.value = '';
     }),
   );
+
   const submit = $(() => {
     onSelect$?.(input.value);
     isFocused.value = false;
@@ -52,7 +53,7 @@ export const SearchMenu = component$(({ MenuContent, ...props }: SearchMenuProps
       noValidate={true}
       preventdefault:submit
       onSubmit$={submit}
-      class={twMerge('relative', props.class)}
+      class={cn('relative', props.class)}
     >
       <SearchInput
         value={input.value}
@@ -75,13 +76,13 @@ export const SearchMenu = component$(({ MenuContent, ...props }: SearchMenuProps
       <div
         onClick$={(e) => e.preventDefault()}
         key={input.value}
-        class={twMerge(
+        class={cn(
           'absolute top-[100%] left-0 z-20 w-full transition-opacity duration-40',
           !isFocused.value && 'opacity-0',
         )}
       >
         <div
-          class={twMerge(
+          class={cn(
             'w-full h-full rounded-sm rounded-t-none bg-space-800 border border-space-700 shadow-xl',
             !isFocused.value && 'opacity-0',
           )}

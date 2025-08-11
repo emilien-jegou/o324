@@ -17,20 +17,25 @@ pub struct Transaction<'a> {
 impl<'a> Transaction<'a> {
     pub fn new(connection: &'a Connection, query_runner: QueryRunner<'a>) -> Self {
         Self {
-            lock_manager: LockManager::default(),
+            lock_manager: LockManager::new(
+                connection
+                    .repository_path
+                    .to_str()
+                    .expect("couldn't convert path to string in transaction"),
+            ),
             connection,
             query_runner,
         }
     }
 
     fn try_lock_store(&self, lock_type: SystemLockType) -> StoreResult<()> {
-        self.lock_manager.try_lock_store(lock_type)?;
+        self.lock_manager.lock_store(lock_type)?;
         Ok(())
     }
 
     fn try_lock_document(&self, document_id: &str, lock_type: SystemLockType) -> StoreResult<()> {
         self.lock_manager
-            .try_lock_document(document_id, lock_type)?;
+            .lock_document(document_id, lock_type)?;
         Ok(())
     }
 

@@ -11,3 +11,21 @@ gdbus call --session \
       --method org.o324.gui.NotifyTaskChange \
       '("Delete", <("test",)>)'
 ```
+
+## Static Site Generator (Node.js)
+
+```shell
+npm run build.server
+```
+
+## Static Site Generator (Node.js)
+
+```shell
+npm run build.server
+```
+
+## Static Site Generator (Node.js)
+
+```shell
+npm run build.server
+```

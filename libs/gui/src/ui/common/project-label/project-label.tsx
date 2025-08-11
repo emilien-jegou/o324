@@ -1,4 +1,4 @@
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import type { ProjectColor } from '~/store/projects-store';
 
 type ProjectLabelProps = {
@@ -11,7 +11,7 @@ type ProjectLabelProps = {
 
 export const ProjectLabel = ({ size = 'md', ...props }: ProjectLabelProps) => (
   <p
-    class={twMerge(
+    class={cn(
       'text-black/90 border-2 text-sm  border-space-600 one-line shrink-0',
       size === 'sm' && 'rounded-md px-1 py-0 font-semibold ',
       size === 'md' && 'rounded-md p-1 px-2 font-semibold ',

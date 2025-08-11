@@ -12,12 +12,14 @@ pub struct Client<'a> {
 }
 
 impl<'a> Client<'a> {
-    pub fn new(
-        connection: &'a Connection,
-        query_runner: QueryRunner<'a>,
-    ) -> Self {
+    pub fn new(connection: &'a Connection, query_runner: QueryRunner<'a>) -> Self {
         Self {
-            lock_manager: LockManager::default(),
+            lock_manager: LockManager::new(
+                connection
+                    .repository_path
+                    .to_str()
+                    .expect("couldn't convert path to string in client"),
+            ),
             query_runner,
             connection,
         }
@@ -30,7 +32,11 @@ impl<'a> Client<'a> {
             .lock()
             .map_err(StoreError::system_error)?;
         let rg = format!("*\\.{}", self.connection.document_parser.file_extension());
-        git_actions::stage_and_commit_changes(&repository, &format!("{} - {}", self.connection.name, action), &[&rg])?;
+        git_actions::stage_and_commit_changes(
+            &repository,
+            &format!("{} - {}", self.connection.name, action),
+            &[&rg],
+        )?;
         Ok(())
     }
 }
@@ -39,8 +45,8 @@ impl<'a> IQueryRunner<'a> for Client<'a> {
     fn get<T: Document>(&self, document_id: &str) -> StoreResult<Option<T>> {
         let document_lock = self
             .lock_manager
-            .try_lock_document(document_id, SystemLockType::Shared)?;
-        let store_lock = self.lock_manager.try_lock_store(SystemLockType::Shared)?;
+            .lock_document(document_id, SystemLockType::Shared)?;
+        let store_lock = self.lock_manager.lock_store(SystemLockType::Shared)?;
         let result = self.query_runner.get(document_id);
         document_lock.unlock().map_err(StoreError::lock_error)?;
         store_lock.unlock().map_err(StoreError::lock_error)?;
@@ -48,14 +54,14 @@ impl<'a> IQueryRunner<'a> for Client<'a> {
     }
 
     fn get_document_list(&self) -> StoreResult<Vec<String>> {
-        let store_lock = self.lock_manager.try_lock_store(SystemLockType::Shared)?;
+        let store_lock = self.lock_manager.lock_store(SystemLockType::Shared)?;
         let result = self.query_runner.get_document_list();
         store_lock.unlock().map_err(StoreError::lock_error)?;
         result
     }
 
     fn find_matching<T: Document>(&self, document_id_regex: &Regex) -> StoreResult<Vec<T>> {
-        let store_lock = self.lock_manager.try_lock_store(SystemLockType::Shared)?;
+        let store_lock = self.lock_manager.lock_store(SystemLockType::Shared)?;
         let result = self.query_runner.find_matching(document_id_regex);
         store_lock.unlock().map_err(StoreError::lock_error)?;
         result
@@ -64,10 +70,10 @@ impl<'a> IQueryRunner<'a> for Client<'a> {
     fn save<T: Document>(&self, document: &T) -> StoreResult<()> {
         let document_lock = self
             .lock_manager
-            .try_lock_document(&document.get_document_id(), SystemLockType::Exclusive)?;
+            .lock_document(&document.get_document_id(), SystemLockType::Exclusive)?;
         let store_lock = self
             .lock_manager
-            .try_lock_store(SystemLockType::Exclusive)?;
+            .lock_store(SystemLockType::Exclusive)?;
         let result = self.query_runner.save(document);
         self.commit_on_change("save")
             .map_err(StoreError::git_error)?;

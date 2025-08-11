@@ -10,7 +10,9 @@ export type ProjectMetadata = {
 
 const projectsStore = getKeyedStore<Option<ProjectMetadata>>('projects', none());
 
-(window as any).__STORE_PROJECTS = projectsStore;
+if (typeof window !== 'undefined') {
+  (window as any).__STORE_PROJECTS = projectsStore;
+}
 
 const genColor = (name: string, color: string): ProjectColor => ({
   name,
@@ -36,7 +38,7 @@ const projectColorPool: ProjectColor[] = [
 const defaultColor = genColor('grey', '#D3D6EB');
 
 export const getProjectMetadata = async (project_name: string) => {
-  const localStore = projectsStore.at(project_name);
+  const localStore = await projectsStore.at(project_name);
   const project = await localStore.get();
 
   if (isSome(project)) {
@@ -47,7 +49,7 @@ export const getProjectMetadata = async (project_name: string) => {
 };
 
 export const createProjectMetadata = async (project_name: string): Promise<ProjectMetadata> => {
-  const localStore = projectsStore.at(project_name);
+  const localStore = await projectsStore.at(project_name);
   const projects = await projectsStore.getAll();
   const takenColors = new Set(
     Object.values(projects)

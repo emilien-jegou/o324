@@ -1,5 +1,5 @@
 import { component$ } from '@builder.io/qwik';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '~/utils/cn';
 import { Field } from '../field';
 import { Select } from '../select';
 import type { SelectProps } from '../select';
@@ -26,7 +26,7 @@ export const SelectField = component$(
       error={error}
       helperText={helperText}
     >
-      <Select error={Boolean(error)} class={twMerge('w-full', classes?.select)} {...props} />
+      <Select error={Boolean(error)} class={cn('w-full', classes?.select)} {...props} />
     </Field>
   ),
 );

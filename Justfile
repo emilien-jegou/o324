@@ -1,4 +1,10 @@
-build:
+build-cli:
+	cargo build --bin o324-cli
+
+build-gui:
+	#!/usr/bin/env bash
+
+build: build-gui
 	cargo build
 
 watch CRATE:

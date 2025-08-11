@@ -12,7 +12,7 @@ export default extendConfig(baseConfig, () => {
     },
     plugins: [
       staticAdapter({
-        origin: "https://o324.emje.dev",
+        origin: "http://localhost",
       }),
     ],
   };
