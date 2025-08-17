@@ -1,19 +1,14 @@
 use chrono::{DateTime, Duration, Local, Utc};
 use clap::Args;
 use colored::Colorize;
-use o324_core::Core;
-use o324_storage::Task;
+use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
 use serde::Serialize;
-
-// --- Data Structure for JSON output ---
 
 #[derive(Serialize, Debug)]
 struct StatusOutput<'a> {
-    task: &'a Task,
+    task: &'a dto::TaskDto,
     elapsed_secs: i64,
 }
-
-// --- CLI Command and Handler ---
 
 #[derive(Args, Debug)]
 pub struct Command {
@@ -22,9 +17,12 @@ pub struct Command {
     json: bool,
 }
 
-pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
+pub async fn handle(command: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
+
     // We only need the very last task to determine the current status.
-    let tasks = core.list_last_tasks(1).await?;
+    let tasks = proxy.list_last_tasks(1).await?;
 
     // Check if there is a last task and if it is currently running (end is None).
     if let Some(task) = tasks.first().filter(|t| t.end.is_none()) {
@@ -53,9 +51,7 @@ pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
     Ok(())
 }
 
-// --- Presentation Logic ---
-
-fn pretty_print_running_task(task: &Task, elapsed: Duration) -> eyre::Result<()> {
+fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Result<()> {
     let start_time_local = ms_to_datetime(task.start)?.with_timezone(&Local);
     let elapsed_str = format_duration_pretty(elapsed);
 
@@ -97,7 +93,7 @@ fn pretty_print_running_task(task: &Task, elapsed: Duration) -> eyre::Result<()>
         "{} {}:       {}",
         "  ╰─".dimmed(),
         "ID".bold(),
-        task.ulid.dimmed()
+        task.id.dimmed()
     );
 
     Ok(())

@@ -1,8 +1,7 @@
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Timelike, Utc, Weekday};
 use clap::{Args, Subcommand};
 use colored::{ColoredString, Colorize};
-use o324_core::Core;
-use o324_storage::Task;
+use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -74,16 +73,17 @@ enum StatsSubcommand {
     Year,
 }
 
-// --- Main Handler ---
+pub async fn handle(command: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
 
-pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
     if let Some(subcommand) = command.subcommand {
         match subcommand {
-            StatsSubcommand::Year => handle_year_stats(command.json, core).await?,
-            _ => handle_generic_subcommand(subcommand, command.last, command.json, core).await?,
+            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
+            _ => handle_generic_subcommand(subcommand, command.last, command.json, &proxy).await?,
         }
     } else {
-        handle_today_summary(command.json, core).await?;
+        handle_today_summary(command.json, &proxy).await?;
     }
     Ok(())
 }
@@ -92,18 +92,18 @@ async fn handle_generic_subcommand(
     subcommand: StatsSubcommand,
     last: u64,
     json: bool,
-    core: &Core,
+    proxy: &O324ServiceProxy<'_>
 ) -> eyre::Result<()> {
     let end_date = Utc::now();
     let start_date = end_date - Duration::days(last as i64);
     let start_timestamp_ms = start_date.timestamp_millis() as u64;
 
-    let all_tasks = core
+    let all_tasks = proxy
         .list_last_tasks(10000)
         .await?
         .into_iter()
         .filter(|task| task.start >= start_timestamp_ms)
-        .collect::<Vec<Task>>();
+        .collect::<Vec<dto::TaskDto>>();
 
     if !json && all_tasks.is_empty() {
         println!("No tasks found in the last {} days.", last);
@@ -122,7 +122,7 @@ async fn handle_generic_subcommand(
 
 // --- Specific Handlers ---
 
-async fn handle_today_summary(json: bool, core: &Core) -> eyre::Result<()> {
+async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre::Result<()> {
     // 1. Fetch all tasks for today
     let now_local = Local::now();
     let start_of_day_local = now_local.date_naive().and_hms_opt(0, 0, 0).unwrap();
@@ -132,12 +132,12 @@ async fn handle_today_summary(json: bool, core: &Core) -> eyre::Result<()> {
         .with_timezone(&Utc);
     let start_timestamp_ms = start_of_day_utc.timestamp_millis() as u64;
 
-    let mut todays_tasks = core
+    let mut todays_tasks = proxy
         .list_last_tasks(1000)
         .await?
         .into_iter()
         .filter(|task| task.start >= start_timestamp_ms)
-        .collect::<Vec<Task>>();
+        .collect::<Vec<dto::TaskDto>>();
 
     if todays_tasks.is_empty() {
         if json {
@@ -152,7 +152,7 @@ async fn handle_today_summary(json: bool, core: &Core) -> eyre::Result<()> {
 
     // 2. Group tasks into sessions
     let session_break_threshold = Duration::minutes(30);
-    let mut sessions_of_tasks: Vec<Vec<&Task>> = Vec::new();
+    let mut sessions_of_tasks: Vec<Vec<&dto::TaskDto>> = Vec::new();
     sessions_of_tasks.push(vec![&todays_tasks[0]]);
     for i in 1..todays_tasks.len() {
         let prev_task = &todays_tasks[i - 1];
@@ -289,7 +289,7 @@ async fn handle_today_summary(json: bool, core: &Core) -> eyre::Result<()> {
     Ok(())
 }
 
-async fn handle_project_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_project_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<String, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -309,7 +309,7 @@ async fn handle_project_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Re
     Ok(())
 }
 
-async fn handle_tag_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_tag_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<String, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -329,7 +329,7 @@ async fn handle_tag_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Result
     Ok(())
 }
 
-async fn handle_week_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_week_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<Weekday, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -382,7 +382,7 @@ async fn handle_week_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Resul
     Ok(())
 }
 
-async fn handle_hour_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_hour_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<u32, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -426,7 +426,7 @@ async fn handle_hour_stats(tasks: &[Task], days: u64, json: bool) -> eyre::Resul
     Ok(())
 }
 
-async fn handle_year_stats(json: bool, core: &Core) -> eyre::Result<()> {
+async fn handle_year_stats<'a>(json: bool, proxy: &O324ServiceProxy<'a>) -> eyre::Result<()> {
     let now = Local::now();
     let year = now.year();
     let start_of_year = NaiveDate::from_ymd_opt(year, 1, 1)
@@ -439,12 +439,12 @@ async fn handle_year_stats(json: bool, core: &Core) -> eyre::Result<()> {
         .with_timezone(&Utc);
     let start_timestamp_ms = start_of_year_utc.timestamp_millis() as u64;
 
-    let year_tasks = core
+    let year_tasks = proxy
         .list_last_tasks(50000)
         .await?
         .into_iter()
         .filter(|task| task.start >= start_timestamp_ms)
-        .collect::<Vec<Task>>();
+        .collect::<Vec<dto::TaskDto>>();
 
     if !json && year_tasks.is_empty() {
         print_header("Yearly Activity", &year);
@@ -677,7 +677,7 @@ fn print_bar_row(label: &str, duration: Duration, total: Duration) {
     );
 }
 
-fn task_duration(task: &Task) -> eyre::Result<Duration> {
+fn task_duration(task: &dto::TaskDto) -> eyre::Result<Duration> {
     let start = ms_to_datetime(task.start)?;
     let end = task
         .end

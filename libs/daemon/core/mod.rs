@@ -1,6 +1,6 @@
 use native_db::Models;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use crate::{
     config::Config,
@@ -13,14 +13,15 @@ use crate::{
 mod utils;
 
 // This generic struct is the correct architecture.
-pub struct Core<'a> {
+#[derive(Clone)]
+pub struct Core {
     pub name: String,
     pub config: Config,
-    pub storage: Storage<'a>,
+    pub storage: Arc<Storage>,
 }
 
-impl<'a> Core<'a> {
-    pub fn try_new(config: &Config, models: &'a Models) -> eyre::Result<Self> {
+impl Core {
+    pub fn try_new(config: &Config, models: &'static Models) -> eyre::Result<Self> {
         let profile_config = config.get_current_profile()?;
 
         let mut db_path = profile_config.get_storage_location().clone();
@@ -31,13 +32,13 @@ impl<'a> Core<'a> {
 
         Ok(Self {
             name: config.core.computer_name.clone(),
-            storage: storage,
+            storage: Arc::new(storage),
             config: config.clone(),
         })
     }
 }
 
-impl<'a> std::fmt::Display for Core<'a> {
+impl std::fmt::Display for Core {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Core({:?})", self.name)
     }
@@ -48,7 +49,6 @@ pub struct StartTaskInput {
     pub task_name: String,
     pub project: Option<String>,
     pub tags: Vec<String>,
-    pub computer_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -73,7 +73,7 @@ pub enum TaskAction {
     Delete(String),
 }
 
-impl<'a> Core<'a> {
+impl Core {
     pub fn get_loaded_config(&self) -> Config {
         self.config.clone()
     }
@@ -101,7 +101,7 @@ impl<'a> Core<'a> {
                 .id(task_id.clone())
                 .task_name(input.task_name)
                 .project(input.project)
-                .computer_name(input.computer_name)
+                .computer_name(self.config.core.computer_name.clone())
                 .tags(input.tags)
                 .start(current_timestamp)
                 .end(None)

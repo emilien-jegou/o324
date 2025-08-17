@@ -3,7 +3,7 @@ use directories_next::ProjectDirs;
 use std::path::PathBuf;
 mod config;
 mod core;
-//mod dbus;
+mod dbus;
 mod storage;
 mod tracing;
 mod window_events;
