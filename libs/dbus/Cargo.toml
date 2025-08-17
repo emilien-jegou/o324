@@ -1,0 +1,22 @@
+[package]
+name = "o324-dbus"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "o324_dbus"
+path = "lib.rs"
+
+[dependencies]
+zbus = "5.9"
+zvariant = { version = "5.6", features = ["option-as-array"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+serde = { version = "1.0", features = ["derive"] }
+
+[features]
+default = []
+proxy = []

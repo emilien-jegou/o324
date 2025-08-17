@@ -8,11 +8,8 @@ publish = false
 name = "o324-daemon"
 path = "main.rs"
 
-[lib]
-name = "o324_daemon_interface"
-path = "lib.rs"
-
 [dependencies]
+o324-dbus = { path = "../dbus" }
 async-trait = "0.1"
 bincode = { version = "2.0", features = ["serde"] }
 derive_builder = "0.20.0"
@@ -34,7 +31,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 toml = "0.9"
 x11rb = "0.13"
 zbus = "5.9"
-zvariant = "5.6"
+zvariant = { version = "5.6", features = ["option-as-array"] }
 shellexpand = "2.1"
 clap = { version = "4.4.11", features = ["derive"] }
 directories-next = "2.0"

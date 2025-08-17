@@ -1,11 +1,10 @@
 use clap::Args;
-use o324_core::{Core, TaskRef};
-use o324_storage::TaskUpdate;
+use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
 
 #[derive(Args, Debug)]
 pub struct Command {
     /// Id of the task to edit or "current" for editing active task
-    task_ref: TaskRef,
+    task_ref: String,
 
     /// Name of the task
     #[clap(short, long)]
@@ -39,18 +38,18 @@ impl Command {
     }
 }
 
-pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    let task_update = TaskUpdate {
-        task_name: command.name.clone(),
-        project: command.parse_project_value(),
-        tags: command.tags,
-        start: command.start,
-        end: command.end.map(Option::Some),
-        ..Default::default()
+pub async fn handle(command: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
+
+    let task_update = dto::TaskUpdateDto {
+        task_name: command.name.clone().into(),
+        project: command.parse_project_value().into(),
+        tags: command.tags.into(),
+        start: command.start.into(),
+        end: command.end.map(Option::Some).into(),
     };
 
-    let actions = core.edit_task(command.task_ref, task_update).await?;
-    crate::dbus::dbus_notify_task_changes(actions)?;
-
+    let _actions = proxy.edit_task(command.task_ref, task_update).await?;
     Ok(())
 }

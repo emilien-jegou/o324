@@ -1,4 +1,5 @@
 use clap::Args;
+use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
 
 #[derive(Args, Debug)]
 pub struct Command {
@@ -14,17 +15,17 @@ pub struct Command {
     tags: Vec<String>,
 }
 
-pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    let actions = core
-        .start_new_task(StartTaskInput {
+pub async fn handle(command: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
+
+    let _actions = proxy
+        .start_new_task(dto::StartTaskInputDto {
             task_name: command.task_name,
             project: command.project,
             tags: command.tags,
-            computer_name: core.config.core.computer_name.clone(),
         })
         .await?;
-
-    crate::dbus::dbus_notify_task_changes(actions)?;
 
     Ok(())
 }

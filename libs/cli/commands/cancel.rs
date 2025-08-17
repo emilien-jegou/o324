@@ -1,11 +1,13 @@
 use clap::Args;
-use o324_core::Core;
+use o324_dbus::{proxy::O324ServiceProxy, zbus::Connection};
 
 #[derive(Args, Debug)]
 pub struct Command {}
 
-pub async fn handle(_: Command, core: &Core) -> eyre::Result<()> {
-    let actions = core.cancel_current_task().await?;
-    crate::dbus::dbus_notify_task_changes(actions)?;
+pub async fn handle(_: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
+
+    let _actions = proxy.cancel_current_task().await?;
     Ok(())
 }

@@ -2,11 +2,8 @@ use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 use clap::Args;
 use color_eyre::owo_colors::OwoColorize;
 use colored::{ColoredString, Colorize};
-use o324_core::Core;
-use o324_storage::Task;
+use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
 use std::collections::HashMap;
-
-// --- Data Structures ---
 
 /// Represents a unique identifier with its calculated shortest unique prefix length.
 #[derive(Debug, Clone)]
@@ -18,7 +15,7 @@ pub struct UniqueId {
 /// A wrapper struct for display purposes, bundling a task with its unique ID info.
 #[derive(Debug)]
 pub struct DisplayTask<'a> {
-    task: &'a Task,
+    task: &'a dto::TaskDto,
     id: UniqueId,
 }
 
@@ -82,8 +79,10 @@ pub struct Command {
     json: bool,
 }
 
-pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
-    let tasks = core.list_last_tasks(50).await?;
+pub async fn handle(command: Command) -> eyre::Result<()> {
+    let connection = Connection::session().await?;
+    let proxy = O324ServiceProxy::new(&connection).await?;
+    let tasks = proxy.list_last_tasks(50).await?;
 
     if command.json {
         json_output(&tasks).await?;
@@ -96,7 +95,7 @@ pub async fn handle(command: Command, core: &Core) -> eyre::Result<()> {
 
 // --- Logic and Presentation Separation ---
 
-pub async fn short_output(tasks: &[Task]) -> eyre::Result<()> {
+pub async fn short_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     if tasks.is_empty() {
         println!("No tasks to show.");
         return Ok(());
@@ -111,19 +110,19 @@ pub async fn short_output(tasks: &[Task]) -> eyre::Result<()> {
 }
 
 /// Calculates the shortest unique prefix length for a list of IDs.
-fn calculate_unique_ids(all_ulids: &[&str]) -> HashMap<String, UniqueId> {
+fn calculate_unique_ids(all_ids: &[&str]) -> HashMap<String, UniqueId> {
     let mut unique_ids = HashMap::new();
 
-    for (i, &ulid) in all_ulids.iter().enumerate() {
+    for (i, &id) in all_ids.iter().enumerate() {
         let mut min_len = 1;
-        for len in 1..=ulid.len() {
-            let prefix = &ulid[..len];
+        for len in 1..=id.len() {
+            let prefix = &id[..len];
             let mut is_unique = true;
-            for (j, &other_ulid) in all_ulids.iter().enumerate() {
+            for (j, &other_id) in all_ids.iter().enumerate() {
                 if i == j {
                     continue;
                 }
-                if other_ulid.starts_with(prefix) {
+                if other_id.starts_with(prefix) {
                     is_unique = false;
                     break;
                 }
@@ -135,9 +134,9 @@ fn calculate_unique_ids(all_ulids: &[&str]) -> HashMap<String, UniqueId> {
             min_len = len;
         }
         unique_ids.insert(
-            ulid.to_string(),
+            id.to_string(),
             UniqueId {
-                full_id: ulid.to_string(),
+                full_id: id.to_string(),
                 unique_prefix_len: min_len,
             },
         );
@@ -146,20 +145,20 @@ fn calculate_unique_ids(all_ulids: &[&str]) -> HashMap<String, UniqueId> {
 }
 
 /// Builds the hierarchical log structure from a flat list of tasks.
-fn build_log_structure<'a>(tasks: &'a [Task]) -> eyre::Result<Vec<TopLevelElem<'a>>> {
+fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLevelElem<'a>>> {
     if tasks.is_empty() {
         return Ok(vec![]);
     }
 
-    let all_ulids: Vec<&str> = tasks.iter().map(|t| t.ulid.as_str()).collect();
-    let unique_id_map = calculate_unique_ids(&all_ulids);
+    let all_ids: Vec<&str> = tasks.iter().map(|t| t.id.as_str()).collect();
+    let unique_id_map = calculate_unique_ids(&all_ids);
 
-    let mut sorted_tasks: Vec<&Task> = tasks.iter().collect();
+    let mut sorted_tasks: Vec<&dto::TaskDto> = tasks.iter().collect();
     sorted_tasks.sort_by_key(|t| t.start);
 
     // 1. Group tasks into sessions based on a time threshold
     let session_break_threshold = Duration::minutes(30);
-    let mut sessions_of_tasks: Vec<Vec<&'a Task>> = Vec::new();
+    let mut sessions_of_tasks: Vec<Vec<&'a dto::TaskDto>> = Vec::new();
     if !sorted_tasks.is_empty() {
         sessions_of_tasks.push(vec![sorted_tasks[0]]);
         for i in 1..sorted_tasks.len() {
@@ -216,7 +215,7 @@ fn build_log_structure<'a>(tasks: &'a [Task]) -> eyre::Result<Vec<TopLevelElem<'
 
         let mut elements: Vec<NestedElem<'a>> = Vec::new();
         for (task_idx, &task) in session_tasks.iter().enumerate() {
-            let unique_id = unique_id_map.get(&task.ulid).unwrap().clone();
+            let unique_id = unique_id_map.get(&task.id).unwrap().clone();
             elements.push(NestedElem::Task(DisplayTask {
                 task,
                 id: unique_id,
@@ -554,7 +553,7 @@ fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
 
-pub async fn json_output(tasks: &[Task]) -> eyre::Result<()> {
+pub async fn json_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     println!("{}", serde_json::to_string_pretty(tasks)?);
     Ok(())
 }

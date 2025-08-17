@@ -1,12 +1,12 @@
 use native_db::{transaction, Builder, Database, Models};
 use std::path::Path;
 
-pub struct Storage<'a> {
-    db: Database<'a>,
+pub struct Storage {
+    db: Database<'static>,
 }
 
-impl<'a> Storage<'a> {
-    pub fn try_new(path: impl AsRef<Path>, models: &'a Models) -> eyre::Result<Self> {
+impl Storage {
+    pub fn try_new(path: impl AsRef<Path>, models: &'static Models) -> eyre::Result<Self> {
         let db = Builder::new().create(models, path)?;
         Ok(Self { db })
     }
@@ -41,6 +41,7 @@ mod tests {
     use native_db::native_db;
     use native_db::ToKey;
     use native_model::{native_model, Model};
+    use once_cell::sync::Lazy;
     use serde::{Deserialize, Serialize};
     use tempfile::tempdir;
 
@@ -81,7 +82,7 @@ mod tests {
     }
 
     // 2. Test Setup Helpers
-    fn setup_database<'a>(models: &'a Models) -> (tempfile::TempDir, Storage<'a>) {
+    fn setup_database(models: &'static Models) -> (tempfile::TempDir, Storage) {
         let dir = tempdir().unwrap();
         let storage = Storage::try_new(dir.path().join("test.db"), models).unwrap();
         (dir, storage)
@@ -95,12 +96,13 @@ mod tests {
         models
     }
 
+    static MODELS: Lazy<Models> = Lazy::new(get_models);
+
     // 3. Tests
 
     #[test]
     fn test_set_and_get_primary() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let item1 = Item {
             id: 1,
             name: "red".to_string(),
@@ -123,8 +125,7 @@ mod tests {
 
     #[test]
     fn test_remove_primary() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let item1 = Item {
             id: 1,
             name: "red".to_string(),
@@ -153,8 +154,7 @@ mod tests {
 
     #[test]
     fn test_primary_key_scans() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let item1 = Item {
             id: 10,
             name: "item10".to_string(),
@@ -263,8 +263,7 @@ mod tests {
 
     #[test]
     fn test_non_unique_secondary_key_queries() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let item1 = Item {
             id: 1,
             name: "red".to_string(),
@@ -326,8 +325,7 @@ mod tests {
 
     #[test]
     fn test_unique_secondary_key() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let user1 = User {
             username: "alice".to_string(),
             email: "alice@example.com".to_string(),
@@ -372,8 +370,7 @@ mod tests {
 
     #[test]
     fn test_singleton_operations() -> eyre::Result<()> {
-        let models = get_models();
-        let (_dir, storage) = setup_database(&models);
+        let (_dir, storage) = setup_database(&MODELS);
         let settings = Settings {
             id: 0,
             theme: "dark".to_string(),
