@@ -1,14 +1,34 @@
-use native_db::{transaction, Builder, Database, Models};
-use std::path::Path;
+use native_db::{
+    transaction::{self, RTransaction},
+    Builder, Database, Models, ToInput,
+};
+use native_model::Model;
+use serde::Serialize;
+use std::{path::Path, sync::Arc};
 
+use crate::storage::entities::{prefix_trie_node::PrefixTrieNode, task::Task};
+
+#[derive(Clone)]
 pub struct Storage {
-    db: Database<'static>,
+    db: Arc<Database<'static>>,
+}
+
+/// Defines a database query operation for the storage layer.
+pub enum DbOperation {
+    ListTables,
+    ScanTable { table_name: String },
+}
+
+/// Represents a successful result from a database query.
+pub enum DbResult {
+    TableList(Vec<String>),
+    TableRows(Vec<String>),
 }
 
 impl Storage {
     pub fn try_new(path: impl AsRef<Path>, models: &'static Models) -> eyre::Result<Self> {
         let db = Builder::new().create(models, path)?;
-        Ok(Self { db })
+        Ok(Self { db: Arc::new(db) })
     }
 
     /// Executes read-only operation within a transaction
@@ -30,9 +50,51 @@ impl Storage {
                 txn.commit()?;
                 Ok(result)
             }
-            e => e,
+            e => {
+                // RwTransaction doesn't seem to implement drop, there may
+                // be nested properties with it but w/e let's be safe and call abort.
+                txn.abort()?;
+                e
+            }
         }
     }
+
+    pub fn db_query(&self, operation: DbOperation) -> eyre::Result<DbResult> {
+        match operation {
+            DbOperation::ListTables => Ok(DbResult::TableList(vec![
+                "Task".into(),
+                "PrefixTrieNode".into(),
+            ])),
+            DbOperation::ScanTable { table_name } => {
+                let rows = self.read(|txn| match table_name.as_str() {
+                    "Task" => scan_and_serialize::<Task>(&txn),
+                    "PrefixTrieNode" => scan_and_serialize::<PrefixTrieNode>(&txn),
+                    _ => Err(eyre::eyre!(
+                        "Table '{}' not found or not scannable.",
+                        table_name
+                    )),
+                })?;
+
+                Ok(DbResult::TableRows(rows))
+            }
+        }
+    }
+}
+
+fn scan_and_serialize<T>(txn: &RTransaction) -> eyre::Result<Vec<String>>
+where
+    T: Model + Serialize + ToInput,
+{
+    let items = txn
+        .scan()
+        .primary::<T>()?
+        .all()?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    items
+        .into_iter()
+        .map(|item| serde_json::to_string(&item).map_err(|e| eyre::eyre!(e)))
+        .collect()
 }
 
 #[cfg(test)]

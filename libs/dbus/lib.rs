@@ -28,5 +28,8 @@ macro_rules! define_o324_service_interface_methods {
             start_timestamp: u64,
             end_timestamp: u64,
         ) -> fdo::Result<Vec<dto::TaskDto>>;
+        async fn ping(&self) -> fdo::Result<String>;
+        async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
+        async fn db_query(&self, operation: dto::DbOperationDto) -> fdo::Result<dto::DbResultDto>;
     };
 }

@@ -1,5 +1,5 @@
 use clap::Args;
-use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
+use o324_dbus::{dto, proxy::O324ServiceProxy};
 
 #[derive(Args, Debug)]
 pub struct Command {
@@ -38,10 +38,7 @@ impl Command {
     }
 }
 
-pub async fn handle(command: Command) -> eyre::Result<()> {
-    let connection = Connection::session().await?;
-    let proxy = O324ServiceProxy::new(&connection).await?;
-
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
     let task_update = dto::TaskUpdateDto {
         task_name: command.name.clone().into(),
         project: command.parse_project_value().into(),
