@@ -73,26 +73,11 @@ enum StatsSubcommand {
     Year,
 }
 
-pub async fn handle(command: Command) -> eyre::Result<()> {
-    let connection = Connection::session().await?;
-    let proxy = O324ServiceProxy::new(&connection).await?;
-
-    if let Some(subcommand) = command.subcommand {
-        match subcommand {
-            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
-            _ => handle_generic_subcommand(subcommand, command.last, command.json, &proxy).await?,
-        }
-    } else {
-        handle_today_summary(command.json, &proxy).await?;
-    }
-    Ok(())
-}
-
 async fn handle_generic_subcommand(
     subcommand: StatsSubcommand,
     last: u64,
     json: bool,
-    proxy: &O324ServiceProxy<'_>
+    proxy: &O324ServiceProxy<'_>,
 ) -> eyre::Result<()> {
     let end_date = Utc::now();
     let start_date = end_date - Duration::days(last as i64);
@@ -715,4 +700,16 @@ fn format_duration_pretty(duration: Duration) -> String {
 fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms as i64)
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
+}
+
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+    if let Some(subcommand) = command.subcommand {
+        match subcommand {
+            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
+            _ => handle_generic_subcommand(subcommand, command.last, command.json, &proxy).await?,
+        }
+    } else {
+        handle_today_summary(command.json, &proxy).await?;
+    }
+    Ok(())
 }

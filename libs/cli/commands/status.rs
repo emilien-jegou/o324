@@ -17,10 +17,7 @@ pub struct Command {
     json: bool,
 }
 
-pub async fn handle(command: Command) -> eyre::Result<()> {
-    let connection = Connection::session().await?;
-    let proxy = O324ServiceProxy::new(&connection).await?;
-
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
     // We only need the very last task to determine the current status.
     let tasks = proxy.list_last_tasks(1).await?;
 

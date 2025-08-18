@@ -1,15 +1,17 @@
 use native_db::Models;
 use serde::{Deserialize, Serialize};
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr};
 
 use crate::{
     config::Config,
+    core::task_prefix::PrefixIndex,
     storage::{
-        storage::Storage,
-        task::{Task, TaskBuilder, TaskKey, TaskUpdate},
+        entities::task::{Task, TaskBuilder, TaskId, TaskKey, TaskUpdate},
+        storage::{DbOperation, DbResult, Storage},
     },
 };
 
+mod task_prefix;
 mod utils;
 
 // This generic struct is the correct architecture.
@@ -17,7 +19,8 @@ mod utils;
 pub struct Core {
     pub name: String,
     pub config: Config,
-    pub storage: Arc<Storage>,
+    pub storage: Storage,
+    pub prefix_index: PrefixIndex,
 }
 
 impl Core {
@@ -25,15 +28,18 @@ impl Core {
         let profile_config = config.get_current_profile()?;
 
         let mut db_path = profile_config.get_storage_location().clone();
+        std::fs::create_dir_all(&db_path)?;
         db_path.push("storage.db");
-        // This returns a `StorageContainer<RedbStorage>`
         let storage = Storage::try_new(&db_path, models)
             .map_err(|e| eyre::eyre!("Couldn't initialize storage on path {db_path:?}: {e}"))?;
 
+        let prefix_index = PrefixIndex::new(storage.clone());
+
         Ok(Self {
             name: config.core.computer_name.clone(),
-            storage: Arc::new(storage),
+            storage,
             config: config.clone(),
+            prefix_index,
         })
     }
 }
@@ -74,10 +80,6 @@ pub enum TaskAction {
 }
 
 impl Core {
-    pub fn get_loaded_config(&self) -> Config {
-        self.config.clone()
-    }
-
     /// Starts a new task. If another task is currently running, it will be stopped.
     pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<Vec<TaskAction>> {
         let current_timestamp = utils::unix_now();
@@ -107,6 +109,7 @@ impl Core {
                 .end(None)
                 .try_build()?; // try_build() already computes the hash
             qr.upsert(new_task.clone())?;
+            self.prefix_index.add_ids_txn(qr, &[task_id])?;
             task_actions.push(TaskAction::Upsert(new_task));
             Ok(())
         })?;
@@ -236,6 +239,11 @@ impl Core {
         Ok(task_actions)
     }
 
+    pub async fn get_task_by_id(&self, task_id: TaskId) -> eyre::Result<Option<Task>> {
+        self.storage
+            .read(|qr| Ok(qr.get().primary::<Task>(task_id)?))
+    }
+
     pub async fn list_last_tasks(&self, count: u64) -> eyre::Result<Vec<Task>> {
         self.storage.read(|qr| {
             let tasks = qr
@@ -266,7 +274,7 @@ impl Core {
         })
     }
 
-    pub fn get_inner_storage(&self) -> &Storage {
-        &self.storage
+    pub async fn db_query(&self, operation: DbOperation) -> eyre::Result<DbResult> {
+        self.storage.db_query(operation)
     }
 }
