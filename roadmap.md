@@ -1,7 +1,7 @@
 # Roadmap
 
-## Storage types
-- [x] git
+## Synchrozation types
+- [ ] git
 - [ ] server
 - [ ] P2P
 
@@ -13,12 +13,15 @@
 - [x] log
 - [x] restart
 - [x] start
-- [ ] stats
-- [ ] status
+- [x] stats
+- [x] status
 - [x] stop
 - [x] sync
 
 ## GUI
+
+⚠️ The GUI is currently on hld as I am focusing on internals, same for android app.
+
 - [x] basic actions
   - [x] create
   - [~] edit
@@ -38,10 +41,5 @@
 - [x] configuration profiles
 - [~] documentation website
 
-## Nice to have
-- [ ] hot-reload on change through iceoryx2
-
-## Mobile
-
-Finished a first phase of experimentation with [Tauri mobile](https://beta.tauri.app/fr/blog/tauri-mobile-alpha/#preview). Check the `dev-android` branch.
-
+## Others / Misc
+- [ ] storage read access prevention without password & encryption

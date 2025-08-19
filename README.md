@@ -1,28 +1,42 @@
 # o324
 
-An open source CLI and GUI time tracker for linux developed in rust.
+**o324 is a different kind of time-tracker. Built for personal time management and radical self-accountability, it respects your privacy and understands how real work happens—breaks and all.**
+
+Your data is yours. Period. o324 does not collect any data. Everything belongs to you and lives locally on your machine.
 
 > ⚠️ Project in active development.
 
-# Introduction
+---
+## The time-tracking issue
 
-This project aims to create a cross-platform open-source time tracking solution featuring a customizable storage layer. Many of us value having control over their data, yet often find themselves tied to proprietary options due to a lack of suitable open-source alternatives. This project seeks to address this gap by offering a software solution that operates effectively without compromising on data control.
+Let's say you start a Pomodoro work session at 9 AM and finish at 12 PM. During this time, you naturally stop the timer for breaks. At noon, you look at your log and feel discouraged to see you only "worked" 2h 20m.
 
-## Git as a database?
+Why? Because in a typical Pomodoro cycle, you only work ~77% of the time. The rest is spent on essential breaks—getting water, stretching, or resetting mentally. These breaks are part of the work session, yet you will feel penalized for them.
 
-The first database layer that was developed for the tool is Git, but why would you use Git as a storage layer? here are my argument for it:
-- git is widespread, you can choose to host your backend anywhre, most of the time for free (gitlab, bitbucket, github) or self-host it.
-- git already offer capabilities for reconciliating divergent changes, making a CRDT (conflict-free replicated data type) implementation on top of it trivial.
-- git use the algorithm that most blockchain use for block validation (in this case commit validation), ensuring data integrity accross different devices.
-- It goes well with my idea of having human readable storage data for analytics (json, yaml and toml are supported).
-- All changes are reversible
+This leads to bad habits:
+*   **Leaving the timer running:** This makes your data inaccurate and defeats the purpose of tracking.
+*   **Reduced self-commitment:** If the timer is always running, are you truly "on the clock"?
+*   **Disengagement:** You can't quantify the productivity difference between a low-focus session and a deep-work session, you will stop tracking your work because it didn't feel rewarding.
+*   **Macro-tasking:** Since you are often leaving the timer running and you don't get into the habit of opening it task are not properly segmented, at the end of the day no matter how much work you put-in you will have worked on one thing, a good-analogy would be a "squashed" commit and no one like to code-review a squashed commit.
 
-There are still some drawbacks of using git as a storage layer, the main one is that it may be too technical for your general user, which is why the storage layer and configuration was developed in a way where future storage layer can be implemented (such as P2P or server-based).
+**o324 works differently.** It automatically groups your work into **sessions**. If you worked from 9 AM to 12 PM using the Pomodoro technique, o324 logs it as a **3-hour session with a 77% activity level**.
 
-# Roadmap
+Why this is better:
+*   **Focus on Quality, Not Just Quantity:** Your goal shifts from maximizing "hours worked" to improving your **Activity Percentage**. This encourages deep work and prevents the disengagement that comes from leaving a timer running in the background.
+*   **Builds a Stronger Habit:** By making you more aware of your work sessions, o324 stays top-of-mind. This leads to more accurate data and, ultimately, a more honest and rewarding feeling about the work you've accomplished.
 
-For more information about the roadmap check the [roadmap.md](https://github.com/emilien-jegou/o324/blob/main/roadmap.md) file in this repository.
+---
+## Features
 
-# Screens
+o324 has to run as a daemon on your system, the CLI interact with it via D-Bus. Here are some features:
+*   **Automatic Activity Detection:** Monitors your system activity (window titles) to intelligently pause your timer on inactivity.
+*   **Smart Session Boundaries:** Automatically stop an active task when your machine shuts down or sleeps (3 minutes grace period), ensuring your logs are always accurate.
+*   **Inactivity Notifications:** We'll wake you up if you forgot to run the timer.
+*   **Device Synchronization:**
+*   **Dynamic CLI interface:** In-memory caching of your task id prefixes, similar to jujutsu vcs.
 
-![Design file](https://raw.githubusercontent.com/emilien-jegou/o324/main/docs/screen_1.png "Design file")
+
+---
+## Contributing
+
+Contributions are welcome! Whether it's bug reports, feature requests, or code contributions, please feel free to open an issue or submit a pull request on our GitHub repository.
