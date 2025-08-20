@@ -49,7 +49,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
                 } else {
                     println!("Available tables:");
                     for table_name in table_list {
-                        println!("- {}", table_name);
+                        println!("- {table_name}");
                     }
                 }
             } else {
@@ -67,7 +67,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
                         // The inner logic remains the same: parse and pretty-print the JSON string.
                         let value: serde_json::Value = serde_json::from_str(&json_row_string)?;
                         let pretty_json = serde_json::to_string_pretty(&value)?;
-                        println!("{}", pretty_json);
+                        println!("{pretty_json}");
                     }
                 }
             } else {

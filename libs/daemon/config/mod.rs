@@ -1,5 +1,5 @@
-pub mod config;
+pub mod defs;
 pub mod load_config;
 
-pub use config::{Config, CoreConfig, ProfileConfig};
-pub use load_config::{load, save};
+pub use defs::Config;
+pub use load_config::load;

@@ -21,6 +21,7 @@ fn read_file_content_if_exist(file_path: &str) -> eyre::Result<Option<String>> {
     Ok(Some(content))
 }
 
+#[allow(dead_code)]
 pub fn save(config_path: &str, config: &Config) -> eyre::Result<()> {
     let toml_string =
         toml::to_string(config).map_err(|e| eyre::eyre!("Failed to serialize config: {e}"))?;

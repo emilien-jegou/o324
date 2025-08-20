@@ -29,7 +29,7 @@ pub struct Task {
     #[secondary_key(unique)]
     pub end: Option<u64>,
     #[builder(setter(skip))]
-    __hash: u64,
+    pub __hash: u64,
 }
 
 impl TaskBuilder {
@@ -81,36 +81,6 @@ impl Task {
 }
 
 impl TaskUpdate {
-    pub fn from_task_diff(left: &Task, right: &Task) -> eyre::Result<TaskUpdate> {
-        if left.id != right.id {
-            return Err(eyre::eyre!("diff between task with different id"));
-        }
-
-        let mut res = TaskUpdate::default().set_id(left.id.clone());
-
-        if left.task_name != right.task_name {
-            res = res.set_task_name(right.task_name.clone());
-        }
-
-        if left.project != right.project {
-            res = res.set_project(right.project.clone());
-        }
-
-        if left.tags != right.tags {
-            res = res.set_tags(right.tags.to_vec());
-        }
-
-        if left.start != right.start {
-            res = res.set_start(right.start);
-        }
-
-        if left.end != right.end {
-            res = res.set_end(right.end);
-        }
-
-        Ok(res)
-    }
-
     pub fn merge_with_task(self, task: &Task) -> Task {
         let mut task = Task {
             id: self.id.unwrap_or(task.id.clone()),
@@ -124,13 +94,5 @@ impl TaskUpdate {
         };
         task.compute_new_hash();
         task
-    }
-
-    // This is an helper method
-    pub fn get_id(&self) -> eyre::Result<String> {
-        match &self.id {
-            Some(id) => Ok(id.clone()),
-            None => Err(eyre::eyre!("task id is a required field")),
-        }
     }
 }

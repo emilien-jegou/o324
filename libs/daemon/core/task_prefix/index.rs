@@ -1,7 +1,7 @@
 use native_db::transaction::RwTransaction;
 
 use crate::storage::entities::prefix_trie_node::PrefixTrieNode;
-use crate::storage::storage::Storage;
+use crate::storage::defs::Storage;
 
 use super::cache;
 use super::cache::IndexCache;
@@ -89,6 +89,7 @@ impl PrefixIndex {
     }
 
     /// Adds a batch of new IDs to the index.
+    #[allow(dead_code)]
     pub fn add_ids(&mut self, ids: &[String]) -> eyre::Result<()> {
         self.db.write(|rw| self.add_ids_txn(rw, ids))
     }

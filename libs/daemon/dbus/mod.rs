@@ -7,7 +7,7 @@ mod transforms;
 
 use crate::{
     core::{Core, TaskRef},
-    storage::storage::DbOperation,
+    storage::defs::DbOperation,
 };
 
 pub trait O324ServiceInterface {
@@ -151,7 +151,7 @@ impl O324ServiceInterface for O324Service {
 
     async fn db_query(&self, operation: dto::DbOperationDto) -> fdo::Result<dto::DbResultDto> {
         let internal_operation =
-            DbOperation::try_from(operation).map_err(|e| fdo::Error::InvalidArgs(e))?;
+            DbOperation::try_from(operation).map_err(fdo::Error::InvalidArgs)?;
 
         match self.core.db_query(internal_operation).await {
             Ok(internal_result) => {
