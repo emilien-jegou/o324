@@ -79,15 +79,15 @@ fn get_process_info(pid_u32: u32) -> Option<ProcessDetails> {
         return None;
     }
     let pid = Pid::from_raw(pid_u32 as i32);
-    let proc_path = format!("/proc/{}", pid);
+    let proc_path = format!("/proc/{pid}");
 
     // Get executable path
-    let exe = fs::read_link(format!("{}/exe", proc_path))
+    let exe = fs::read_link(format!("{proc_path}/exe"))
         .ok()
         .and_then(|p| p.to_str().map(String::from));
 
     // Get command line arguments
-    let cmd = fs::read_to_string(format!("{}/cmdline", proc_path))
+    let cmd = fs::read_to_string(format!("{proc_path}/cmdline"))
         .ok()
         .map(|s| {
             s.split('\0')
@@ -97,12 +97,12 @@ fn get_process_info(pid_u32: u32) -> Option<ProcessDetails> {
         });
 
     // Get current working directory
-    let cwd = fs::read_link(format!("{}/cwd", proc_path))
+    let cwd = fs::read_link(format!("{proc_path}/cwd"))
         .ok()
         .and_then(|p| p.to_str().map(String::from));
 
     // Get user
-    let user = fs::read_to_string(format!("{}/status", proc_path))
+    let user = fs::read_to_string(format!("{proc_path}/status"))
         .ok()
         .and_then(|status| {
             status
@@ -265,7 +265,7 @@ impl WindowTracker {
             .arg("fht-compositor")
             .status()
             .await
-            .map_or(false, |s| s.success())
+            .is_ok_and(|s| s.success())
         {
             return WaylandCompositor::Fht;
         }
@@ -293,8 +293,7 @@ impl WindowTracker {
                 WaylandCompositor::Niri => Ok(Box::new(NiriProvider::new().await?)),
                 WaylandCompositor::Fht => Ok(Box::new(FhtProvider::new().await?)),
                 _ => Err(WindowTrackerError::UnsupportedCompositor(format!(
-                    "Wayland compositor {:?} is not yet supported",
-                    compositor
+                    "Wayland compositor {compositor:?} is not yet supported"
                 ))),
             },
         }
@@ -507,8 +506,8 @@ impl WindowProvider for X11Provider {
                             }
                         }
 
-                        if should_send_event {
-                            if tx
+                        if should_send_event
+                            && tx
                                 .send(WindowEvent::WindowFocused(
                                     current_window.as_ref().unwrap().clone(),
                                 ))
@@ -517,7 +516,6 @@ impl WindowProvider for X11Provider {
                             {
                                 break;
                             }
-                        }
 
                         // Always update the state for the next comparison
                         last_focused_window = current_window;
@@ -632,7 +630,7 @@ impl SwayProvider {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
-    fn find_focused_node<'a>(node: &'a SwayNode) -> Option<&'a SwayNode> {
+    fn find_focused_node(node: &SwayNode) -> Option<&SwayNode> {
         if node.focused {
             return Some(node);
         }
@@ -662,14 +660,14 @@ impl WindowProvider for SwayProvider {
     async fn get_active_window(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
         let output = self.execute_sway_command(&["-t", "get_tree"]).await?;
         let tree: SwayNode = serde_json::from_str(&output)
-            .map_err(|e| WindowTrackerError::ParseError(format!("Sway get_tree: {}", e)))?;
+            .map_err(|e| WindowTrackerError::ParseError(format!("Sway get_tree: {e}")))?;
         Ok(Self::find_focused_node(&tree).and_then(WindowInfo::from_sway_node))
     }
 
     async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
         let output = self.execute_sway_command(&["-t", "get_tree"]).await?;
         let tree: SwayNode = serde_json::from_str(&output)
-            .map_err(|e| WindowTrackerError::ParseError(format!("Sway get_tree: {}", e)))?;
+            .map_err(|e| WindowTrackerError::ParseError(format!("Sway get_tree: {e}")))?;
         let mut windows = Vec::new();
         Self::collect_windows(&tree, &mut windows);
         Ok(windows)
@@ -684,7 +682,7 @@ impl WindowProvider for SwayProvider {
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|e| {
-                WindowTrackerError::CommandFailed(format!("Failed to start swaymsg: {}", e))
+                WindowTrackerError::CommandFailed(format!("Failed to start swaymsg: {e}"))
             })?;
 
         let stdout = cmd.stdout.take().expect("stdout should be available");
@@ -785,14 +783,14 @@ impl WindowProvider for HyprlandProvider {
             return Ok(None);
         }
         let client: HyprlandClient = serde_json::from_str(&output)
-            .map_err(|e| WindowTrackerError::ParseError(format!("Hyprland activewindow: {}", e)))?;
+            .map_err(|e| WindowTrackerError::ParseError(format!("Hyprland activewindow: {e}")))?;
         Ok(Some(WindowInfo::from_hyprland_client(&client, true)))
     }
 
     async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
         let output = self.execute_hyprctl_command(&["-j", "clients"]).await?;
         let clients: Vec<HyprlandClient> = serde_json::from_str(&output)
-            .map_err(|e| WindowTrackerError::ParseError(format!("Hyprland clients: {}", e)))?;
+            .map_err(|e| WindowTrackerError::ParseError(format!("Hyprland clients: {e}")))?;
         let active_window_id = self.get_active_window().await?.map(|w| w.id);
         Ok(clients
             .into_iter()
@@ -812,14 +810,13 @@ impl WindowProvider for HyprlandProvider {
         let signature = env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| {
             WindowTrackerError::CommandFailed("HYPRLAND_INSTANCE_SIGNATURE not set".to_string())
         })?;
-        let socket_path = format!("/tmp/hypr/{}/.socket2.sock", signature);
+        let socket_path = format!("/tmp/hypr/{signature}/.socket2.sock");
 
         let stream = tokio::net::UnixStream::connect(socket_path)
             .await
             .map_err(|e| {
                 WindowTrackerError::CommandFailed(format!(
-                    "Failed to connect to hyprland event socket: {}",
-                    e
+                    "Failed to connect to hyprland event socket: {e}"
                 ))
             })?;
 
@@ -876,11 +873,11 @@ impl KdeProvider {
         is_focused: bool,
     ) -> Result<WindowInfo, WindowTrackerError> {
         let conn = self.conn.lock().await;
-        let path_str = format!("/client/{}", client_id);
+        let path_str = format!("/client/{client_id}");
         let path = ObjectPath::try_from(path_str).unwrap();
 
         let props_proxy = zbus::Proxy::new(
-            &*conn,
+            &conn,
             "org.kde.KWin",
             &path,
             "org.freedesktop.DBus.Properties",
@@ -922,7 +919,7 @@ impl KdeProvider {
 impl WindowProvider for KdeProvider {
     async fn get_active_window(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
         let conn = self.conn.lock().await;
-        let proxy = zbus::Proxy::new(&*conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
+        let proxy = zbus::Proxy::new(&conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
         let client_id: u64 = proxy.get_property("activeClient").await?;
         if client_id == 0 {
             return Ok(None);
@@ -932,7 +929,7 @@ impl WindowProvider for KdeProvider {
 
     async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
         let conn = self.conn.lock().await;
-        let proxy = zbus::Proxy::new(&*conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
+        let proxy = zbus::Proxy::new(&conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
         let client_ids: Vec<u64> = proxy.get_property("clientList").await?;
         let active_client_id = proxy.get_property::<u64>("activeClient").await.unwrap_or(0);
 
@@ -950,7 +947,7 @@ impl WindowProvider for KdeProvider {
     ) -> Result<tokio::sync::mpsc::Receiver<WindowEvent>, WindowTrackerError> {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
         let conn = self.conn.lock().await;
-        let proxy = zbus::Proxy::new(&*conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
+        let proxy = zbus::Proxy::new(&conn, "org.kde.KWin", "/KWin", "org.kde.KWin").await?;
 
         let mut stream = proxy.receive_signal("activeClientChanged").await?;
         let provider = Self {
@@ -991,7 +988,7 @@ impl NiriProvider {
     async fn get_session_proxy(&self) -> Result<zbus::Proxy<'_>, WindowTrackerError> {
         let conn = self.conn.lock().await;
         Ok(zbus::Proxy::new(
-            &*conn,
+            &conn,
             "re.sonny.niri",
             "/re/sonny/niri",
             "re.sonny.niri.Session",
@@ -1006,7 +1003,7 @@ impl NiriProvider {
     ) -> Result<WindowInfo, WindowTrackerError> {
         let conn = self.conn.lock().await;
         let props_proxy = zbus::Proxy::new(
-            &*conn,
+            &conn,
             "re.sonny.niri",
             &window_path,
             "org.freedesktop.DBus.Properties",
@@ -1053,7 +1050,7 @@ impl WindowProvider for NiriProvider {
         for output_path in outputs {
             let conn = self.conn.lock().await;
             let output_proxy = zbus::Proxy::new(
-                &*conn,
+                &conn,
                 "re.sonny.niri",
                 &output_path,
                 "re.sonny.niri.Output",
@@ -1085,7 +1082,7 @@ impl WindowProvider for NiriProvider {
             for output_path in outputs {
                 let conn = self.conn.lock().await;
                 let output_proxy = zbus::Proxy::new(
-                    &*conn,
+                    &conn,
                     "re.sonny.niri",
                     &output_path,
                     "re.sonny.niri.Output",
@@ -1212,7 +1209,7 @@ impl WindowProvider for FhtProvider {
             return Ok(None);
         }
         let fht_win: FhtWindow = serde_json::from_str(&output).map_err(|e| {
-            WindowTrackerError::ParseError(format!("fht-compositor focused-window: {}", e))
+            WindowTrackerError::ParseError(format!("fht-compositor focused-window: {e}"))
         })?;
         Ok(Some(WindowInfo::from_fht_window(&fht_win)))
     }
@@ -1220,7 +1217,7 @@ impl WindowProvider for FhtProvider {
     async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
         let output = self.execute_fht_command(&["windows"]).await?;
         let fht_windows: Vec<FhtWindow> = serde_json::from_str(&output).map_err(|e| {
-            WindowTrackerError::ParseError(format!("fht-compositor windows: {}", e))
+            WindowTrackerError::ParseError(format!("fht-compositor windows: {e}"))
         })?;
         let windows = fht_windows
             .iter()
@@ -1253,8 +1250,8 @@ impl WindowProvider for FhtProvider {
                             }
                         }
 
-                        if should_send_event {
-                            if tx
+                        if should_send_event
+                            && tx
                                 .send(WindowEvent::WindowFocused(
                                     current_window.as_ref().unwrap().clone(),
                                 ))
@@ -1263,7 +1260,6 @@ impl WindowProvider for FhtProvider {
                             {
                                 break;
                             }
-                        }
 
                         // Always update the state for the next comparison
                         last_focused_window = current_window;

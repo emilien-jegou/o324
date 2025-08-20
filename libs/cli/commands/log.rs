@@ -220,7 +220,7 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
             if last_date.unwrap() != current_date {
                 result.push(TopLevelElem::BreakSeparator(break_dur));
                 let (total_active, total_session, session_count) =
-                    daily_stats.get(&current_date).unwrap().clone();
+                    *daily_stats.get(&current_date).unwrap();
                 result.push(TopLevelElem::DateSeparator(DaySummary {
                     date: current_date,
                     total_active_duration: total_active,
@@ -232,7 +232,7 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
             }
         } else {
             let (total_active, total_session, session_count) =
-                daily_stats.get(&current_date).unwrap().clone();
+                *daily_stats.get(&current_date).unwrap();
             result.push(TopLevelElem::DateSeparator(DaySummary {
                 date: current_date,
                 total_active_duration: total_active,
@@ -251,7 +251,7 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
 
 /// Colors the activity percentage string based on its value using absolute RGB.
 fn colorize_percentage(percentage: i64) -> ColoredString {
-    let text = format!("{}% active", percentage);
+    let text = format!("{percentage}% active");
     if percentage <= 55 {
         colored::Colorize::truecolor(&*text, 230, 60, 60)
     } else if percentage <= 65 {
@@ -333,7 +333,7 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                     "├➤"
                 };
 
-                let title_string = format!("Session {}", daily_session_number);
+                let title_string = format!("Session {daily_session_number}");
                 let session_title = title_string.dimmed();
 
                 let time_header_string = format!(
@@ -453,7 +453,7 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                             let tags = task
                                 .tags
                                 .iter()
-                                .map(|t| format!("#{}", t))
+                                .map(|t| format!("#{t}"))
                                 .collect::<Vec<_>>()
                                 .join(" ")
                                 .dimmed()
@@ -484,30 +484,30 @@ fn format_duration_pretty(duration: Duration) -> String {
 
     let total_seconds = duration.num_seconds();
     if total_seconds < 60 {
-        return format!("{}s", total_seconds);
+        return format!("{total_seconds}s");
     }
 
     let total_minutes = duration.num_minutes();
     if total_minutes < 60 {
-        return format!("{}m", total_minutes);
+        return format!("{total_minutes}m");
     }
 
     let total_hours = duration.num_hours();
     if total_hours < 24 {
         let minutes = total_minutes % 60;
         if minutes > 0 {
-            return format!("{}h{}m", total_hours, minutes);
+            return format!("{total_hours}h{minutes}m");
         } else {
-            return format!("{}h", total_hours);
+            return format!("{total_hours}h");
         }
     }
 
     let days = total_hours / 24;
     let hours = total_hours % 24;
     if hours > 0 {
-        format!("{}d{}h", days, hours)
+        format!("{days}d{hours}h")
     } else {
-        format!("{}d", days)
+        format!("{days}d")
     }
 }
 

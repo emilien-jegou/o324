@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Local, Utc};
 use clap::Args;
 use colored::Colorize;
-use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
+use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
@@ -72,7 +72,7 @@ fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Re
         let tags_str = task
             .tags
             .iter()
-            .map(|t| format!("#{}", t))
+            .map(|t| format!("#{t}"))
             .collect::<Vec<_>>()
             .join(" ");
         println!("{} {}:     {}", prefix, "Tags".bold(), tags_str.dimmed());
@@ -104,18 +104,18 @@ fn format_duration_pretty(duration: Duration) -> String {
     }
     let total_seconds = duration.num_seconds();
     if total_seconds < 60 {
-        return format!("{}s", total_seconds);
+        return format!("{total_seconds}s");
     }
     let total_minutes = duration.num_minutes();
     if total_minutes < 60 {
-        return format!("{}m", total_minutes);
+        return format!("{total_minutes}m");
     }
     let total_hours = duration.num_hours();
     let minutes = total_minutes % 60;
     if minutes > 0 {
-        format!("{}h {}m", total_hours, minutes)
+        format!("{total_hours}h {minutes}m")
     } else {
-        format!("{}h", total_hours)
+        format!("{total_hours}h")
     }
 }
 

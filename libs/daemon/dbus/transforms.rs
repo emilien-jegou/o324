@@ -6,21 +6,21 @@ use crate::{
     dbus::dto,
     storage::{
         entities::task::{Task, TaskUpdate},
-        storage::{DbOperation, DbResult},
+        defs::{DbOperation, DbResult},
     },
 };
 
 // Convert from Core Task -> DTO Task (for sending data out)
 impl Task {
-    pub fn into_dto(&self, id_prefix: String) -> dto::TaskDto {
+    pub fn into_dto(self, id_prefix: String) -> dto::TaskDto {
         dto::TaskDto {
-            id: self.id.clone(),
             id_prefix,
-            __hash: self.get_hash().clone(),
-            task_name: self.task_name.clone(),
-            project: self.project.clone(),
-            tags: self.tags.clone(),
-            computer_name: self.computer_name.clone(),
+            id: self.id,
+            __hash: self.__hash,
+            task_name: self.task_name,
+            project: self.project,
+            tags: self.tags,
+            computer_name: self.computer_name,
             start: self.start,
             end: self.end,
         }

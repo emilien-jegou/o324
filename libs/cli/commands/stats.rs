@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Timelike, Utc, Weekday};
 use clap::{Args, Subcommand};
 use colored::{ColoredString, Colorize};
-use o324_dbus::{dto, proxy::O324ServiceProxy, zbus::Connection};
+use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -91,7 +91,7 @@ async fn handle_generic_subcommand(
         .collect::<Vec<dto::TaskDto>>();
 
     if !json && all_tasks.is_empty() {
-        println!("No tasks found in the last {} days.", last);
+        println!("No tasks found in the last {last} days.");
         return Ok(());
     }
 
@@ -244,7 +244,7 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
                 "sessions"
             },
             " ".normal(),
-            format!("{}% active", overall_activity_percentage).bold(),
+            format!("{overall_activity_percentage}% active").bold(),
             " ".normal()
         );
         let first_time = ms_to_datetime(todays_tasks.first().unwrap().start)?
@@ -380,7 +380,7 @@ async fn handle_hour_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyr
     let mut data: Vec<(String, Duration)> = (0..24)
         .map(|hour| {
             (
-                format!("{:02}:00", hour),
+                format!("{hour:02}:00"),
                 summary.get(&hour).cloned().unwrap_or_default(),
             )
         })
@@ -565,7 +565,7 @@ fn print_year_heatmap(year: i32, daily_summary: &HashMap<NaiveDate, Duration>) {
                 .unwrap()
                 .format("%b")
                 .to_string();
-            print!("{:<4}", month_str);
+            print!("{month_str:<4}");
         } else {
             print!("  ");
         }
@@ -578,7 +578,7 @@ fn print_year_heatmap(year: i32, daily_summary: &HashMap<NaiveDate, Duration>) {
             5 => "Fri",
             _ => "",
         };
-        print!("{}", format!("{:<4}", day_label).dimmed());
+        print!("{}", format!("{day_label:<4}").dimmed());
         for week_idx in 0..53 {
             let cell_date = grid_start_date + Duration::weeks(week_idx) + Duration::days(day_idx);
             if cell_date.year() != year || cell_date > today {
@@ -607,7 +607,7 @@ fn print_header(title: &str, context: &dyn std::fmt::Display) {
     println!(
         "{} {}\n",
         title.bold().underline(),
-        format!("({})", context).dimmed()
+        format!("({context})").dimmed()
     );
 }
 
@@ -682,18 +682,18 @@ fn format_duration_pretty(duration: Duration) -> String {
     }
     let total_seconds = duration.num_seconds();
     if total_seconds < 60 {
-        return format!("{}s", total_seconds);
+        return format!("{total_seconds}s");
     }
     let total_minutes = duration.num_minutes();
     if total_minutes < 60 {
-        return format!("{}m", total_minutes);
+        return format!("{total_minutes}m");
     }
     let total_hours = duration.num_hours();
     let minutes = total_minutes % 60;
     if minutes > 0 {
-        format!("{}h {}m", total_hours, minutes)
+        format!("{total_hours}h {minutes}m")
     } else {
-        format!("{}h", total_hours)
+        format!("{total_hours}h")
     }
 }
 

@@ -6,7 +6,7 @@ mod core;
 mod dbus;
 mod storage;
 mod tracing;
-mod window_events;
+//mod window_events;
 
 mod commands {
     pub mod start;
@@ -25,8 +25,8 @@ impl Command {
     pub async fn execute(self, conf: &config::Config) -> eyre::Result<()> {
         use commands::*;
         match self {
-            Self::Start(o) => start::handle(o, &conf).await?,
-            Self::Version(o) => version::handle(o, &conf).await?,
+            Self::Start(o) => start::handle(o, conf).await?,
+            Self::Version(o) => version::handle(o, conf).await?,
         };
 
         Ok(())

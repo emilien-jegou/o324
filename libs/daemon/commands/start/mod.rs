@@ -5,8 +5,7 @@ use clap::Args;
 pub struct Command {}
 
 pub async fn handle(_: Command, config: &Config) -> eyre::Result<()> {
-    let core = Core::try_new(&config, &MODELS)?;
-
+    let core = Core::try_new(config, &MODELS)?;
     dbus::start_dbus_service(core).await?;
     Ok(())
 }

@@ -7,7 +7,7 @@ use crate::{
     core::task_prefix::PrefixIndex,
     storage::{
         entities::task::{Task, TaskBuilder, TaskId, TaskKey, TaskUpdate},
-        storage::{DbOperation, DbResult, Storage},
+        defs::{DbOperation, DbResult, Storage},
     },
 };
 
