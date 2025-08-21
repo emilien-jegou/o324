@@ -1,22 +1,14 @@
 use eyre::Error;
-use o324_dbus::{define_o324_service_interface_methods, dto};
-use std::{future::pending, sync::Arc};
-use zbus::{connection, fdo, interface};
-
-mod transforms;
+use o324_dbus::{dto, O324ServiceInterface};
+use zbus::{fdo, interface};
 
 use crate::{
-    core::{Core, TaskRef},
-    storage::defs::DbOperation,
+    core::storage::DbOperation,
+    services::task::{TaskService, TaskRef},
 };
 
-pub trait O324ServiceInterface {
-    define_o324_service_interface_methods!();
-}
-
-/// The D-Bus service struct that wraps our application's Core.
 pub struct O324Service {
-    core: Arc<Core>,
+    pub storage_service: TaskService,
 }
 
 #[interface(name = "org.o324.Service1")]
@@ -25,14 +17,14 @@ impl O324ServiceInterface for O324Service {
         &self,
         input: dto::StartTaskInputDto,
     ) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        let core_result = self.core.start_new_task(input.into()).await;
+        let core_result = self.storage_service.start_new_task(input.into()).await;
         core_result
             .map(|actions| actions.into_iter().map(Into::into).collect())
             .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
     async fn stop_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.core
+        self.storage_service
             .stop_current_task()
             .await
             .map(|actions| actions.into_iter().map(Into::into).collect())
@@ -40,7 +32,7 @@ impl O324ServiceInterface for O324Service {
     }
 
     async fn cancel_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.core
+        self.storage_service
             .cancel_current_task()
             .await
             .map(|actions| actions.into_iter().map(Into::into).collect())
@@ -48,7 +40,7 @@ impl O324ServiceInterface for O324Service {
     }
 
     async fn delete_task(&self, task_id: String) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.core
+        self.storage_service
             .delete_task(task_id)
             .await
             .map(|actions| actions.into_iter().map(Into::into).collect())
@@ -57,7 +49,7 @@ impl O324ServiceInterface for O324Service {
 
     async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>> {
         let maybe_task = self
-            .core
+            .storage_service
             .get_task_by_id(task_id)
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -65,7 +57,7 @@ impl O324ServiceInterface for O324Service {
         let maybe_dto_result: fdo::Result<Option<dto::TaskDto>> = maybe_task
             .map(|task| {
                 let prefix = self
-                    .core
+                    .storage_service
                     .prefix_index
                     .find_shortest_unique_prefix(&task.id)
                     .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
@@ -86,7 +78,7 @@ impl O324ServiceInterface for O324Service {
             .parse::<TaskRef>() // <-- The fix is here
             .map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?;
 
-        self.core
+        self.storage_service
             .edit_task(task_ref, update.into())
             .await
             .map(|actions| actions.into_iter().map(Into::into).collect())
@@ -98,7 +90,7 @@ impl O324ServiceInterface for O324Service {
         // 1. Get the list of core Task objects.
         //    The `?` operator will propagate any error immediately.
         let tasks = self
-            .core
+            .storage_service
             .list_last_tasks(count)
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -110,7 +102,7 @@ impl O324ServiceInterface for O324Service {
             .map(|task| {
                 // Find the unique prefix for the current task's ID.
                 let prefix = self
-                    .core
+                    .storage_service
                     .prefix_index
                     .find_shortest_unique_prefix(&task.id)
                     .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
@@ -129,7 +121,7 @@ impl O324ServiceInterface for O324Service {
     ) -> fdo::Result<Vec<dto::TaskDto>> {
         // 1. Get the list of core Task objects.
         let tasks = self
-            .core
+            .storage_service
             .list_task_range(start_timestamp, end_timestamp)
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -139,7 +131,7 @@ impl O324ServiceInterface for O324Service {
             .into_iter()
             .map(|task| {
                 let prefix = self
-                    .core
+                    .storage_service
                     .prefix_index
                     .find_shortest_unique_prefix(&task.id)
                     .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
@@ -153,7 +145,7 @@ impl O324ServiceInterface for O324Service {
         let internal_operation =
             DbOperation::try_from(operation).map_err(fdo::Error::InvalidArgs)?;
 
-        match self.core.db_query(internal_operation).await {
+        match self.storage_service.db_query(internal_operation).await {
             Ok(internal_result) => {
                 let result_dto: dto::DbResultDto = internal_result.into();
                 Ok(result_dto)
@@ -173,25 +165,4 @@ impl O324ServiceInterface for O324Service {
     async fn ping(&self) -> fdo::Result<String> {
         Ok("pong".into())
     }
-}
-
-/// The main entry point for the D-Bus service daemon.
-pub async fn start_dbus_service(core: Core) -> eyre::Result<()> {
-    let service = O324Service {
-        core: Arc::new(core),
-    };
-
-    // 2. Build and run the D-Bus connection
-    let _conn = connection::Builder::session()?
-        .name("org.o324.Service")?
-        .serve_at("/org/o324/Service", service)?
-        .build()
-        .await?;
-
-    tracing::info!("D-Bus service running. Waiting for calls.");
-
-    // 3. Keep the service alive
-    pending::<()>().await;
-
-    Ok(())
 }

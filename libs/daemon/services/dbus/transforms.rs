@@ -1,13 +1,10 @@
-use o324_dbus::dto::TaskActionType;
+use o324_dbus::dto::{self, TaskActionType};
 use zvariant::Optional;
 
 use crate::{
-    core::{StartTaskInput, TaskAction},
-    dbus::dto,
-    storage::{
-        entities::task::{Task, TaskUpdate},
-        defs::{DbOperation, DbResult},
-    },
+    core::storage::{DbOperation, DbResult},
+    entities::task::{Task, TaskUpdate},
+    services::task::{StartTaskInput, TaskAction},
 };
 
 // Convert from Core Task -> DTO Task (for sending data out)

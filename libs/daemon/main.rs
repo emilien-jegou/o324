@@ -3,10 +3,8 @@ use directories_next::ProjectDirs;
 use std::path::PathBuf;
 mod config;
 mod core;
-mod dbus;
-mod storage;
-mod tracing;
-//mod window_events;
+mod entities;
+mod services;
 
 mod commands {
     pub mod start;
@@ -22,7 +20,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn execute(self, conf: &config::Config) -> eyre::Result<()> {
+    pub async fn execute(self, conf: config::Config) -> eyre::Result<()> {
         use commands::*;
         match self {
             Self::Start(o) => start::handle(o, conf).await?,
@@ -88,7 +86,7 @@ async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let config_path = args.get_config_path()?;
 
-    tracing::setup()?;
+    core::tracing::setup()?;
     color_eyre::install()?;
 
     let storage_config = config::load(&config_path).map_err(|e| {
@@ -99,6 +97,6 @@ async fn main() -> eyre::Result<()> {
         )
     })?;
 
-    args.command.execute(&storage_config).await?;
+    args.command.execute(storage_config).await?;
     Ok(())
 }
