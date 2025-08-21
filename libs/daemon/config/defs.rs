@@ -1,14 +1,26 @@
+use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf; // <-- Import PathBuf
+use std::path::PathBuf;
+use std::sync::Arc;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Config {
+#[derive(Clone, Deref)]
+#[deref(forward)]
+pub struct Config(pub Arc<ConfigInner>);
+
+impl Config {
+    pub fn inner<'a>(&'a self) -> &'a ConfigInner {
+        self.0.as_ref()
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ConfigInner {
     pub core: CoreConfig,
     pub profile: HashMap<String, ProfileConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CoreConfig {
     /// Name of this computer
     pub computer_name: String,
@@ -17,7 +29,7 @@ pub struct CoreConfig {
     pub default_profile_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ProfileConfig {
     /// Where the o324 database will be located (default: ~/.local/share/o324/)
     storage_location: Option<String>,
