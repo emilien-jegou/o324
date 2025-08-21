@@ -6,7 +6,7 @@ use native_model::Model;
 use serde::Serialize;
 use std::{path::Path, sync::Arc};
 
-use crate::storage::entities::{prefix_trie_node::PrefixTrieNode, task::Task};
+use crate::entities::{prefix_trie_node::PrefixTrieNode, task::Task};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -60,6 +60,7 @@ impl Storage {
     }
 
     pub fn db_query(&self, operation: DbOperation) -> eyre::Result<DbResult> {
+        // TODO: move this
         match operation {
             DbOperation::ListTables => Ok(DbResult::TableList(vec![
                 "Task".into(),

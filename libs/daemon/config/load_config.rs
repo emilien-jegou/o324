@@ -1,13 +1,15 @@
-use std::{io::Write, path::Path};
+use std::{io::Write, path::Path, sync::Arc};
+use crate::config::defs::ConfigInner;
+
 use super::Config;
 
 pub fn load(config_path: &str) -> eyre::Result<Config> {
     let content = read_file_content_if_exist(config_path)?
         .ok_or_else(|| eyre::eyre!("Failed to read config file: {config_path}"))?;
 
-    let config: Config = toml::from_str(&content)?;
+    let config_inner: ConfigInner = toml::from_str(&content)?;
 
-    Ok(config)
+    Ok(Config(Arc::new(config_inner)))
 }
 
 fn read_file_content_if_exist(file_path: &str) -> eyre::Result<Option<String>> {
@@ -24,7 +26,7 @@ fn read_file_content_if_exist(file_path: &str) -> eyre::Result<Option<String>> {
 #[allow(dead_code)]
 pub fn save(config_path: &str, config: &Config) -> eyre::Result<()> {
     let toml_string =
-        toml::to_string(config).map_err(|e| eyre::eyre!("Failed to serialize config: {e}"))?;
+        toml::to_string(&*config.0).map_err(|e| eyre::eyre!("Failed to serialize config: {e}"))?;
 
     let path = Path::new(config_path);
     let mut file = std::fs::File::create(path)

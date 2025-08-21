@@ -1,4 +1,3 @@
-mod cache;
 mod index;
 
 // Expose the public-facing API.

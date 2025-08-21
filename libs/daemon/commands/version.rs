@@ -6,6 +6,6 @@ use crate::config::Config;
 pub struct Command {}
 
 // NB: Should be renamed to resume instead of restart
-pub async fn handle(_: Command, _core: &Config) -> eyre::Result<()> {
+pub async fn handle(_: Command, _core: Config) -> eyre::Result<()> {
     Ok(())
 }
