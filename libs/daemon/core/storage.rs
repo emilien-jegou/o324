@@ -27,7 +27,8 @@ pub enum DbResult {
 
 impl Storage {
     pub fn try_new(path: impl AsRef<Path>, models: &'static Models) -> eyre::Result<Self> {
-        let db = Builder::new().create(models, path)?;
+        let builder = Builder::new();
+        let db = builder.open(models, path)?;
         Ok(Self { db: Arc::new(db) })
     }
 
