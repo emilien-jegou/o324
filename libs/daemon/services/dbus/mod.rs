@@ -5,24 +5,25 @@ use crate::services::task::TaskService;
 pub mod interface;
 pub mod transforms;
 
+#[derive(Clone)]
 pub struct DbusService {
-    storage_service: TaskService,
+    task_service: TaskService,
 }
 
 impl DbusService {
-    pub fn new(storage_service: TaskService) -> Self {
-        Self { storage_service }
+    pub fn new(task_service: TaskService) -> Self {
+        Self { task_service }
     }
 }
 
 impl DbusService {
-    pub async fn start_dbus_service(&self) -> eyre::Result<()> {
+    pub async fn serve(&self) -> eyre::Result<()> {
         let _conn = connection::Builder::session()?
             .name("org.o324.Service")?
             .serve_at(
                 "/org/o324/Service",
                 interface::O324Service {
-                    storage_service: self.storage_service.clone(),
+                    task_service: self.task_service.clone(),
                 },
             )?
             .build()

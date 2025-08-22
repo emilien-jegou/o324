@@ -13,12 +13,12 @@ impl Cacheable for PrefixTrieNode {
 
 /// The main interface for the prefix index.
 #[derive(Clone)]
-pub struct PrefixIndex {
+pub struct TaskPrefixRepository {
     // The type now explicitly includes the caching strategy
     repo: Repository<PrefixTrieNode, InMemoryCache<PrefixTrieNode>>,
 }
 
-impl PrefixIndex {
+impl TaskPrefixRepository {
     /// Opens an existing index file or creates a new one if it doesn't exist.
     pub fn new(db: Storage) -> Self {
         // The builder API works exactly as you desired, but now it uses
