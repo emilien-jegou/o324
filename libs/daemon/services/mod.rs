@@ -1,12 +1,14 @@
 mod dbus;
 mod task;
+mod window_events;
 
 use crate::{config::Config, core::storage::Storage, entities::MODELS};
 
 #[allow(dead_code)]
 pub struct AppState {
-    pub storage_service: task::TaskService,
+    pub task_service: task::TaskService,
     pub dbus_service: dbus::DbusService,
+    pub window_event_service: window_events::WindowEventService,
     pub config: Config,
 }
 
@@ -23,13 +25,15 @@ pub fn create_storage_from_config(config: &Config) -> eyre::Result<Storage> {
 
 pub fn build(config: Config) -> eyre::Result<AppState> {
     let storage = create_storage_from_config(&config)?;
-    let storage_service = task::TaskService::try_new(storage, config.clone())?;
+    let task_service = task::TaskService::try_new(storage, config.clone())?;
 
-    let dbus_service = dbus::DbusService::new(storage_service.clone());
+    let dbus_service = dbus::DbusService::new(task_service.clone());
+    let window_event_service = window_events::WindowEventService::new(task_service.clone());
 
     Ok(AppState {
-        storage_service,
+        task_service,
         dbus_service,
+        window_event_service,
         config,
     })
 }

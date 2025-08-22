@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
-use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -14,6 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use tracing::{error, info, warn};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{self, ConnectionExt, Window};
 use x11rb::rust_connection::{ConnectError, ConnectionError, ReplyError, RustConnection};
@@ -134,19 +134,36 @@ pub struct WindowGeometry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DisplayServer {
     X11,
-    Wayland(WaylandCompositor),
+    Wayland,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WaylandCompositor {
+pub enum Compositor {
     Sway,
-    Gnome,
-    Kde,
+    Gnome(DisplayServer),
+    Kde(DisplayServer),
     Hyprland,
     River,
     Niri,
     Fht,
     Unknown,
+}
+
+impl Compositor {
+    pub async fn into_provider(self) -> Result<Box<dyn WindowProvider>, WindowTrackerError> {
+        match self {
+            Compositor::Sway => Ok(Box::new(SwayProvider::new().await?)),
+            Compositor::Hyprland => Ok(Box::new(HyprlandProvider::new().await?)),
+            Compositor::Niri => Ok(Box::new(NiriProvider::new().await?)),
+            Compositor::Fht => Ok(Box::new(FhtProvider::new().await?)),
+            Compositor::Gnome(ds) => Ok(Box::new(GnomeProvider::new(ds).await?)),
+            Compositor::Kde(ds) => Ok(Box::new(KdeProvider::new(ds).await?)),
+            Compositor::Unknown => Ok(Box::new(EwmhProvider::new()?)),
+            _ => Err(WindowTrackerError::UnsupportedCompositor(format!(
+                "{self:?} is not yet supported"
+            ))),
+        }
+    }
 }
 
 #[async_trait]
@@ -156,6 +173,7 @@ pub trait WindowProvider: Send + Sync {
     async fn start_monitoring(
         &self,
     ) -> Result<tokio::sync::mpsc::Receiver<WindowEvent>, WindowTrackerError>;
+    fn get_compositor(&self) -> Compositor;
 }
 
 #[derive(Debug, Clone)]
@@ -173,9 +191,28 @@ pub struct WindowTracker {
 
 impl WindowTracker {
     pub async fn new() -> Result<Self, WindowTrackerError> {
-        let display_server = Self::detect_display_server().await?;
-        info!("Detected display server: {:?}", display_server);
-        let provider = Self::create_provider(&display_server).await?;
+        let compositor = Self::detect_environment().await.ok_or_else(|| {
+            WindowTrackerError::UnsupportedDisplayServer(
+                "Could not detect a supported display server or compositor.".to_string(),
+            )
+        })?;
+
+        let provider = compositor.clone().into_provider().await?;
+
+        let display_server = match &compositor {
+            Compositor::Gnome(ds) | Compositor::Kde(ds) => ds.clone(),
+            Compositor::Sway
+            | Compositor::Hyprland
+            | Compositor::River
+            | Compositor::Niri
+            | Compositor::Fht => DisplayServer::Wayland,
+            Compositor::Unknown => DisplayServer::X11,
+        };
+
+        info!(
+            "Detected display server: {:?}, compositor: {:?}",
+            display_server, &compositor
+        );
 
         Ok(Self {
             provider,
@@ -201,108 +238,41 @@ impl WindowTracker {
         &self.display_server
     }
 
-    async fn detect_display_server() -> Result<DisplayServer, WindowTrackerError> {
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            let compositor = Self::detect_wayland_compositor().await;
-            return Ok(DisplayServer::Wayland(compositor));
-        }
-        if env::var("DISPLAY").is_ok() {
-            return Ok(DisplayServer::X11);
-        }
-        Err(WindowTrackerError::UnsupportedDisplayServer(
-            "Neither X11 nor Wayland detected".to_string(),
-        ))
+    pub fn get_compositor(&self) -> Compositor {
+        self.provider.get_compositor()
     }
 
-    async fn detect_wayland_compositor() -> WaylandCompositor {
-        // First, check for specific, fast environment variables
-        if env::var("SWAYSOCK").is_ok() {
-            return WaylandCompositor::Sway;
+    async fn detect_environment() -> Option<Compositor> {
+        // Chain provider detection methods. Order is important: more specific checks first.
+        if let Some(c) = HyprlandProvider::detect().await {
+            return Some(c);
         }
-        if env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
-            return WaylandCompositor::Hyprland;
+        if let Some(c) = SwayProvider::detect().await {
+            return Some(c);
         }
-
-        // Check desktop session for major DEs
-        let desktop_session = env::var("XDG_CURRENT_DESKTOP")
-            .unwrap_or_default()
-            .to_lowercase();
-        if desktop_session.contains("gnome") {
-            return WaylandCompositor::Gnome;
+        if let Some(c) = NiriProvider::detect().await {
+            return Some(c);
         }
-        if desktop_session.contains("kde") || env::var("KDE_FULL_SESSION").is_ok() {
-            return WaylandCompositor::Kde;
+        if let Some(c) = FhtProvider::detect().await {
+            return Some(c);
         }
-        if desktop_session.contains("river") {
-            return WaylandCompositor::River;
+        if let Some(c) = GnomeProvider::detect().await {
+            return Some(c);
         }
-
-        // Check for DBus services for compositors that expose them (like Niri)
-        if let Ok(conn) = zbus::Connection::session().await {
-            // In zbus v3, `name_has_owner` is not a method on `Connection`.
-            // We must call the DBus daemon's `NameHasOwner` method manually.
-            let has_niri_owner = async {
-                let proxy = zbus::Proxy::new(
-                    &conn,
-                    "org.freedesktop.DBus",
-                    "/org/freedesktop/DBus",
-                    "org.freedesktop.DBus",
-                )
-                .await?;
-                let has_owner: bool = proxy.call("NameHasOwner", &("re.sonny.niri",)).await?;
-                Ok::<bool, zbus::Error>(has_owner)
-            }
-            .await
-            .unwrap_or(false);
-
-            if has_niri_owner {
-                return WaylandCompositor::Niri;
-            }
+        if let Some(c) = KdeProvider::detect().await {
+            return Some(c);
+        }
+        // X11 Fallback for other EWMH-compliant WMs
+        if let Some(c) = EwmhProvider::detect().await {
+            return Some(c);
         }
 
-        // Check for specific command-line tools
-        if Command::new("which")
-            .arg("fht-compositor")
-            .status()
-            .await
-            .is_ok_and(|s| s.success())
-        {
-            return WaylandCompositor::Fht;
-        }
-
-        // Fallback for other wlroots-based (Sway-compatible) compositors
-        if let Ok(status) = Command::new("which").arg("swaymsg").status().await {
-            if status.success() {
-                info!("Found 'swaymsg' command, assuming Sway-compatible IPC.");
-                return WaylandCompositor::Sway;
-            }
-        }
-
-        WaylandCompositor::Unknown
-    }
-
-    async fn create_provider(
-        display_server: &DisplayServer,
-    ) -> Result<Box<dyn WindowProvider>, WindowTrackerError> {
-        match display_server {
-            DisplayServer::X11 => Ok(Box::new(X11Provider::new()?)),
-            DisplayServer::Wayland(compositor) => match compositor {
-                WaylandCompositor::Sway => Ok(Box::new(SwayProvider::new().await?)),
-                WaylandCompositor::Hyprland => Ok(Box::new(HyprlandProvider::new().await?)),
-                WaylandCompositor::Kde => Ok(Box::new(KdeProvider::new().await?)),
-                WaylandCompositor::Niri => Ok(Box::new(NiriProvider::new().await?)),
-                WaylandCompositor::Fht => Ok(Box::new(FhtProvider::new().await?)),
-                _ => Err(WindowTrackerError::UnsupportedCompositor(format!(
-                    "Wayland compositor {compositor:?} is not yet supported"
-                ))),
-            },
-        }
+        None
     }
 }
 
-// --- X11 Provider ---
+// --- X11 Backend (Shared Logic) ---
 
-// A new, cloneable error type to store in the Lazy static.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("X11 Init Error: {0}")]
 pub struct X11InitError(String);
@@ -352,24 +322,19 @@ static X11_CONNECTION: Lazy<Result<(Arc<RustConnection>, usize), X11InitError>> 
         .map_err(|e| X11InitError(e.to_string()))
 });
 
-struct X11Provider {
+#[derive(Clone)]
+struct X11Backend {
     conn: Arc<RustConnection>,
-    screen_num: usize,
     atoms: X11Atoms,
     root: Window,
 }
 
-impl X11Provider {
+impl X11Backend {
     fn new() -> Result<Self, WindowTrackerError> {
         let (conn, screen_num) = X11_CONNECTION.as_ref().map_err(Clone::clone)?.clone();
         let atoms = X11Atoms::intern_all(&*conn)?;
         let root = conn.setup().roots[screen_num].root;
-        Ok(Self {
-            conn,
-            screen_num,
-            atoms,
-            root,
-        })
+        Ok(Self { conn, atoms, root })
     }
 
     fn get_window_info(
@@ -415,7 +380,6 @@ impl X11Provider {
 
         let pid = pid_cookie.reply()?.value32().and_then(|mut i| i.next());
         let geom = geom_cookie.reply()?;
-
         let details = pid.and_then(get_process_info);
 
         Ok(Some(WindowInfo {
@@ -424,7 +388,7 @@ impl X11Provider {
             app_name,
             pid,
             is_focused,
-            workspace: None, // Requires _NET_WM_DESKTOP
+            workspace: None,
             geometry: Some(WindowGeometry {
                 x: geom.x as i32,
                 y: geom.y as i32,
@@ -434,11 +398,8 @@ impl X11Provider {
             details,
         }))
     }
-}
 
-#[async_trait]
-impl WindowProvider for X11Provider {
-    async fn get_active_window(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
+    async fn get_active_window_backend(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
         let prop = self
             .conn
             .get_property(
@@ -457,8 +418,8 @@ impl WindowProvider for X11Provider {
         self.get_window_info(active_window, true)
     }
 
-    async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
-        let active_window = self.get_active_window().await?.map(|w| w.id);
+    async fn get_all_windows_backend(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
+        let active_window = self.get_active_window_backend().await?.map(|w| w.id);
         let prop = self
             .conn
             .get_property(
@@ -481,27 +442,54 @@ impl WindowProvider for X11Provider {
         }
         Ok(windows)
     }
+}
+
+// --- EWMH Provider (Generic X11 Fallback) ---
+struct EwmhProvider {
+    backend: X11Backend,
+}
+
+impl EwmhProvider {
+    fn new() -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
+        Ok(Self {
+            backend: X11Backend::new()?,
+        })
+    }
+
+    pub async fn detect() -> Option<Compositor> {
+        None // TODO
+    }
+}
+
+#[async_trait]
+impl WindowProvider for EwmhProvider {
+    async fn get_active_window(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
+        self.backend.get_active_window_backend().await
+    }
+
+    async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
+        self.backend.get_all_windows_backend().await
+    }
 
     async fn start_monitoring(
         &self,
     ) -> Result<tokio::sync::mpsc::Receiver<WindowEvent>, WindowTrackerError> {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
-        let provider = Self::new()?;
+        let provider = self.backend.clone();
 
         tokio::spawn(async move {
             let mut last_focused_window: Option<WindowInfo> = None;
             loop {
-                match provider.get_active_window().await {
+                match provider.get_active_window_backend().await {
                     Ok(current_window) => {
                         let mut should_send_event = false;
                         if let Some(current) = &current_window {
                             if let Some(last) = &last_focused_window {
-                                // Send if ID changed OR if title changed for the same ID
                                 if current.id != last.id || current.title != last.title {
                                     should_send_event = true;
                                 }
                             } else {
-                                // Send if there's a new focused window and there was none before
                                 should_send_event = true;
                             }
                         }
@@ -513,27 +501,26 @@ impl WindowProvider for X11Provider {
                                 ))
                                 .await
                                 .is_err()
-                            {
-                                break;
-                            }
-
-                        // Always update the state for the next comparison
+                        {
+                            break;
+                        }
                         last_focused_window = current_window;
                     }
                     Err(e) => {
                         error!("Polling for active X11 window failed: {}", e);
-                        // To prevent spamming logs on persistent error, sleep a bit longer
                         sleep(Duration::from_secs(1)).await;
                     }
                 }
                 sleep(Duration::from_millis(200)).await;
             }
         });
-
         Ok(rx)
     }
-}
 
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Unknown
+    }
+}
 // --- Sway Provider ---
 #[derive(Debug, Deserialize)]
 struct SwayNode {
@@ -614,9 +601,20 @@ struct SwayProvider {}
 
 impl SwayProvider {
     async fn new() -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
         Ok(Self {})
     }
+
+    pub async fn detect() -> Option<Compositor> {
+        if env::var("SWAYSOCK").is_ok() {
+            Some(Compositor::Sway)
+        } else {
+            None
+        }
+    }
+
     async fn execute_sway_command(&self, args: &[&str]) -> Result<String, WindowTrackerError> {
+
         let output = Command::new("swaymsg")
             .args(args)
             .output()
@@ -705,6 +703,10 @@ impl WindowProvider for SwayProvider {
         });
         Ok(rx)
     }
+
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Sway
+    }
 }
 
 // --- Hyprland Provider ---
@@ -756,8 +758,18 @@ impl WindowInfo {
 struct HyprlandProvider {}
 impl HyprlandProvider {
     async fn new() -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
         Ok(Self {})
     }
+
+    pub async fn detect() -> Option<Compositor> {
+        if env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
+            Some(Compositor::Hyprland)
+        } else {
+            None
+        }
+    }
+
     async fn execute_hyprctl_command(&self, args: &[&str]) -> Result<String, WindowTrackerError> {
         let output = Command::new("hyprctl")
             .args(args)
@@ -852,19 +864,145 @@ impl WindowProvider for HyprlandProvider {
 
         Ok(rx)
     }
+
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Hyprland
+    }
+}
+
+// --- Gnome Provider ---
+struct GnomeProvider {
+    backend: GnomeBackend,
+    display_server: DisplayServer,
+}
+
+enum GnomeBackend {
+    X11(X11Backend),
+    Wayland, // Gnome on Wayland has no stable public API for window info
+}
+
+impl GnomeProvider {
+    async fn new(display_server: DisplayServer) -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
+        let backend = match display_server {
+            DisplayServer::X11 => GnomeBackend::X11(X11Backend::new()?),
+            DisplayServer::Wayland => GnomeBackend::Wayland,
+        };
+        Ok(Self {
+            backend,
+            display_server,
+        })
+    }
+
+    pub async fn detect() -> Option<Compositor> {
+        let desktop_session = env::var("XDG_CURRENT_DESKTOP")
+            .unwrap_or_default()
+            .to_lowercase();
+        if desktop_session.contains("gnome") {
+            if env::var("WAYLAND_DISPLAY").is_ok() {
+                Some(Compositor::Gnome(DisplayServer::Wayland))
+            } else if env::var("DISPLAY").is_ok() {
+                Some(Compositor::Gnome(DisplayServer::X11))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[async_trait]
+impl WindowProvider for GnomeProvider {
+    async fn get_active_window(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
+        match &self.backend {
+            GnomeBackend::X11(backend) => backend.get_active_window_backend().await,
+            GnomeBackend::Wayland => Err(WindowTrackerError::NotAvailable(
+                "Window tracking on Gnome (Wayland) is not supported due to lack of a stable API."
+                    .to_string(),
+            )),
+        }
+    }
+
+    async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
+        match &self.backend {
+            GnomeBackend::X11(backend) => backend.get_all_windows_backend().await,
+            GnomeBackend::Wayland => Err(WindowTrackerError::NotAvailable(
+                "Window tracking on Gnome (Wayland) is not supported due to lack of a stable API."
+                    .to_string(),
+            )),
+        }
+    }
+
+    async fn start_monitoring(
+        &self,
+    ) -> Result<tokio::sync::mpsc::Receiver<WindowEvent>, WindowTrackerError> {
+        match &self.backend {
+            GnomeBackend::X11(backend) => {
+                let (tx, rx) = tokio::sync::mpsc::channel(100);
+                let provider = backend.clone();
+                tokio::spawn(async move {
+                    // This is polling-based, same as the generic EWMH provider
+                    let mut last_focused: Option<WindowInfo> = None;
+                    loop {
+                        if let Ok(Some(current)) = provider.get_active_window_backend().await {
+                            if last_focused.as_ref().map_or(true, |l| l.id != current.id) {
+                                if tx.send(WindowEvent::WindowFocused(current.clone()))
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                                last_focused = Some(current);
+                            }
+                        }
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+                });
+                Ok(rx)
+            }
+            GnomeBackend::Wayland => Err(WindowTrackerError::NotAvailable(
+                "Window monitoring on Gnome (Wayland) is not supported due to lack of a stable API."
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Gnome(self.display_server.clone())
+    }
 }
 
 // --- KDE Provider ---
 struct KdeProvider {
     conn: Arc<Mutex<zbus::Connection>>,
+    display_server: DisplayServer,
 }
 
 impl KdeProvider {
-    async fn new() -> Result<Self, WindowTrackerError> {
+    async fn new(display_server: DisplayServer) -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
         let conn = zbus::Connection::session().await?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
+            display_server,
         })
+    }
+
+    pub async fn detect() -> Option<Compositor> {
+        let is_kde = env::var("XDG_CURRENT_DESKTOP")
+            .map_or(false, |d| d.to_lowercase().contains("kde"))
+            || env::var("KDE_FULL_SESSION").is_ok();
+
+        if is_kde {
+            if env::var("WAYLAND_DISPLAY").is_ok() {
+                return Some(Compositor::Kde(DisplayServer::Wayland));
+            }
+            if env::var("DISPLAY").is_ok() {
+                return Some(Compositor::Kde(DisplayServer::X11));
+            }
+        }
+        None
     }
 
     async fn get_info_from_client(
@@ -952,11 +1090,11 @@ impl WindowProvider for KdeProvider {
         let mut stream = proxy.receive_signal("activeClientChanged").await?;
         let provider = Self {
             conn: Arc::clone(&self.conn),
+            display_server: self.display_server.clone(),
         };
 
         tokio::spawn(async move {
             while let Some(signal) = stream.next().await {
-                // Change is on this line
                 if let Ok(client_id) = signal.body().deserialize::<u64>() {
                     if client_id != 0 {
                         if let Ok(info) = provider.get_info_from_client(client_id, true).await {
@@ -970,6 +1108,10 @@ impl WindowProvider for KdeProvider {
         });
         Ok(rx)
     }
+
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Kde(self.display_server.clone())
+    }
 }
 
 // --- Niri Provider ---
@@ -979,10 +1121,30 @@ struct NiriProvider {
 
 impl NiriProvider {
     async fn new() -> Result<Self, WindowTrackerError> {
+        tracing::warn!("window detection is experimental for this compositor");
         let conn = zbus::Connection::session().await?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    pub async fn detect() -> Option<Compositor> {
+        if let Ok(conn) = zbus::Connection::session().await {
+            if let Ok(proxy) = zbus::Proxy::new(
+                &conn,
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+            )
+            .await
+            {
+                let result: Result<bool, _> = proxy.call("NameHasOwner", &("re.sonny.niri",)).await;
+                if let Ok(true) = result {
+                    return Some(Compositor::Niri);
+                }
+            }
+        }
+        None
     }
 
     async fn get_session_proxy(&self) -> Result<zbus::Proxy<'_>, WindowTrackerError> {
@@ -1049,13 +1211,9 @@ impl WindowProvider for NiriProvider {
 
         for output_path in outputs {
             let conn = self.conn.lock().await;
-            let output_proxy = zbus::Proxy::new(
-                &conn,
-                "re.sonny.niri",
-                &output_path,
-                "re.sonny.niri.Output",
-            )
-            .await?;
+            let output_proxy =
+                zbus::Proxy::new(&conn, "re.sonny.niri", &output_path, "re.sonny.niri.Output")
+                    .await?;
             if let Ok(true) = output_proxy.get_property::<bool>("focused").await {
                 if let Ok(window_path) = output_proxy
                     .get_property::<OwnedObjectPath>("focused_window")
@@ -1081,13 +1239,9 @@ impl WindowProvider for NiriProvider {
 
             for output_path in outputs {
                 let conn = self.conn.lock().await;
-                let output_proxy = zbus::Proxy::new(
-                    &conn,
-                    "re.sonny.niri",
-                    &output_path,
-                    "re.sonny.niri.Output",
-                )
-                .await?;
+                let output_proxy =
+                    zbus::Proxy::new(&conn, "re.sonny.niri", &output_path, "re.sonny.niri.Output")
+                        .await?;
                 let window_paths: Vec<OwnedObjectPath> =
                     output_proxy.get_property("windows").await?;
 
@@ -1126,6 +1280,10 @@ impl WindowProvider for NiriProvider {
             }
         });
         Ok(rx)
+    }
+
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Niri
     }
 }
 
@@ -1167,18 +1325,19 @@ struct FhtProvider;
 
 impl FhtProvider {
     async fn new() -> Result<Self, WindowTrackerError> {
-        // Check if the command exists and is executable by running a simple command.
-        let version_check = Command::new("fht-compositor")
-            .arg("ipc")
-            .arg("version")
-            .output()
-            .await;
-        if version_check.is_err() || !version_check.unwrap().status.success() {
-            return Err(WindowTrackerError::CommandFailed(
-                "fht-compositor command not found or is not running.".to_string(),
-            ));
-        }
         Ok(Self {})
+    }
+
+    pub async fn detect() -> Option<Compositor> {
+        let desktop_session = env::var("XDG_CURRENT_DESKTOP")
+            .unwrap_or_default()
+            .to_lowercase();
+
+        if desktop_session == "fht-compositor" {
+            Some(Compositor::Fht)
+        } else {
+            None
+        }
     }
 
     async fn execute_fht_command(&self, args: &[&str]) -> Result<String, WindowTrackerError> {
@@ -1216,9 +1375,8 @@ impl WindowProvider for FhtProvider {
 
     async fn get_all_windows(&self) -> Result<Vec<WindowInfo>, WindowTrackerError> {
         let output = self.execute_fht_command(&["windows"]).await?;
-        let fht_windows: Vec<FhtWindow> = serde_json::from_str(&output).map_err(|e| {
-            WindowTrackerError::ParseError(format!("fht-compositor windows: {e}"))
-        })?;
+        let fht_windows: Vec<FhtWindow> = serde_json::from_str(&output)
+            .map_err(|e| WindowTrackerError::ParseError(format!("fht-compositor windows: {e}")))?;
         let windows = fht_windows
             .iter()
             .map(WindowInfo::from_fht_window)
@@ -1240,12 +1398,10 @@ impl WindowProvider for FhtProvider {
                         let mut should_send_event = false;
                         if let Some(current) = &current_window {
                             if let Some(last) = &last_focused_window {
-                                // Send if ID changed OR if title changed for the same ID
                                 if current.id != last.id || current.title != last.title {
                                     should_send_event = true;
                                 }
                             } else {
-                                // Send if there's a new focused window and there was none before
                                 should_send_event = true;
                             }
                         }
@@ -1257,88 +1413,25 @@ impl WindowProvider for FhtProvider {
                                 ))
                                 .await
                                 .is_err()
-                            {
-                                break;
-                            }
+                        {
+                            break;
+                        }
 
-                        // Always update the state for the next comparison
                         last_focused_window = current_window;
                     }
                     Err(e) => {
                         error!("Polling for active fht-compositor window failed: {}", e);
-                        // Avoid a tight error loop on persistent failures
                         sleep(Duration::from_secs(1)).await;
                     }
                 }
-                // Polling interval
                 sleep(Duration::from_millis(200)).await;
             }
         });
 
         Ok(rx)
     }
-}
 
-// Example usage
-pub async fn demo() -> eyre::Result<()> {
-    let tracker = match WindowTracker::new().await {
-        Ok(t) => t,
-        Err(e) => {
-            error!("Failed to initialize WindowTracker: {}", e);
-            if let WindowTrackerError::UnsupportedCompositor(_) = e {
-                println!("\nThis windowing environment is not yet supported.");
-                println!("Supported environments include: X11, Sway/wlroots, Hyprland, KDE Plasma, Niri, and fht-compositor.");
-                println!(
-                    "For others like GNOME, a stable API for window tracking is not available."
-                );
-            }
-            return Err(e.into());
-        }
-    };
-
-    info!("Display server: {:?}", tracker.get_display_server());
-
-    // Get active window
-    match tracker.get_active_window().await {
-        Ok(Some(window)) => info!("Active window: {:#?}", window),
-        Ok(None) => info!("No active window found."),
-        Err(e) => error!("Error getting active window: {}", e),
+    fn get_compositor(&self) -> Compositor {
+        Compositor::Fht
     }
-
-    // Get all windows
-    match tracker.get_all_windows().await {
-        Ok(windows) => {
-            info!("Found {} windows", windows.len());
-            for w in windows.iter().take(5) {
-                // Print first 5
-                info!("- Window: {:#?}", w);
-            }
-        }
-        Err(e) => error!("Error getting all windows: {}", e),
-    }
-
-    println!("\nStarting to monitor window events for 20 seconds... (Focus different windows to see events)");
-    match tracker.start_monitoring().await {
-        Ok(mut events) => {
-            let timeout = sleep(Duration::from_secs(20));
-            tokio::pin!(timeout);
-
-            loop {
-                tokio::select! {
-                    Some(event) = events.recv() => {
-                        info!("Window event: {:#?}", event);
-                    }
-                    _ = &mut timeout => {
-                        info!("Monitoring finished.");
-                        break;
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            error!("Could not start monitoring: {}", e);
-        }
-    }
-
-    Ok(())
 }

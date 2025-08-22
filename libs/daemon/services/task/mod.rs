@@ -5,7 +5,7 @@ use crate::{
         utils::{self, generate_random_id},
     },
     entities::task::{Task, TaskBuilder, TaskId, TaskKey, TaskUpdate},
-    services::task::task_prefix::PrefixIndex,
+    services::task::task_prefix::TaskPrefixRepository,
 };
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
@@ -20,12 +20,12 @@ pub struct TaskService(Arc<TaskServiceInner>);
 pub struct TaskServiceInner {
     pub config: Config,
     pub storage: Storage,
-    pub prefix_index: PrefixIndex,
+    pub prefix_index: TaskPrefixRepository,
 }
 
 impl TaskService {
     pub fn try_new(storage: Storage, config: Config) -> eyre::Result<Self> {
-        let prefix_index = PrefixIndex::new(storage.clone());
+        let prefix_index = TaskPrefixRepository::new(storage.clone());
 
         Ok(Self(Arc::new(TaskServiceInner {
             storage,
