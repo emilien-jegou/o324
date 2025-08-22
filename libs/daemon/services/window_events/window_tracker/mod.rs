@@ -946,7 +946,7 @@ impl WindowProvider for GnomeProvider {
                     let mut last_focused: Option<WindowInfo> = None;
                     loop {
                         if let Ok(Some(current)) = provider.get_active_window_backend().await {
-                            if last_focused.as_ref().map_or(true, |l| l.id != current.id) {
+                            if last_focused.as_ref().is_none_or(|l| l.id != current.id) {
                                 if tx.send(WindowEvent::WindowFocused(current.clone()))
                                     .await
                                     .is_err()
@@ -991,7 +991,7 @@ impl KdeProvider {
 
     pub async fn detect() -> Option<Compositor> {
         let is_kde = env::var("XDG_CURRENT_DESKTOP")
-            .map_or(false, |d| d.to_lowercase().contains("kde"))
+            .is_ok_and(|d| d.to_lowercase().contains("kde"))
             || env::var("KDE_FULL_SESSION").is_ok();
 
         if is_kde {

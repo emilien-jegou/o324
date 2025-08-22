@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub struct Config(pub Arc<ConfigInner>);
 
 impl Config {
-    pub fn inner<'a>(&'a self) -> &'a ConfigInner {
+    pub fn inner(&self) -> &ConfigInner {
         self.0.as_ref()
     }
 }

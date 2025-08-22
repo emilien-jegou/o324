@@ -82,7 +82,7 @@ impl TaskPrefixRepository {
 
     // `contains` and `find_shortest_unique_prefix` are also unchanged.
     pub fn contains(&self, id: &str) -> eyre::Result<bool> {
-        Ok(self.repo.get(id)?.map_or(false, |node| node.is_end_of_id))
+        Ok(self.repo.get(id)?.is_some_and(|node| node.is_end_of_id))
     }
 
     pub fn find_shortest_unique_prefix(&self, id: &str) -> eyre::Result<String> {
