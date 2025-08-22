@@ -27,7 +27,7 @@ pub struct NoCache<T>(PhantomData<T>);
 
 impl<T: Cacheable> CacheStrategy<T> for NoCache<T> {
     fn new() -> Self {
-        Self(PhantomData::default())
+        Self(PhantomData)
     }
 
     #[inline(always)]
