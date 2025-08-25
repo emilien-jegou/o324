@@ -2,6 +2,7 @@ use clap::Parser;
 
 mod commands;
 mod tracing;
+pub mod utils;
 
 // Note: for uniformity, we dont use clap `default_value` or `default_value_t` options
 #[derive(Parser, Debug)]

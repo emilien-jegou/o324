@@ -2,21 +2,19 @@ use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 use clap::Args;
 use color_eyre::owo_colors::OwoColorize;
 use colored::{ColoredString, Colorize};
-use o324_dbus::{dto, proxy::O324ServiceProxy};
+use o324_dbus::{
+    dto::{self},
+    proxy::O324ServiceProxy,
+};
 use std::collections::HashMap;
 
-/// Represents a unique identifier with its calculated shortest unique prefix length.
-#[derive(Debug, Clone)]
-pub struct UniqueId {
-    pub full_id: String,
-    pub unique_prefix_len: usize,
-}
+use crate::utils::displayable_id::DisplayableId;
 
 /// A wrapper struct for display purposes, bundling a task with its unique ID info.
 #[derive(Debug)]
 pub struct DisplayTask<'a> {
     task: &'a dto::TaskDto,
-    id: UniqueId,
+    id: DisplayableId,
 }
 
 /// A summary of statistics for a single day.
@@ -175,10 +173,7 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
 
         let mut elements: Vec<NestedElem<'a>> = Vec::new();
         for (task_idx, &task) in session_tasks.iter().enumerate() {
-            let unique_id = UniqueId {
-                full_id: task.id.to_string(),
-                unique_prefix_len: task.id_prefix.len(),
-            };
+            let unique_id = DisplayableId::from(task);
             elements.push(NestedElem::Task(DisplayTask {
                 task,
                 id: unique_id,
@@ -424,23 +419,12 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                             } else {
                                 "├─"
                             };
-                            let full_id = &display_task.id.full_id;
-                            let unique_len = display_task.id.unique_prefix_len;
-                            let display_len = std::cmp::max(8, unique_len);
-                            let final_display_len = std::cmp::min(display_len, full_id.len());
-                            let final_unique_len = std::cmp::min(unique_len, final_display_len);
-                            let red_part = &full_id[..final_unique_len];
-                            let dimmed_part = &full_id[final_unique_len..final_display_len];
-
-                            let formatted_id =
-                                format!("{}{}", red_part.yellow().bold(), dimmed_part.dimmed());
-
                             println!(
                                 "{} {} {} {} - {} - {} {}",
                                 content_prefix.dimmed(),
                                 task_connector.dimmed(),
                                 status_icon,
-                                formatted_id,
+                                display_task.id,
                                 &task.computer_name.dimmed(),
                                 time_segment,
                                 duration_segment

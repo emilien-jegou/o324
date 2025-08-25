@@ -10,10 +10,10 @@ pub trait O324ServiceInterface {
     fn start_new_task(
         &self,
         input: dto::StartTaskInputDto,
-    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;
+    ) -> impl std::future::Future<Output = fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)>>;
     fn stop_current_task(
         &self,
-    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;
+    ) -> impl std::future::Future<Output = fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)>>;
     fn cancel_current_task(
         &self,
     ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;

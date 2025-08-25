@@ -14,8 +14,8 @@ pub trait O324Service {
     async fn start_new_task(
         &self,
         input: dto::StartTaskInputDto,
-    ) -> fdo::Result<Vec<dto::TaskActionDto>>;
-    async fn stop_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>>;
+    ) -> fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)>;
+    async fn stop_current_task(&self) -> fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)>;
     async fn cancel_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>>;
     async fn delete_task(&self, task_id: String) -> fdo::Result<Vec<dto::TaskActionDto>>;
     async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
