@@ -72,11 +72,14 @@ pub enum TaskAction {
 
 impl TaskServiceInner {
     /// Starts a new task. If another task is currently running, it will be stopped.
-    pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<Vec<TaskAction>> {
+    pub async fn start_new_task(
+        &self,
+        input: StartTaskInput,
+    ) -> eyre::Result<(Task, Vec<TaskAction>)> {
         let current_timestamp = utils::unix_now();
         let mut task_actions = Vec::new();
 
-        let task_id = self.storage.write(|qr| {
+        let task = self.storage.write(|qr| {
             // If a task is already running, stop it first by setting its end time.
             if let Some(mut current) = qr
                 .get()
@@ -100,21 +103,21 @@ impl TaskServiceInner {
                 .end(None)
                 .try_build()?; // try_build() already computes the hash
             qr.upsert(new_task.clone())?;
-            task_actions.push(TaskAction::Upsert(new_task));
-            Ok(task_id)
+            task_actions.push(TaskAction::Upsert(new_task.clone()));
+            Ok(new_task)
         })?;
 
-        self.prefix_index.add_ids(&[task_id])?;
+        self.prefix_index.add_ids(&[task.id.clone()])?;
 
-        Ok(task_actions)
+        Ok((task, task_actions))
     }
 
     /// Stops the currently running task by setting its end time.
-    pub async fn stop_current_task(&self) -> eyre::Result<Vec<TaskAction>> {
+    pub async fn stop_current_task(&self) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
         let current_timestamp = utils::unix_now();
         let mut task_actions = Vec::new();
 
-        self.storage.write(|qr| {
+        let stopped_task = self.storage.write(|qr| {
             // Find the currently running task by querying for a task with `end: None`.
             if let Some(mut current_task) = qr
                 .get()
@@ -126,12 +129,14 @@ impl TaskServiceInner {
 
                 // Save it and record the action.
                 qr.upsert(current_task.clone())?;
-                task_actions.push(TaskAction::Upsert(current_task));
+                task_actions.push(TaskAction::Upsert(current_task.clone()));
+                Ok(Some(current_task))
+            } else {
+                Ok(None)
             }
-            Ok(())
         })?;
 
-        Ok(task_actions)
+        Ok((stopped_task, task_actions))
     }
 
     /// Cancels and deletes the currently running task.

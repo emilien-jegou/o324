@@ -1,3 +1,8 @@
+use std::fmt::Display;
+
+// Make sure this path is correct for your project
+use crate::utils::display::{LogBuilder, LogType};
+use crate::utils::displayable_id::DisplayableId;
 use chrono::{DateTime, Duration, Local, Utc};
 use clap::Args;
 use colored::Colorize;
@@ -18,12 +23,9 @@ pub struct Command {
 }
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    // We only need the very last task to determine the current status.
     let tasks = proxy.list_last_tasks(1).await?;
 
-    // Check if there is a last task and if it is currently running (end is None).
     if let Some(task) = tasks.first().filter(|t| t.end.is_none()) {
-        // A task is running.
         let elapsed = Utc::now() - ms_to_datetime(task.start)?;
 
         if command.json {
@@ -36,12 +38,11 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
             pretty_print_running_task(task, elapsed)?;
         }
     } else {
-        // No task is running.
         if command.json {
-            // Output an empty JSON object to indicate nothing is running.
             println!("{{}}");
         } else {
-            println!("{}", "No task is currently running.".yellow());
+            // Use the LogBuilder for a simple message to ensure consistent spacing.
+            LogBuilder::new(LogType::Info, "No task is currently running.").print();
         }
     }
 
@@ -50,76 +51,76 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
 
 fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Result<()> {
     let start_time_local = ms_to_datetime(task.start)?.with_timezone(&Local);
-    let elapsed_str = format_duration_pretty(elapsed);
+    let elapsed_str = format_duration_human(elapsed);
+    let display_id = DisplayableId::from(task);
 
-    // Header
-    println!(
-        "{} {} (for {})",
-        "▶".green().bold(),
-        "ON TASK".green(),
-        elapsed_str.bold().cyan()
+    // Construct the main message string for the builder
+    let message = format!(
+        "Task '{}' is running (for {})",
+        task.task_name.cyan().bold(),
+        elapsed_str.bold()
     );
 
-    // Details using box-drawing characters for a clean look.
-    let prefix = "  ├─".dimmed();
+    // Use a Box<dyn Display> to handle the two potential types for project display
+    let project_display: Box<dyn Display> = if let Some(p) = &task.project {
+        Box::new(p.cyan())
+    } else {
+        Box::new("<none>".italic())
+    };
 
-    if let Some(project) = &task.project {
-        println!("{} {}: {}", prefix, "Project".bold(), project);
-    }
-    println!("{} {}:   {}", prefix, "Task".bold(), task.task_name);
+    let tags_display = if !task.tags.is_empty() {
+        Some(task.tags.join(", ").yellow())
+    } else {
+        None
+    };
 
-    if !task.tags.is_empty() {
-        let tags_str = task
-            .tags
-            .iter()
-            .map(|t| format!("#{t}"))
-            .collect::<Vec<_>>()
-            .join(" ");
-        println!("{} {}:     {}", prefix, "Tags".bold(), tags_str.dimmed());
-    }
-
-    println!(
-        "{} {}:  {} (on {})",
-        prefix,
-        "Started".bold(),
-        start_time_local.format("%H:%M"),
+    let started_str = format!(
+        "{} (on {})",
+        start_time_local.format("%H:%M:%S"),
         task.computer_name.dimmed()
     );
 
-    println!(
-        "{} {}:       {}",
-        "  ╰─".dimmed(),
-        "ID".bold(),
-        task.id.dimmed()
-    );
+    // Use the LogBuilder to print the structured output
+    LogBuilder::new(LogType::Status, message)
+        .with_branch("ID", display_id)
+        .with_branch("Started", started_str)
+        .with_branch("Project", project_display)
+        .with_optional_branch("Tags", tags_display)
+        .print();
 
     Ok(())
 }
 
-// --- Helper Functions (copied from stats/log for consistency) ---
+// --- More Precise and Consistent Duration Formatting ---
+// Renamed to avoid confusion and match the one from `stop` command.
+fn format_duration_human(duration: Duration) -> String {
+    let secs = duration.num_seconds();
 
-fn format_duration_pretty(duration: Duration) -> String {
-    if duration.is_zero() || duration < Duration::zero() {
-        return "0s".to_string();
+    if secs < 60 {
+        return format!("{}s", secs);
     }
-    let total_seconds = duration.num_seconds();
-    if total_seconds < 60 {
-        return format!("{total_seconds}s");
+
+    let hours = secs / 3600;
+    let minutes = (secs % 3600) / 60;
+    let seconds = secs % 60;
+
+    let mut parts = Vec::new();
+    if hours > 0 {
+        parts.push(format!("{}h", hours));
     }
-    let total_minutes = duration.num_minutes();
-    if total_minutes < 60 {
-        return format!("{total_minutes}m");
-    }
-    let total_hours = duration.num_hours();
-    let minutes = total_minutes % 60;
     if minutes > 0 {
-        format!("{total_hours}h {minutes}m")
-    } else {
-        format!("{total_hours}h")
+        parts.push(format!("{}m", minutes));
     }
+    // Always show seconds for a running task for a "live" feel
+    if seconds >= 0 || parts.is_empty() {
+        parts.push(format!("{}s", seconds));
+    }
+
+    parts.join(" ")
 }
 
 fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms as i64)
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
+

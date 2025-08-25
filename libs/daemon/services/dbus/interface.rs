@@ -4,7 +4,7 @@ use zbus::{fdo, interface};
 
 use crate::{
     core::storage::DbOperation,
-    services::task::{TaskService, TaskRef},
+    services::task::{TaskRef, TaskService},
 };
 
 pub struct O324Service {
@@ -16,19 +16,48 @@ impl O324ServiceInterface for O324Service {
     async fn start_new_task(
         &self,
         input: dto::StartTaskInputDto,
-    ) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        let core_result = self.task_service.start_new_task(input.into()).await;
-        core_result
-            .map(|actions| actions.into_iter().map(Into::into).collect())
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+    ) -> fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)> {
+        let (task, actions) = self
+            .task_service
+            .start_new_task(input.into())
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let actions_dto = actions.into_iter().map(Into::into).collect();
+
+        let prefix = self
+            .task_service
+            .prefix_index
+            .find_shortest_unique_prefix(&task.id)
+            .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
+
+        Ok((task.into_dto(prefix), actions_dto))
     }
 
-    async fn stop_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.task_service
+    async fn stop_current_task(
+        &self,
+    ) -> fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)> {
+        let (task, actions) = self
+            .task_service
             .stop_current_task()
             .await
-            .map(|actions| actions.into_iter().map(Into::into).collect())
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let actions_dto = actions.into_iter().map(Into::into).collect();
+
+        let task_dto = if let Some(t) = task {
+            let prefix = self
+                .task_service
+                .prefix_index
+                .find_shortest_unique_prefix(&t.id)
+                .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
+
+            Some(t.into_dto(prefix))
+        } else {
+            None
+        };
+
+        Ok((task_dto, actions_dto))
     }
 
     async fn cancel_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>> {
