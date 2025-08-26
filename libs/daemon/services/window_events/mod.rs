@@ -25,6 +25,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[wrap_builder(Arc)]
+#[allow(dead_code)]
 pub struct WindowEventService {
     task_manager_service: TaskManagerService,
 }
