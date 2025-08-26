@@ -22,10 +22,7 @@ pub struct Command {
 
 pub fn print_started_task(task: dto::TaskDto) {
     let task_id = DisplayableId::from(&task);
-    let message = format!(
-        "Started new task '{}'",
-        task.task_name.cyan().bold()
-    );
+    let message = format!("Started new task '{}'", task.task_name.cyan().bold());
 
     // Use a Box<dyn Display> to handle the two potential types for project display
     let project_display: Box<dyn Display> = if let Some(p) = &task.project {
@@ -48,9 +45,7 @@ pub fn print_started_task(task: dto::TaskDto) {
 }
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    // The start_new_task method now returns the created task DTO.
-    // We capture it directly into the `task` variable.
-    let (task, _actions) = proxy
+    let task = proxy
         .start_new_task(dto::StartTaskInputDto {
             task_name: command.task_name,
             project: command.project,
@@ -60,4 +55,3 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
     print_started_task(task);
     Ok(())
 }
-
