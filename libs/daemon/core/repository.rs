@@ -30,6 +30,7 @@ pub struct RepositoryBuilder<T, C> {
 }
 
 // Builder implementation for a NON-CACHED repository
+#[allow(dead_code)]
 impl<T: Cacheable> RepositoryBuilder<T, NoCache<T>> {
     /// Enables a thread-safe, in-memory cache for the repository.
     /// This transforms the builder into a cached-repository builder.
