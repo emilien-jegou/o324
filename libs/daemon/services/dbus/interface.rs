@@ -13,17 +13,12 @@ pub struct O324Service {
 
 #[interface(name = "org.o324.Service1")]
 impl O324ServiceInterface for O324Service {
-    async fn start_new_task(
-        &self,
-        input: dto::StartTaskInputDto,
-    ) -> fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)> {
-        let (task, actions) = self
+    async fn start_new_task(&self, input: dto::StartTaskInputDto) -> fdo::Result<dto::TaskDto> {
+        let (task, _) = self
             .task_service
             .start_new_task(input.into())
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-
-        let actions_dto = actions.into_iter().map(Into::into).collect();
 
         let prefix = self
             .task_service
@@ -31,19 +26,15 @@ impl O324ServiceInterface for O324Service {
             .find_shortest_unique_prefix(&task.id)
             .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
 
-        Ok((task.into_dto(prefix), actions_dto))
+        Ok(task.into_dto(prefix))
     }
 
-    async fn stop_current_task(
-        &self,
-    ) -> fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)> {
-        let (task, actions) = self
+    async fn stop_current_task(&self) -> fdo::Result<Option<dto::TaskDto>> {
+        let (task, _) = self
             .task_service
             .stop_current_task()
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-
-        let actions_dto = actions.into_iter().map(Into::into).collect();
 
         let task_dto = if let Some(t) = task {
             let prefix = self
@@ -57,23 +48,51 @@ impl O324ServiceInterface for O324Service {
             None
         };
 
-        Ok((task_dto, actions_dto))
+        Ok(task_dto)
     }
 
-    async fn cancel_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.task_service
+    async fn cancel_current_task(&self) -> fdo::Result<Option<dto::TaskDto>> {
+        let (task, _) = self
+            .task_service
             .cancel_current_task()
             .await
-            .map(|actions| actions.into_iter().map(Into::into).collect())
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let task_dto = if let Some(t) = task {
+            let prefix = self
+                .task_service
+                .prefix_index
+                .find_shortest_unique_prefix(&t.id)
+                .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
+
+            Some(t.into_dto(prefix))
+        } else {
+            None
+        };
+
+        Ok(task_dto)
     }
 
-    async fn delete_task(&self, task_id: String) -> fdo::Result<Vec<dto::TaskActionDto>> {
-        self.task_service
+    async fn delete_task(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>> {
+        let (task, _) = self
+            .task_service
             .delete_task(task_id)
             .await
-            .map(|actions| actions.into_iter().map(Into::into).collect())
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let task_dto = if let Some(t) = task {
+            let prefix = self
+                .task_service
+                .prefix_index
+                .find_shortest_unique_prefix(&t.id)
+                .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
+
+            Some(t.into_dto(prefix))
+        } else {
+            None
+        };
+
+        Ok(task_dto)
     }
 
     async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>> {
@@ -102,60 +121,58 @@ impl O324ServiceInterface for O324Service {
         &self,
         task_ref_str: String,
         update: dto::TaskUpdateDto,
-    ) -> fdo::Result<Vec<dto::TaskActionDto>> {
+    ) -> fdo::Result<dto::TaskDto> {
         let task_ref = task_ref_str
             .parse::<TaskRef>() // <-- The fix is here
             .map_err(|e| fdo::Error::InvalidArgs(e.to_string()))?;
 
-        self.task_service
+        let (task, _) = self
+            .task_service
             .edit_task(task_ref, update.into())
             .await
-            .map(|actions| actions.into_iter().map(Into::into).collect())
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let prefix = self
+            .task_service
+            .prefix_index
+            .find_shortest_unique_prefix(&task.id)
+            .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
+
+        Ok(task.into_dto(prefix))
     }
 
-    // REFACTORED VERSION
     async fn list_last_tasks(&self, count: u64) -> fdo::Result<Vec<dto::TaskDto>> {
-        // 1. Get the list of core Task objects.
-        //    The `?` operator will propagate any error immediately.
         let tasks = self
             .task_service
             .list_last_tasks(count)
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
-        // 2. Iterate over the tasks and transform each one into a DTO.
-        //    This transformation is fallible, so the map closure returns a Result.
         tasks
             .into_iter()
             .map(|task| {
-                // Find the unique prefix for the current task's ID.
                 let prefix = self
                     .task_service
                     .prefix_index
                     .find_shortest_unique_prefix(&task.id)
                     .map_err(|e: Error| fdo::Error::Failed(e.to_string()))?;
 
-                // On success, create the DTO and wrap it in Ok.
                 Ok(task.into_dto(prefix))
             })
-            .collect() // This collects Vec<Result<T, E>> into Result<Vec<T>, E>
+            .collect()
     }
 
-    // REFACTORED VERSION
     async fn list_task_range(
         &self,
         start_timestamp: u64,
         end_timestamp: u64,
     ) -> fdo::Result<Vec<dto::TaskDto>> {
-        // 1. Get the list of core Task objects.
         let tasks = self
             .task_service
             .list_task_range(start_timestamp, end_timestamp)
             .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
-        // 2. The transformation logic is identical to list_last_tasks.
         tasks
             .into_iter()
             .map(|task| {

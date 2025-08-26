@@ -18,8 +18,8 @@ struct SessionInfo {
 }
 
 #[derive(Serialize, Debug)]
-struct TodaySummary {
-    date: String,
+struct PeriodSummary {
+    period_label: String,
     total_active_duration_secs: i64,
     total_session_duration_secs: i64,
     activity_percentage: i64,
@@ -47,13 +47,41 @@ struct YearSummary {
 
 #[derive(Args, Debug)]
 pub struct Command {
-    /// Number of last days to look at for stats (used by subcommands).
+    /// Number of last days to look at for stats (used by subcommands, fallback)
     #[clap(long, short, global = true, default_value_t = 30)]
     last: u64,
 
     /// Output results in JSON format
     #[clap(long, global = true)]
     json: bool,
+
+    /// Set a custom start date for the stats period (YYYY-MM-DD or YYYY-MM)
+    #[clap(long, requires = "end")]
+    start: Option<String>,
+
+    /// Set a custom end date for the stats period (YYYY-MM-DD or YYYY-MM)
+    #[clap(long, requires = "start")]
+    end: Option<String>,
+
+    /// Show summary/stats for the current week (Mon-Sun)
+    #[clap(long, alias = "week", short = 'w', conflicts_with_all = &["last_week", "day", "this_month", "last_month", "start"])]
+    this_week: bool,
+
+    /// Show summary/stats for the previous week (Mon-Sun)
+    #[clap(long, conflicts_with_all = &["this_week", "day", "this_month", "last_month", "start"])]
+    last_week: bool,
+
+    /// Show summary/stats for the current month
+    #[clap(long, conflicts_with_all = &["this_week", "last_week", "day", "last_month", "start"])]
+    this_month: bool,
+
+    /// Show summary/stats for the previous month
+    #[clap(long, conflicts_with_all = &["this_week", "last_week", "day", "this_month", "start"])]
+    last_month: bool,
+
+    /// Show summary for a specific day (YYYY-MM-DD, today, yesterday, Nd_ago)
+    #[clap(long, short, conflicts_with_all = &["this_week", "last_week", "this_month", "last_month", "start"])]
+    day: Option<String>,
 
     #[command(subcommand)]
     subcommand: Option<StatsSubcommand>,
@@ -73,33 +101,70 @@ enum StatsSubcommand {
     Year,
 }
 
+// --- Main Handler Logic ---
+
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+    if let Some(subcommand) = command.subcommand {
+        match subcommand {
+            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
+            _ => {
+                let (start_utc, end_utc, _, context) = calculate_date_range(&command)?;
+                handle_generic_subcommand(
+                    subcommand,
+                    start_utc,
+                    end_utc,
+                    context,
+                    command.json,
+                    &proxy,
+                )
+                .await?;
+            }
+        }
+    } else {
+        // Handle session summary for the calculated period
+        let (start_utc, end_utc, title, context) = calculate_date_range(&command)?;
+        let title_with_summary = format!("Summary for {}", title);
+        handle_period_summary(
+            start_utc,
+            end_utc,
+            &title_with_summary,
+            &context,
+            command.json,
+            &proxy,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 async fn handle_generic_subcommand(
     subcommand: StatsSubcommand,
-    last: u64,
+    start_utc: DateTime<Utc>,
+    end_utc: DateTime<Utc>,
+    context: String,
     json: bool,
     proxy: &O324ServiceProxy<'_>,
 ) -> eyre::Result<()> {
-    let end_date = Utc::now();
-    let start_date = end_date - Duration::days(last as i64);
-    let start_timestamp_ms = start_date.timestamp_millis() as u64;
+    let start_timestamp_ms = start_utc.timestamp_millis() as u64;
+    let end_timestamp_ms = end_utc.timestamp_millis() as u64;
 
     let all_tasks = proxy
-        .list_last_tasks(10000)
+        .list_last_tasks(50000) // Increased limit for longer periods
         .await?
         .into_iter()
-        .filter(|task| task.start >= start_timestamp_ms)
+        .filter(|task| task.start >= start_timestamp_ms && task.start < end_timestamp_ms)
         .collect::<Vec<dto::TaskDto>>();
 
     if !json && all_tasks.is_empty() {
-        println!("No tasks found in the last {last} days.");
+        println!("No tasks found for the period: {context}.");
         return Ok(());
     }
 
     match subcommand {
-        StatsSubcommand::Project => handle_project_stats(&all_tasks, last, json).await?,
-        StatsSubcommand::Tag => handle_tag_stats(&all_tasks, last, json).await?,
-        StatsSubcommand::Week => handle_week_stats(&all_tasks, last, json).await?,
-        StatsSubcommand::Hour => handle_hour_stats(&all_tasks, last, json).await?,
+        StatsSubcommand::Project => handle_project_stats(&all_tasks, &context, json).await?,
+        StatsSubcommand::Tag => handle_tag_stats(&all_tasks, &context, json).await?,
+        StatsSubcommand::Week => handle_week_stats(&all_tasks, &context, json).await?,
+        StatsSubcommand::Hour => handle_hour_stats(&all_tasks, &context, json).await?,
         StatsSubcommand::Year => unreachable!(),
     }
     Ok(())
@@ -107,41 +172,42 @@ async fn handle_generic_subcommand(
 
 // --- Specific Handlers ---
 
-async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre::Result<()> {
-    // 1. Fetch all tasks for today
-    let now_local = Local::now();
-    let start_of_day_local = now_local.date_naive().and_hms_opt(0, 0, 0).unwrap();
-    let start_of_day_utc = start_of_day_local
-        .and_local_timezone(Local)
-        .unwrap()
-        .with_timezone(&Utc);
-    let start_timestamp_ms = start_of_day_utc.timestamp_millis() as u64;
+async fn handle_period_summary(
+    start_utc: DateTime<Utc>,
+    end_utc: DateTime<Utc>,
+    title: &str,
+    context: &str,
+    json: bool,
+    proxy: &O324ServiceProxy<'_>,
+) -> eyre::Result<()> {
+    let start_timestamp_ms = start_utc.timestamp_millis() as u64;
+    let end_timestamp_ms = end_utc.timestamp_millis() as u64;
 
-    let mut todays_tasks = proxy
-        .list_last_tasks(1000)
+    let mut period_tasks = proxy
+        .list_last_tasks(50000)
         .await?
         .into_iter()
-        .filter(|task| task.start >= start_timestamp_ms)
+        .filter(|task| task.start >= start_timestamp_ms && task.start < end_timestamp_ms)
         .collect::<Vec<dto::TaskDto>>();
 
-    if todays_tasks.is_empty() {
+    if period_tasks.is_empty() {
         if json {
             println!("{}", serde_json::to_string(&serde_json::json!({}))?);
         } else {
-            print_header("Summary for Today", &now_local.date_naive());
-            println!("No tasks logged yet today.");
+            print_header(title, &context);
+            println!("No tasks logged in this period.");
         }
         return Ok(());
     }
-    todays_tasks.sort_by_key(|t| t.start);
+    period_tasks.sort_by_key(|t| t.start);
 
-    // 2. Group tasks into sessions
+    // Group tasks into sessions
     let session_break_threshold = Duration::minutes(30);
     let mut sessions_of_tasks: Vec<Vec<&dto::TaskDto>> = Vec::new();
-    sessions_of_tasks.push(vec![&todays_tasks[0]]);
-    for i in 1..todays_tasks.len() {
-        let prev_task = &todays_tasks[i - 1];
-        let current_task = &todays_tasks[i];
+    sessions_of_tasks.push(vec![&period_tasks[0]]);
+    for i in 1..period_tasks.len() {
+        let prev_task = &period_tasks[i - 1];
+        let current_task = &period_tasks[i];
         let prev_end_ms = prev_task.end.unwrap_or(current_task.start);
 
         if ms_to_datetime(current_task.start)? - ms_to_datetime(prev_end_ms)?
@@ -153,7 +219,7 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
         }
     }
 
-    // 3. Process each session to calculate its stats
+    // Process each session to calculate its stats
     let mut processed_sessions: Vec<SessionInfo> = Vec::new();
     for (i, session_tasks) in sessions_of_tasks.iter().enumerate() {
         let session_start_dt =
@@ -173,9 +239,9 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
 
         processed_sessions.push(SessionInfo {
             session_number: i + 1,
-            start_time: session_start_dt.format("%H:%M").to_string(),
+            start_time: session_start_dt.format("%Y-%m-%d %H:%M").to_string(),
             end_time: if last_task.end.is_some() {
-                session_end_dt.format("%H:%M").to_string()
+                session_end_dt.format("%Y-%m-%d %H:%M").to_string()
             } else {
                 "CURRENT".red().to_string()
             },
@@ -189,8 +255,7 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
         });
     }
 
-    // 4. Calculate overall summary stats from processed sessions
-    // FIX: Add explicit type annotation `: Duration` to help .sum()
+    // Calculate overall summary stats
     let total_active_duration: Duration = processed_sessions
         .iter()
         .map(|s| Duration::seconds(s.active_duration_secs))
@@ -205,24 +270,20 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
         0
     };
 
-    // 5. Generate output
+    // Generate output
     if json {
-        let first_task_start_time = ms_to_datetime(todays_tasks.first().unwrap().start)?
+        let first_task_start_time = ms_to_datetime(period_tasks.first().unwrap().start)?
             .with_timezone(&Local)
-            .format("%H:%M")
-            .to_string();
-        let last_task = todays_tasks.last().unwrap();
+            .to_rfc3339();
+        let last_task = period_tasks.last().unwrap();
         let last_task_end_time = if let Some(end_ms) = last_task.end {
-            ms_to_datetime(end_ms)?
-                .with_timezone(&Local)
-                .format("%H:%M")
-                .to_string()
+            ms_to_datetime(end_ms)?.with_timezone(&Local).to_rfc3339()
         } else {
             "CURRENT".to_string()
         };
 
-        let summary = TodaySummary {
-            date: now_local.date_naive().to_string(),
+        let summary = PeriodSummary {
+            period_label: format!("{title} ({context})"),
             total_active_duration_secs: total_active_duration.num_seconds(),
             total_session_duration_secs: total_session_duration.num_seconds(),
             activity_percentage: overall_activity_percentage,
@@ -233,7 +294,7 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
         };
         println!("{}", serde_json::to_string_pretty(&summary)?);
     } else {
-        print_header("Summary for Today", &now_local.date_naive());
+        print_header(title, &context);
         println!(
             "{} in {} {} [{}{}{}]",
             format_duration_pretty(total_active_duration).bold().green(),
@@ -247,14 +308,14 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
             format!("{overall_activity_percentage}% active").bold(),
             " ".normal()
         );
-        let first_time = ms_to_datetime(todays_tasks.first().unwrap().start)?
+        let first_time = ms_to_datetime(period_tasks.first().unwrap().start)?
             .with_timezone(&Local)
-            .format("%H:%M");
-        let last_task = todays_tasks.last().unwrap();
+            .format("%b %d, %H:%M");
+        let last_task = period_tasks.last().unwrap();
         let last_time = if let Some(end_ms) = last_task.end {
             ms_to_datetime(end_ms)?
                 .with_timezone(&Local)
-                .format("%H:%M")
+                .format("%b %d, %H:%M")
                 .to_string()
                 .cyan()
         } else {
@@ -262,10 +323,9 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
         };
         println!(
             "{}{} {} {} {}",
-            "Day started at ".dimmed(),
-            // FIX: Convert chrono's formatter to a String before coloring
+            "First task at ".dimmed(),
             first_time.to_string().cyan(),
-            "and ended at".dimmed(),
+            "and last task at".dimmed(),
             last_time,
             "\n".normal()
         );
@@ -274,7 +334,11 @@ async fn handle_today_summary(json: bool, proxy: &O324ServiceProxy<'_>) -> eyre:
     Ok(())
 }
 
-async fn handle_project_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_project_stats(
+    tasks: &[dto::TaskDto],
+    context: &str,
+    json: bool,
+) -> eyre::Result<()> {
     let mut summary: HashMap<String, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -288,13 +352,13 @@ async fn handle_project_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> 
         let items = create_category_summary(&summary, total_duration);
         println!("{}", serde_json::to_string_pretty(&items)?);
     } else {
-        print_header("Project Breakdown", &days);
+        print_header("Project Breakdown", &context);
         print_summary_table("Project", &summary, total_duration);
     }
     Ok(())
 }
 
-async fn handle_tag_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_tag_stats(tasks: &[dto::TaskDto], context: &str, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<String, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -308,13 +372,13 @@ async fn handle_tag_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre
         let items = create_category_summary(&summary, total_duration);
         println!("{}", serde_json::to_string_pretty(&items)?);
     } else {
-        print_header("Tag Breakdown", &days);
+        print_header("Tag Breakdown", &context);
         print_summary_table("Tag", &summary, total_duration);
     }
     Ok(())
 }
 
-async fn handle_week_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_week_stats(tasks: &[dto::TaskDto], context: &str, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<Weekday, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -361,13 +425,13 @@ async fn handle_week_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyr
             .collect::<Vec<_>>();
         println!("{}", serde_json::to_string_pretty(&items)?);
     } else {
-        print_header("Activity by Day of Week", &days);
+        print_header("Activity by Day of Week", &context);
         print_temporal_summary("Day", &data, total_duration);
     }
     Ok(())
 }
 
-async fn handle_hour_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyre::Result<()> {
+async fn handle_hour_stats(tasks: &[dto::TaskDto], context: &str, json: bool) -> eyre::Result<()> {
     let mut summary: HashMap<u32, Duration> = HashMap::new();
     let mut total_duration = Duration::zero();
     for task in tasks {
@@ -377,7 +441,7 @@ async fn handle_hour_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyr
         *summary.entry(start_local.hour()).or_default() += duration;
     }
 
-    let mut data: Vec<(String, Duration)> = (0..24)
+    let data: Vec<(String, Duration)> = (0..24)
         .map(|hour| {
             (
                 format!("{hour:02}:00"),
@@ -404,8 +468,7 @@ async fn handle_hour_stats(tasks: &[dto::TaskDto], days: u64, json: bool) -> eyr
             .collect::<Vec<_>>();
         println!("{}", serde_json::to_string_pretty(&items)?);
     } else {
-        data.sort_by(|a, b| b.1.cmp(&a.1));
-        print_header("Activity by Hour of Day", &days);
+        print_header("Activity by Hour of Day", &context);
         print_temporal_summary("Hour", &data, total_duration);
     }
     Ok(())
@@ -471,7 +534,166 @@ async fn handle_year_stats<'a>(json: bool, proxy: &O324ServiceProxy<'a>) -> eyre
     Ok(())
 }
 
+// --- Date Range Calculation Logic ---
+fn calculate_date_range(
+    cmd: &Command,
+) -> eyre::Result<(DateTime<Utc>, DateTime<Utc>, String, String)> {
+    let now_local = Local::now();
+    let today = now_local.date_naive();
+
+    let (start_date, end_date, title, context) =
+        if let (Some(start_str), Some(end_str)) = (&cmd.start, &cmd.end) {
+            let start = parse_date_string(start_str, false)?;
+            let end = parse_date_string(end_str, true)?;
+            (
+                start,
+                end,
+                "Custom Period".to_string(),
+                format!("{start} to {end}"),
+            )
+        } else if cmd.this_month {
+            let start = today.with_day(1).unwrap();
+            let end = {
+                let next_month_start = if today.month() == 12 {
+                    today
+                        .with_year(today.year() + 1)
+                        .unwrap()
+                        .with_month(1)
+                        .unwrap()
+                        .with_day(1)
+                        .unwrap()
+                } else {
+                    today
+                        .with_month(today.month() + 1)
+                        .unwrap()
+                        .with_day(1)
+                        .unwrap()
+                };
+                next_month_start - Duration::days(1)
+            };
+            (
+                start,
+                end,
+                "This Month".to_string(),
+                today.format("%B %Y").to_string(),
+            )
+        } else if cmd.last_month {
+            let first_of_this_month = today.with_day(1).unwrap();
+            let end = first_of_this_month - Duration::days(1);
+            let start = end.with_day(1).unwrap();
+            (
+                start,
+                end,
+                "Last Month".to_string(),
+                start.format("%B %Y").to_string(),
+            )
+        } else if cmd.this_week {
+            let days_from_mon = today.weekday().num_days_from_monday() as i64;
+            let start = today - Duration::days(days_from_mon);
+            let end = start + Duration::days(6);
+            (
+                start,
+                end,
+                "This Week".to_string(),
+                format!("{start} to {end}"),
+            )
+        } else if cmd.last_week {
+            let days_from_mon = today.weekday().num_days_from_monday() as i64;
+            let start_of_this_week = today - Duration::days(days_from_mon);
+            let start = start_of_this_week - Duration::days(7);
+            let end = start + Duration::days(6);
+            (
+                start,
+                end,
+                "Last Week".to_string(),
+                format!("{start} to {end}"),
+            )
+        } else if let Some(day_str) = &cmd.day {
+            let date = parse_day_string(day_str)?;
+            (date, date, format!("Day: {day_str}"), date.to_string())
+        } else {
+            // Fallback logic
+            if cmd.subcommand.is_some() {
+                let end = today;
+                let start = end - Duration::days(cmd.last as i64 - 1);
+                (
+                    start,
+                    end,
+                    format!("Last {} Days", cmd.last),
+                    format!("{start} to {end}"),
+                )
+            } else {
+                // Default summary is 'Today'
+                (today, today, "Today".to_string(), today.to_string())
+            }
+        };
+
+    // Convert local NaiveDate to UTC DateTime for querying
+    let start_local = start_date
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(Local)
+        .unwrap();
+    let end_local = (end_date + Duration::days(1))
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(Local)
+        .unwrap();
+
+    Ok((
+        start_local.with_timezone(&Utc),
+        end_local.with_timezone(&Utc),
+        title,
+        context,
+    ))
+}
+
 // --- Presentation and Helper Functions ---
+
+fn parse_date_string(date_str: &str, is_end_of_period: bool) -> eyre::Result<NaiveDate> {
+    if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+        return Ok(date);
+    }
+    if let Ok(date) = NaiveDate::parse_from_str(&format!("{}-01", date_str), "%Y-%m-%d") {
+        if is_end_of_period {
+            let next_month_date = if date.month() == 12 {
+                date.with_year(date.year() + 1)
+                    .unwrap()
+                    .with_month(1)
+                    .unwrap()
+            } else {
+                date.with_month(date.month() + 1).unwrap()
+            };
+            return Ok(next_month_date - Duration::days(1));
+        } else {
+            return Ok(date);
+        }
+    }
+    eyre::bail!(
+        "Invalid date format '{}'. Use YYYY-MM-DD or YYYY-MM.",
+        date_str
+    )
+}
+
+fn parse_day_string(day_str: &str) -> eyre::Result<NaiveDate> {
+    let today = Local::now().date_naive();
+    match day_str {
+        "today" => Ok(today),
+        "yesterday" => Ok(today - Duration::days(1)),
+        s if s.ends_with("d_ago") => {
+            let days_ago_str = s.trim_end_matches("d_ago");
+            let days_ago: i64 = days_ago_str.parse()?;
+            Ok(today - Duration::days(days_ago))
+        }
+        s => NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|e| {
+            eyre::eyre!(
+                "Invalid date format '{}': {}. Use YYYY-MM-DD, today, yesterday, or Nd_ago.",
+                s,
+                e
+            )
+        }),
+    }
+}
 
 fn create_category_summary(
     summary: &HashMap<String, Duration>,
@@ -498,7 +720,7 @@ fn create_category_summary(
 
 fn print_sessions_table(sessions: &[SessionInfo]) {
     println!(
-        "{:<10} | {:<15} | {:<10} | {}",
+        "{:<10} | {:<22} | {:<10} | {}",
         "Session".underline(),
         "Time Range".underline(),
         "Duration".underline(),
@@ -507,7 +729,7 @@ fn print_sessions_table(sessions: &[SessionInfo]) {
 
     for session in sessions {
         println!(
-            "{:<10} | {:<15} | {:<10} | {}% active",
+            "{:<10} | {:<22} | {:<10} | {}% active",
             format!("#{}", session.session_number).cyan(),
             format!("{} → {}", session.start_time, session.end_time),
             format_duration_pretty(Duration::seconds(session.total_duration_secs)),
@@ -516,7 +738,6 @@ fn print_sessions_table(sessions: &[SessionInfo]) {
     }
 }
 
-/// Returns a colored cell string based on absolute duration thresholds.
 fn get_heatmap_cell(duration: Duration) -> ColoredString {
     const CELL_CHAR: &str = "■";
     let one_min = Duration::minutes(1);
@@ -546,7 +767,6 @@ fn get_heatmap_cell(duration: Duration) -> ColoredString {
     }
 }
 
-/// Renders the year activity grid.
 fn print_year_heatmap(year: i32, daily_summary: &HashMap<NaiveDate, Duration>) {
     let today = Local::now().date_naive();
     let first_day_of_year = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
@@ -700,16 +920,4 @@ fn format_duration_pretty(duration: Duration) -> String {
 fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms as i64)
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
-}
-
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    if let Some(subcommand) = command.subcommand {
-        match subcommand {
-            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
-            _ => handle_generic_subcommand(subcommand, command.last, command.json, &proxy).await?,
-        }
-    } else {
-        handle_today_summary(command.json, &proxy).await?;
-    }
-    Ok(())
 }

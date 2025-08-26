@@ -1,5 +1,11 @@
+use crate::utils::{
+    display::{LogBuilder, LogType},
+    displayable_id::DisplayableId,
+};
 use clap::Args;
+use colored::*;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
+use std::fmt::Display;
 
 #[derive(Args, Debug)]
 pub struct Command {
@@ -47,6 +53,31 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         end: command.end.map(Option::Some).into(),
     };
 
-    let _actions = proxy.edit_task(command.task_ref, task_update).await?;
+    let task = proxy.edit_task(command.task_ref, task_update).await?;
+
+    let task_id = DisplayableId::from(&task);
+    let message = format!(
+        "Successfully edited task '{}'",
+        task.task_name.cyan().bold()
+    );
+
+    let project_display: Box<dyn Display> = if let Some(p) = &task.project {
+        Box::new(p.cyan())
+    } else {
+        Box::new("<none>".italic())
+    };
+
+    let tags_display = if !task.tags.is_empty() {
+        Some(task.tags.join(", ").yellow())
+    } else {
+        None
+    };
+
+    LogBuilder::new(LogType::Success, message)
+        .with_branch("ID", task_id)
+        .with_branch("Project", project_display)
+        .with_optional_branch("Tags", tags_display)
+        .print();
+
     Ok(())
 }

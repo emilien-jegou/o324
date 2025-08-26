@@ -10,22 +10,22 @@ pub trait O324ServiceInterface {
     fn start_new_task(
         &self,
         input: dto::StartTaskInputDto,
-    ) -> impl std::future::Future<Output = fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)>>;
+    ) -> impl std::future::Future<Output = fdo::Result<dto::TaskDto>>;
     fn stop_current_task(
         &self,
-    ) -> impl std::future::Future<Output = fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)>>;
+    ) -> impl std::future::Future<Output = fdo::Result<Option<dto::TaskDto>>>;
     fn cancel_current_task(
         &self,
-    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;
+    ) -> impl std::future::Future<Output = fdo::Result<Option<dto::TaskDto>>>;
     fn delete_task(
         &self,
         task_id: String,
-    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;
+    ) -> impl std::future::Future<Output = fdo::Result<Option<dto::TaskDto>>>;
     fn edit_task(
         &self,
         task_ref_str: String,
         update: dto::TaskUpdateDto,
-    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskActionDto>>>;
+    ) -> impl std::future::Future<Output = fdo::Result<dto::TaskDto>>;
     fn list_last_tasks(
         &self,
         count: u64,

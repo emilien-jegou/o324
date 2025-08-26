@@ -11,19 +11,16 @@ use zbus::fdo;
     default_path = "/org/o324/Service"
 )]
 pub trait O324Service {
-    async fn start_new_task(
-        &self,
-        input: dto::StartTaskInputDto,
-    ) -> fdo::Result<(dto::TaskDto, Vec<dto::TaskActionDto>)>;
-    async fn stop_current_task(&self) -> fdo::Result<(Option<dto::TaskDto>, Vec<dto::TaskActionDto>)>;
-    async fn cancel_current_task(&self) -> fdo::Result<Vec<dto::TaskActionDto>>;
-    async fn delete_task(&self, task_id: String) -> fdo::Result<Vec<dto::TaskActionDto>>;
+    async fn start_new_task(&self, input: dto::StartTaskInputDto) -> fdo::Result<dto::TaskDto>;
+    async fn stop_current_task(&self) -> fdo::Result<Option<dto::TaskDto>>;
+    async fn cancel_current_task(&self) -> fdo::Result<Option<dto::TaskDto>>;
+    async fn delete_task(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
     async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
     async fn edit_task(
         &self,
         task_ref_str: String,
         update: dto::TaskUpdateDto,
-    ) -> fdo::Result<Vec<dto::TaskActionDto>>;
+    ) -> fdo::Result<dto::TaskDto>;
     async fn list_last_tasks(&self, count: u64) -> fdo::Result<Vec<dto::TaskDto>>;
     async fn list_task_range(
         &self,
