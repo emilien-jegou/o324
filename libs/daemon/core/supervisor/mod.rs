@@ -64,6 +64,7 @@ pub struct SupervisedTaskHandle {
     writer: SupervisedTaskWriter,
 }
 
+#[allow(dead_code)]
 impl SupervisedTaskHandle {
     pub fn abort(&self) {
         self.handle.abort();
@@ -144,6 +145,7 @@ impl Drop for SupervisedTaskManagerOwner {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum FailurePolicy {
     Panic,
     Log,
@@ -295,6 +297,7 @@ impl SupervisedTaskManager {
     }
 }
 
+#[allow(dead_code)]
 impl SupervisedTaskManagerOwner {
     /// Reads the entire supervisor state from shared memory.
     pub fn get_state(&self) -> eyre::Result<SupervisorState> {

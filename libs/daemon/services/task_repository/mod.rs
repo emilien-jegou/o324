@@ -143,7 +143,6 @@ impl TaskRepositoryInner {
         let mut task_actions = Vec::new();
 
         let deleted_task = self.storage.write(|qr| {
-            // Fetch the task by its primary key to remove it.
             if let Some(task_to_delete) = qr.get().primary::<Task>(task_id.clone())? {
                 qr.remove(task_to_delete.clone())?;
                 task_actions.push(TaskAction::Delete(task_id));
@@ -166,7 +165,6 @@ impl TaskRepositoryInner {
         let current_timestamp = utils::unix_now();
 
         let task = self.storage.write(|qr| {
-            // 1. Determine the ID of the task to edit.
             let task_id = match task_ref {
                 TaskRef::Current => {
                     qr.get()
@@ -177,19 +175,17 @@ impl TaskRepositoryInner {
                 TaskRef::Id(id) => id,
             };
 
-            // 2. Fetch the original task.
             let original_task = qr
                 .get()
                 .primary::<Task>(task_id.clone())?
                 .ok_or_else(|| eyre::eyre!("Task with ID '{}' not found", &task_id))?;
 
-            // 3. Create the new task state by merging the update.
             let new_task = update_task.merge_with_task(&original_task);
 
             let was_running = original_task.end.is_none();
             let is_now_running = new_task.end.is_none();
 
-            // 4. If this edit makes a task running (i.e., resumes it),
+            // If this edit makes a task running (i.e., resumes it),
             // we must first stop any other task that is currently running.
             if is_now_running && !was_running {
                 if let Some(mut other_current_task) = qr
