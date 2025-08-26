@@ -15,12 +15,15 @@ use inter_process_storage::InterProcessStorage;
 /// An internal, cloneable handle that grants write access to the supervisor state.
 /// This is not part of the public API and is only created by the `SupervisedTaskManagerOwner`.
 #[derive(Clone)]
-struct SupervisedTaskWriter(Arc<SupervisedTaskManagerInner>);
+struct SupervisedTaskWriter {
+    manager: Arc<SupervisedTaskManagerInner>,
+    failure_policy: FailurePolicy,
+}
 
 impl SupervisedTaskWriter {
     /// Removes a service from the status map
     fn cleanup_service(&self, service_name: &str) -> eyre::Result<()> {
-        self.0.db.write(|state| {
+        self.manager.db.write(|state| {
             state.services.remove(service_name);
         })
     }
@@ -28,7 +31,7 @@ impl SupervisedTaskWriter {
     /// Updates the status of a service in shared memory and logs errors.
     fn update_and_log(&self, status: &ServiceStatus) {
         let status_clone = status.clone();
-        if let Err(e) = self.0.db.write(|state| {
+        if let Err(e) = self.manager.db.write(|state| {
             state
                 .services
                 .insert(status_clone.service_name.clone(), status_clone);
@@ -43,11 +46,10 @@ impl SupervisedTaskWriter {
 
     /// Handles the final failure of a service according to the configured policy.
     fn handle_final_failure(&self, service_name: &str, error_msg: &str, attempt: u32) {
-        let failure_msg = format!(
-            "Service '{service_name}' failed after {attempt} attempts: {error_msg}"
-        );
+        let failure_msg =
+            format!("Service '{service_name}' failed after {attempt} attempts: {error_msg}");
 
-        match &self.0.failure_policy {
+        match &self.failure_policy {
             FailurePolicy::Panic => panic!("{}", failure_msg),
             FailurePolicy::Log => tracing::error!("{}", failure_msg),
             FailurePolicy::Callback(callback) => callback(service_name, &failure_msg),
@@ -126,6 +128,7 @@ pub struct SupervisorState {
 /// entire session (metadata and services) is cleaned up from shared memory.
 pub struct SupervisedTaskManagerOwner {
     inner: Arc<SupervisedTaskManagerInner>,
+    failure_policy: FailurePolicy,
 }
 
 impl Drop for SupervisedTaskManagerOwner {
@@ -227,26 +230,26 @@ pub struct SupervisedTaskManager(Arc<SupervisedTaskManagerInner>);
 
 struct SupervisedTaskManagerInner {
     db: InterProcessStorage<SupervisorState>,
-    failure_policy: FailurePolicy,
 }
 
 impl SupervisedTaskManager {
     /// Creates a new client to access the supervisor state. This does not
     /// claim writer ownership.
-    pub fn try_new(failure_policy: FailurePolicy) -> eyre::Result<Self> {
-        let db = InterProcessStorage::<SupervisorState>::try_new("supervised_task_manager_shmem_v10")?;
+    pub fn try_new() -> eyre::Result<Self> {
+        let db =
+            InterProcessStorage::<SupervisorState>::try_new("supervised_task_manager_shmem_v10")?;
 
-        Ok(Self(Arc::new(SupervisedTaskManagerInner {
-            db,
-            failure_policy,
-        })))
+        Ok(Self(Arc::new(SupervisedTaskManagerInner { db })))
     }
 
     /// Attempts to claim exclusive "writer" ownership of the supervisor state.
     ///
     /// Fails if another supervisor process is detected to be active.
     /// If a stale lock from a crashed process is found, it will be cleaned up.
-    pub fn try_claim_ownership(&self) -> eyre::Result<SupervisedTaskManagerOwner> {
+    pub fn try_claim_ownership(
+        &self,
+        failure_policy: FailurePolicy,
+    ) -> eyre::Result<SupervisedTaskManagerOwner> {
         let current_state = self.get_state()?;
 
         if let Some(meta) = current_state.metadata {
@@ -282,6 +285,7 @@ impl SupervisedTaskManager {
 
         Ok(SupervisedTaskManagerOwner {
             inner: self.0.clone(),
+            failure_policy,
         })
     }
 
@@ -314,7 +318,10 @@ impl SupervisedTaskManagerOwner {
         T: Send + 'static,
         E: std::fmt::Display + Send + 'static,
     {
-        let writer = SupervisedTaskWriter(self.inner.clone());
+        let writer = SupervisedTaskWriter {
+            manager: self.inner.clone(),
+            failure_policy: self.failure_policy.clone(),
+        };
 
         let handle = tokio::spawn(async move {
             let mut attempt = 0u32;
@@ -380,7 +387,10 @@ impl SupervisedTaskManagerOwner {
         SupervisedTaskHandle {
             handle,
             service_name: service_name.to_string(),
-            writer: SupervisedTaskWriter(self.inner.clone()),
+            writer: SupervisedTaskWriter {
+                manager: self.inner.clone(),
+                failure_policy: self.failure_policy.clone(),
+            },
         }
     }
 }
