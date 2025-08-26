@@ -123,4 +123,3 @@ fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms as i64)
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
-

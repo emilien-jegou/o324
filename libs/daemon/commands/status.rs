@@ -109,7 +109,7 @@ pub struct StatusOutput {
 
 // --- Command Handler (Unchanged) ---
 pub async fn handle(cmd: Command, _config: Config) -> eyre::Result<()> {
-    let manager = SupervisedTaskManager::try_new(FailurePolicy::Log)?;
+    let manager = SupervisedTaskManager::try_new()?;
     let state = manager.get_state()?;
 
     let supervisor_display = state.metadata.map(Into::into);
