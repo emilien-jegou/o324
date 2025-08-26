@@ -8,7 +8,7 @@ use o324_dbus::proxy::O324ServiceProxy;
 pub struct Command {}
 
 pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    let (task, _actions) = proxy.stop_current_task().await?;
+    let task = proxy.stop_current_task().await?;
 
     match task {
         Some(stopped_task) => {

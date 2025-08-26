@@ -140,10 +140,10 @@ impl TaskServiceInner {
     }
 
     /// Cancels and deletes the currently running task.
-    pub async fn cancel_current_task(&self) -> eyre::Result<Vec<TaskAction>> {
+    pub async fn cancel_current_task(&self) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
 
-        self.storage.write(|qr| {
+        let canceled_task = self.storage.write(|qr| {
             // Find the currently running task.
             if let Some(current_task) = qr
                 .get()
@@ -151,31 +151,36 @@ impl TaskServiceInner {
             {
                 let task_id = current_task.id.clone();
                 // Remove the task entity itself.
-                qr.remove(current_task)?;
+                qr.remove(current_task.clone())?;
                 task_actions.push(TaskAction::Delete(task_id));
+                Ok(Some(current_task))
+            } else {
+                Ok(None)
             }
-            Ok(())
         })?;
 
-        Ok(task_actions)
+        Ok((canceled_task, task_actions))
     }
 
     /// Deletes a task by its specific ID.
-    pub async fn delete_task(&self, task_id: String) -> eyre::Result<Vec<TaskAction>> {
+    pub async fn delete_task(
+        &self,
+        task_id: String,
+    ) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
 
-        self.storage.write(|qr| {
+        let deleted_task = self.storage.write(|qr| {
             // Fetch the task by its primary key to remove it.
             if let Some(task_to_delete) = qr.get().primary::<Task>(task_id.clone())? {
-                // Remove the task and record the action.
-                qr.remove(task_to_delete)?;
+                qr.remove(task_to_delete.clone())?;
                 task_actions.push(TaskAction::Delete(task_id));
+                Ok(Some(task_to_delete))
+            } else {
+                Ok(None)
             }
-            // If the task is not found, do nothing.
-            Ok(())
         })?;
 
-        Ok(task_actions)
+        Ok((deleted_task, task_actions))
     }
 
     /// Edits an existing task, identified by its ID or as the "current" task.
@@ -183,11 +188,11 @@ impl TaskServiceInner {
         &self,
         task_ref: TaskRef,
         update_task: TaskUpdate,
-    ) -> eyre::Result<Vec<TaskAction>> {
+    ) -> eyre::Result<(Task, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
         let current_timestamp = utils::unix_now();
 
-        self.storage.write(|qr| {
+        let task = self.storage.write(|qr| {
             // 1. Determine the ID of the task to edit.
             let task_id = match task_ref {
                 TaskRef::Current => {
@@ -228,12 +233,12 @@ impl TaskServiceInner {
             }
 
             qr.upsert(new_task.clone())?;
-            task_actions.push(TaskAction::Upsert(new_task));
+            task_actions.push(TaskAction::Upsert(new_task.clone()));
 
-            Ok(())
+            Ok(new_task)
         })?;
 
-        Ok(task_actions)
+        Ok((task, task_actions))
     }
 
     pub async fn get_task_by_id(&self, task_id: TaskId) -> eyre::Result<Option<Task>> {

@@ -95,7 +95,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
             .unwrap_or_else(|| task_to_resume.tags.clone()),
     };
 
-    let (task, _actions) = proxy.start_new_task(start_task_input).await?;
+    let task = proxy.start_new_task(start_task_input).await?;
 
     print_started_task(task);
     Ok(())
