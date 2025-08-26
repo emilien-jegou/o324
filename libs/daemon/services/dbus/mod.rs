@@ -1,30 +1,26 @@
+use std::sync::Arc;
+use wrap_builder::wrap_builder;
 use zbus::connection;
 
-use crate::services::task::TaskService;
+use crate::services::task_manager::TaskManagerService;
 
 pub mod interface;
 pub mod transforms;
 
-#[derive(Clone)]
+#[wrap_builder(Arc)]
 pub struct DbusService {
-    task_service: TaskService,
+    task_manager_service: TaskManagerService,
 }
 
-impl DbusService {
-    pub fn new(task_service: TaskService) -> Self {
-        Self { task_service }
-    }
-}
-
-impl DbusService {
+impl DbusServiceInner {
     pub async fn serve(&self) -> eyre::Result<()> {
         let _conn = connection::Builder::session()?
             .name("org.o324.Service")?
             .serve_at(
                 "/org/o324/Service",
-                interface::O324Service {
-                    task_service: self.task_service.clone(),
-                },
+                interface::O324Service::builder()
+                    .task_manager_service(self.task_manager_service.clone())
+                    .build(),
             )?
             .build()
             .await?;

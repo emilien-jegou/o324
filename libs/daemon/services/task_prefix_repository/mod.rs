@@ -3,6 +3,9 @@ use crate::core::repository::{Cacheable, Repository};
 use crate::core::storage::Storage;
 use crate::entities::prefix_trie_node::PrefixTrieNode;
 
+#[cfg(test)]
+mod tests;
+
 // This implementation should be placed where PrefixTrieNode is defined,
 // for example in `src/entities/prefix_trie_node.rs`.
 impl Cacheable for PrefixTrieNode {

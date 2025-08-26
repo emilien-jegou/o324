@@ -37,13 +37,11 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         } else {
             pretty_print_running_task(task, elapsed)?;
         }
+    } else if command.json {
+        println!("{{}}");
     } else {
-        if command.json {
-            println!("{{}}");
-        } else {
-            // Use the LogBuilder for a simple message to ensure consistent spacing.
-            LogBuilder::new(LogType::Info, "No task is currently running.").print();
-        }
+        // Use the LogBuilder for a simple message to ensure consistent spacing.
+        LogBuilder::new(LogType::Info, "No task is currently running.").print();
     }
 
     Ok(())
@@ -97,7 +95,7 @@ fn format_duration_human(duration: Duration) -> String {
     let secs = duration.num_seconds();
 
     if secs < 60 {
-        return format!("{}s", secs);
+        return format!("{secs}s");
     }
 
     let hours = secs / 3600;
@@ -106,14 +104,14 @@ fn format_duration_human(duration: Duration) -> String {
 
     let mut parts = Vec::new();
     if hours > 0 {
-        parts.push(format!("{}h", hours));
+        parts.push(format!("{hours}h"));
     }
     if minutes > 0 {
-        parts.push(format!("{}m", minutes));
+        parts.push(format!("{minutes}m"));
     }
     // Always show seconds for a running task for a "live" feel
     if seconds >= 0 || parts.is_empty() {
-        parts.push(format!("{}s", seconds));
+        parts.push(format!("{seconds}s"));
     }
 
     parts.join(" ")

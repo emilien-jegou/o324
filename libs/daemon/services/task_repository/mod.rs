@@ -5,40 +5,15 @@ use crate::{
         utils::{self, generate_random_id},
     },
     entities::task::{Task, TaskBuilder, TaskId, TaskKey, TaskUpdate},
-    services::task::task_prefix::TaskPrefixRepository,
 };
-use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
+use wrap_builder::wrap_builder;
 
-mod task_prefix;
-
-#[derive(Clone, Deref)]
-#[deref(forward)]
-pub struct TaskService(Arc<TaskServiceInner>);
-
-pub struct TaskServiceInner {
+#[wrap_builder(Arc)]
+pub struct TaskRepository {
     pub config: Config,
     pub storage: Storage,
-    pub prefix_index: TaskPrefixRepository,
-}
-
-impl TaskService {
-    pub fn try_new(storage: Storage, config: Config) -> eyre::Result<Self> {
-        let prefix_index = TaskPrefixRepository::new(storage.clone());
-
-        Ok(Self(Arc::new(TaskServiceInner {
-            storage,
-            config,
-            prefix_index,
-        })))
-    }
-}
-
-impl std::fmt::Display for TaskServiceInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Core({:?})", self.config.core.computer_name)
-    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -70,7 +45,7 @@ pub enum TaskAction {
     Delete(String),
 }
 
-impl TaskServiceInner {
+impl TaskRepositoryInner {
     /// Starts a new task. If another task is currently running, it will be stopped.
     pub async fn start_new_task(
         &self,
@@ -106,8 +81,6 @@ impl TaskServiceInner {
             task_actions.push(TaskAction::Upsert(new_task.clone()));
             Ok(new_task)
         })?;
-
-        self.prefix_index.add_ids(&[task.id.clone()])?;
 
         Ok((task, task_actions))
     }

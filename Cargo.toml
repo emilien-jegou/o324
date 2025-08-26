@@ -5,6 +5,7 @@ members = [
   "libs/daemon",
   "libs/patronus",
   "libs/dbus",
+  "libs/wrap-builder",
 ]
 
 [workspace.lints.clippy]
