@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     core::supervisor::{
-        FailurePolicy, ServiceState, ServiceStatus, SupervisedTaskManager, SupervisorMetadata,
+        ServiceState, ServiceStatus, SupervisedTaskManager, SupervisorMetadata,
     },
 };
 use chrono::{Duration, TimeZone, Utc};
