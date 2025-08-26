@@ -1,7 +1,4 @@
-use crate::utils::{
-    display::{LogBuilder, LogType},
-    displayable_id::DisplayableId,
-};
+use crate::utils::display::{LogBuilder, LogType};
 use clap::Args;
 use colored::*;
 use o324_dbus::proxy::O324ServiceProxy;

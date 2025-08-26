@@ -80,7 +80,7 @@ impl<'a> LogBuilder<'a> {
         // Print each detail with the appropriate tree connector.
         for (i, (label, value)) in self.details.iter().enumerate() {
             let prefix = if i == count - 1 { "  ╰─" } else { "  ├─" };
-            let padded_label = format!("{}:", label);
+            let padded_label = format!("{label}:");
             // Pad to 9 to align with "Duration:" and "Started:" from other commands
             println!("{} {:<9} {}", prefix.dimmed(), padded_label.bold(), value);
         }

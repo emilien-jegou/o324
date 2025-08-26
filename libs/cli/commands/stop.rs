@@ -58,9 +58,9 @@ fn format_duration(duration: chrono::Duration) -> String {
         // For sub-minute durations, also show milliseconds for precision
         if secs < 10 {
             let millis = duration.num_milliseconds() % 1000;
-            return format!("{}.{:03}s", secs, millis);
+            return format!("{secs}.{millis:03}s");
         }
-        return format!("{}s", secs);
+        return format!("{secs}s");
     }
 
     let hours = secs / 3600;
@@ -69,13 +69,13 @@ fn format_duration(duration: chrono::Duration) -> String {
 
     let mut parts = Vec::new();
     if hours > 0 {
-        parts.push(format!("{}h", hours));
+        parts.push(format!("{hours}h"));
     }
     if minutes > 0 {
-        parts.push(format!("{}m", minutes));
+        parts.push(format!("{minutes}m"));
     }
     if seconds > 0 || parts.is_empty() {
-        parts.push(format!("{}s", seconds));
+        parts.push(format!("{seconds}s"));
     }
 
     parts.join(" ")

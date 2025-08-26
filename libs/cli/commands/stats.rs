@@ -123,7 +123,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
     } else {
         // Handle session summary for the calculated period
         let (start_utc, end_utc, title, context) = calculate_date_range(&command)?;
-        let title_with_summary = format!("Summary for {}", title);
+        let title_with_summary = format!("Summary for {title}");
         handle_period_summary(
             start_utc,
             end_utc,
@@ -654,7 +654,7 @@ fn parse_date_string(date_str: &str, is_end_of_period: bool) -> eyre::Result<Nai
     if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         return Ok(date);
     }
-    if let Ok(date) = NaiveDate::parse_from_str(&format!("{}-01", date_str), "%Y-%m-%d") {
+    if let Ok(date) = NaiveDate::parse_from_str(&format!("{date_str}-01"), "%Y-%m-%d") {
         if is_end_of_period {
             let next_month_date = if date.month() == 12 {
                 date.with_year(date.year() + 1)

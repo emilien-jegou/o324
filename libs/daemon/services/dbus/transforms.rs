@@ -4,22 +4,25 @@ use zvariant::Optional;
 use crate::{
     core::storage::{DbOperation, DbResult},
     entities::task::{Task, TaskUpdate},
-    services::task::{StartTaskInput, TaskAction},
+    services::{
+        task_manager::TaskWithMeta,
+        task_repository::{StartTaskInput, TaskAction},
+    },
 };
 
 // Convert from Core Task -> DTO Task (for sending data out)
-impl Task {
-    pub fn into_dto(self, id_prefix: String) -> dto::TaskDto {
-        dto::TaskDto {
-            id_prefix,
-            id: self.id,
-            __hash: self.__hash,
-            task_name: self.task_name,
-            project: self.project,
-            tags: self.tags,
-            computer_name: self.computer_name,
-            start: self.start,
-            end: self.end,
+impl From<TaskWithMeta> for dto::TaskDto {
+    fn from(v: TaskWithMeta) -> Self {
+        Self {
+            id_prefix: v.prefix,
+            id: v.task.id,
+            __hash: v.task.__hash,
+            task_name: v.task.task_name,
+            project: v.task.project,
+            tags: v.task.tags,
+            computer_name: v.task.computer_name,
+            start: v.task.start,
+            end: v.task.end,
         }
     }
 }

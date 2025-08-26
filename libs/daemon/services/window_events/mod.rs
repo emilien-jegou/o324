@@ -1,8 +1,12 @@
-use super::task;
+use std::sync::Arc;
+
+use crate::services::task_manager::TaskManagerService;
+
 use thiserror::Error; // 1. Import thiserror
 use tracing::{error, info};
 use window_tracker::WindowTracker;
 use window_tracker::WindowTrackerError;
+use wrap_builder::wrap_builder;
 
 mod window_tracker;
 
@@ -20,9 +24,9 @@ pub enum Error {
 // 3. Create a convenient Result type alias
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone)]
+#[wrap_builder(Arc)]
 pub struct WindowEventService {
-    task_service: task::TaskService,
+    task_manager_service: TaskManagerService,
 }
 
 // 4. Update the function signature to return our custom Result
@@ -44,10 +48,6 @@ async fn build_window_tracker() -> Result<WindowTracker> {
 }
 
 impl WindowEventService {
-    pub fn new(task_service: task::TaskService) -> Self {
-        Self { task_service }
-    }
-
     /// Starts the window event monitoring service.
     // 6. Update the method signature
     pub async fn start(&self) -> Result<()> {
