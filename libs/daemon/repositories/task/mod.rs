@@ -1,48 +1,22 @@
 use crate::{
     config::Config,
     core::{
-        storage::{DbOperation, DbResult, Storage},
+        storage::Storage,
         utils::{self, generate_random_id},
     },
     entities::task::{Task, TaskId, TaskKey, TaskUpdate},
 };
-use serde::{Deserialize, Serialize};
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 use wrap_builder::wrap_builder;
+
+use defs::{StartTaskInput, TaskAction, TaskRef};
+
+pub mod defs;
 
 #[wrap_builder(Arc)]
 pub struct TaskRepository {
     pub config: Config,
     pub storage: Storage,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct StartTaskInput {
-    pub task_name: String,
-    pub project: Option<String>,
-    pub tags: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
-pub enum TaskRef {
-    Current,
-    Id(String),
-}
-
-impl FromStr for TaskRef {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "current" => TaskRef::Current,
-            id => TaskRef::Id(id.to_string()),
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TaskAction {
-    Upsert(Task),
-    Delete(String),
 }
 
 impl TaskRepositoryInner {
@@ -240,9 +214,5 @@ impl TaskRepositoryInner {
 
             Ok(filtered_tasks)
         })
-    }
-
-    pub async fn db_query(&self, operation: DbOperation) -> eyre::Result<DbResult> {
-        self.storage.db_query(operation)
     }
 }

@@ -2,11 +2,11 @@ use o324_dbus::dto::{self, TaskActionType};
 use zvariant::Optional;
 
 use crate::{
-    core::storage::{DbOperation, DbResult},
     entities::task::{Task, TaskUpdate},
+    repositories::task::defs::{StartTaskInput, TaskAction},
     services::{
-        task_manager::TaskWithMeta,
-        task_repository::{StartTaskInput, TaskAction},
+        storage_bridge::{DbOperation, DbResult},
+        task::TaskWithMeta,
     },
 };
 
