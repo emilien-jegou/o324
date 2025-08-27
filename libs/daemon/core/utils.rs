@@ -1,4 +1,4 @@
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn unix_now() -> u64 {
@@ -9,7 +9,7 @@ pub fn unix_now() -> u64 {
 
 // New helper function to generate a random alphanumeric ID
 pub fn generate_random_id(len: usize) -> String {
-    rand::thread_rng()
+    rand::rng()
         .sample_iter(&Alphanumeric)
         .take(len)
         .map(char::from)
