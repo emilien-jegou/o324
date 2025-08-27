@@ -4,8 +4,8 @@ use std::env;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-use crate::services::window_events::window_tracker::utils::get_process_info;
-use crate::services::window_events::window_tracker::{
+use crate::utils::get_process_info;
+use crate::{
     Compositor, WindowEvent, WindowGeometry, WindowInfo, WindowProvider, WindowTrackerError,
 };
 

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use zvariant::{ObjectPath, OwnedValue};
 
-use crate::services::window_events::window_tracker::{
+use crate::{
     utils::get_process_info, Compositor, DisplayServer, WindowEvent, WindowInfo, WindowProvider,
     WindowTrackerError,
 };

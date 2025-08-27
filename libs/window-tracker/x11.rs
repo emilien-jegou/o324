@@ -8,8 +8,6 @@ use super::WindowGeometry;
 use super::WindowInfo;
 use super::WindowTrackerError;
 
-// --- X11 Backend (Shared Logic) ---
-
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("X11 Init Error: {0}")]
 pub struct X11InitError(String);
@@ -136,7 +134,9 @@ impl X11Backend {
         }))
     }
 
-    pub async fn get_active_window_backend(&self) -> Result<Option<WindowInfo>, WindowTrackerError> {
+    pub async fn get_active_window_backend(
+        &self,
+    ) -> Result<Option<WindowInfo>, WindowTrackerError> {
         let prop = self
             .conn
             .get_property(
