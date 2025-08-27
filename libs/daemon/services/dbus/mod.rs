@@ -2,14 +2,17 @@ use std::sync::Arc;
 use wrap_builder::wrap_builder;
 use zbus::connection;
 
-use crate::services::task_manager::TaskManagerService;
+use crate::services::storage_bridge::StorageBridgeService;
+
+use super::task::TaskService;
 
 pub mod interface;
 pub mod transforms;
 
 #[wrap_builder(Arc)]
 pub struct DbusService {
-    task_manager_service: TaskManagerService,
+    task_service: TaskService,
+    storage_bridge_service: StorageBridgeService,
 }
 
 impl DbusServiceInner {
@@ -19,7 +22,8 @@ impl DbusServiceInner {
             .serve_at(
                 "/org/o324/Service",
                 interface::O324Service::builder()
-                    .task_manager_service(self.task_manager_service.clone())
+                    .task_service(self.task_service.clone())
+                    .storage_bridge_service(self.storage_bridge_service.clone())
                     .build(),
             )?
             .build()

@@ -4,13 +4,13 @@ use o324_dbus::{dto, proxy::O324ServiceProxy};
 
 #[derive(Args, Debug)]
 pub struct ScanCommand {
-    table_name: String,
+    table_name: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Operation {
     /// Show all tables in database
-    ShowTables,
+    Tables,
     /// List all rows of a table
     Scan(ScanCommand),
 }
@@ -19,19 +19,22 @@ enum Operation {
 pub struct Command {
     #[command(subcommand)]
     operation: Operation,
-    table: Option<String>,
 }
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
     // 1. Construct the operation DTO based on the CLI command.
     let operation_dto = match command.operation {
-        Operation::ShowTables => dto::DbOperationDto {
-            operation_type: dto::DbOperationTypeDto::ListTables,
-            table_name: None,
-        },
-        Operation::Scan(scan_command) => dto::DbOperationDto {
+        Operation::Tables | Operation::Scan(ScanCommand { table_name: None }) => {
+            dto::DbOperationDto {
+                operation_type: dto::DbOperationTypeDto::ListTables,
+                table_name: None,
+            }
+        }
+        Operation::Scan(ScanCommand {
+            table_name: Some(table_name),
+        }) => dto::DbOperationDto {
             operation_type: dto::DbOperationTypeDto::ScanTable,
-            table_name: Some(scan_command.table_name),
+            table_name: Some(table_name),
         },
     };
 

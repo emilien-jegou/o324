@@ -1,35 +1,25 @@
 use native_db::{
-    transaction::{self, RTransaction},
-    Builder, Database, Models, ToInput,
+    transaction::{self},
+    Builder, Database,
 };
-use native_model::Model;
-use serde::Serialize;
 use std::{path::Path, sync::Arc};
 
-use crate::entities::{prefix_trie_node::PrefixTrieNode, task::Task};
+use crate::core::named_model::NamedModels;
 
 #[derive(Clone)]
 pub struct Storage {
     db: Arc<Database<'static>>,
-}
-
-/// Defines a database query operation for the storage layer.
-pub enum DbOperation {
-    ListTables,
-    ScanTable { table_name: String },
-}
-
-/// Represents a successful result from a database query.
-pub enum DbResult {
-    TableList(Vec<String>),
-    TableRows(Vec<String>),
+    pub models: &'static NamedModels,
 }
 
 impl Storage {
-    pub fn try_new(path: impl AsRef<Path>, models: &'static Models) -> eyre::Result<Self> {
+    pub fn try_new(path: impl AsRef<Path>, models: &'static NamedModels) -> eyre::Result<Self> {
         let builder = Builder::new();
-        let db = builder.open(models, path)?;
-        Ok(Self { db: Arc::new(db) })
+        let db = builder.open(models.get_inner(), path)?;
+        Ok(Self {
+            db: Arc::new(db),
+            models,
+        })
     }
 
     /// Executes read-only operation within a transaction
@@ -59,44 +49,6 @@ impl Storage {
             }
         }
     }
-
-    pub fn db_query(&self, operation: DbOperation) -> eyre::Result<DbResult> {
-        // TODO: move this
-        match operation {
-            DbOperation::ListTables => Ok(DbResult::TableList(vec![
-                "Task".into(),
-                "PrefixTrieNode".into(),
-            ])),
-            DbOperation::ScanTable { table_name } => {
-                let rows = self.read(|txn| match table_name.as_str() {
-                    "Task" => scan_and_serialize::<Task>(&txn),
-                    "PrefixTrieNode" => scan_and_serialize::<PrefixTrieNode>(&txn),
-                    _ => Err(eyre::eyre!(
-                        "Table '{}' not found or not scannable.",
-                        table_name
-                    )),
-                })?;
-
-                Ok(DbResult::TableRows(rows))
-            }
-        }
-    }
-}
-
-fn scan_and_serialize<T>(txn: &RTransaction) -> eyre::Result<Vec<String>>
-where
-    T: Model + Serialize + ToInput,
-{
-    let items = txn
-        .scan()
-        .primary::<T>()?
-        .all()?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    items
-        .into_iter()
-        .map(|item| serde_json::to_string(&item).map_err(|e| eyre::eyre!(e)))
-        .collect()
 }
 
 #[cfg(test)]
@@ -146,21 +98,21 @@ mod tests {
     }
 
     // 2. Test Setup Helpers
-    fn setup_database(models: &'static Models) -> (tempfile::TempDir, Storage) {
+    fn setup_database(models: &'static NamedModels) -> (tempfile::TempDir, Storage) {
         let dir = tempdir().unwrap();
         let storage = Storage::try_new(dir.path().join("test.db"), models).unwrap();
         (dir, storage)
     }
 
-    fn get_models() -> Models {
-        let mut models = Models::new();
-        models.define::<Item>().unwrap();
-        models.define::<User>().unwrap();
-        models.define::<Settings>().unwrap();
+    fn get_models() -> NamedModels {
+        let mut models = NamedModels::new();
+        models.define::<Item>("item").unwrap();
+        models.define::<User>("user").unwrap();
+        models.define::<Settings>("settings").unwrap();
         models
     }
 
-    static MODELS: Lazy<Models> = Lazy::new(get_models);
+    static MODELS: Lazy<NamedModels> = Lazy::new(get_models);
 
     // 3. Tests
 
