@@ -4,7 +4,7 @@ use crate::{
         storage::{DbOperation, DbResult, Storage},
         utils::{self, generate_random_id},
     },
-    entities::task::{Task, TaskBuilder, TaskId, TaskKey, TaskUpdate},
+    entities::task::{Task, TaskId, TaskKey, TaskUpdate},
 };
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
@@ -61,14 +61,13 @@ impl TaskRepositoryInner {
                 .secondary::<Task>(TaskKey::end, None as Option<u64>)?
             {
                 current.end = Some(current_timestamp);
-                current.compute_new_hash(); // Recompute hash after modification
                 qr.upsert(current.clone())?;
                 task_actions.push(TaskAction::Upsert(current));
             }
 
             // Create and start the new task with a random ID.
             let task_id = generate_random_id(7);
-            let new_task = TaskBuilder::default()
+            let new_task = Task::builder()
                 .id(task_id.clone())
                 .task_name(input.task_name)
                 .project(input.project)
@@ -76,7 +75,7 @@ impl TaskRepositoryInner {
                 .tags(input.tags)
                 .start(current_timestamp)
                 .end(None)
-                .try_build()?; // try_build() already computes the hash
+                .build(); // try_build() already computes the hash
             qr.upsert(new_task.clone())?;
             task_actions.push(TaskAction::Upsert(new_task.clone()));
             Ok(new_task)
@@ -98,7 +97,6 @@ impl TaskRepositoryInner {
             {
                 // Update its end time and recompute the hash.
                 current_task.end = Some(current_timestamp);
-                current_task.compute_new_hash();
 
                 // Save it and record the action.
                 qr.upsert(current_task.clone())?;
@@ -194,7 +192,6 @@ impl TaskRepositoryInner {
                 {
                     if other_current_task.id != new_task.id {
                         other_current_task.end = Some(current_timestamp);
-                        other_current_task.compute_new_hash();
                         qr.upsert(other_current_task.clone())?;
                         task_actions.push(TaskAction::Upsert(other_current_task));
                     }
