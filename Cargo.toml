@@ -6,6 +6,7 @@ members = [
   "libs/patronus",
   "libs/dbus",
   "libs/wrap-builder",
+  "libs/window-tracker",
 ]
 
 [workspace.lints.clippy]

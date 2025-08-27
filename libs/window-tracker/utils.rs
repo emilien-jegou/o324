@@ -3,7 +3,7 @@ use std::fs;
 use libc::uid_t;
 use nix::unistd::{Pid, Uid, User};
 
-use crate::services::window_events::window_tracker::ProcessDetails;
+use super::ProcessDetails;
 
 /// Gathers detailed information about a process using its PID.
 /// This function relies on the Linux-specific /proc filesystem.

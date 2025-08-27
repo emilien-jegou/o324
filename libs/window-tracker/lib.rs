@@ -10,7 +10,7 @@ pub mod x11;
 
 use x11::X11InitError;
 
-use crate::services::window_events::window_tracker::providers::{
+use providers::{
     ewmh::EwmhProvider, fht_compositor::FhtProvider, gnome::GnomeProvider,
     hyprland::HyprlandProvider, kde::KdeProvider, niri::NiriProvider, sway::SwayProvider,
 };
