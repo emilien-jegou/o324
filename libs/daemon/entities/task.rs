@@ -1,60 +1,35 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
-
-use derive_builder::Builder;
 use native_db::{native_db, ToKey};
 use native_model::{native_model, Model};
 use patronus::patronus;
 use serde::{Deserialize, Serialize};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use typed_builder::TypedBuilder;
 
 pub type TaskId = String;
 
 #[native_model(id = 1, version = 1)]
 #[native_db]
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Builder)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, TypedBuilder)]
 #[patronus(
     name = "TaskUpdate",
     derives = "Default, Debug, Deserialize, PartialEq, Clone"
 )]
-#[builder(build_fn(skip))]
+//#[builder(build_fn(skip))]
 pub struct Task {
     #[primary_key]
     pub id: String,
     pub task_name: String,
+    #[builder(default = None)]
     pub project: Option<String>,
+    #[builder(default = Vec::new())]
     pub tags: Vec<String>,
     #[secondary_key]
     pub start: u64,
     pub computer_name: String,
     // needs to be unique for indexing reason
     #[secondary_key(unique)]
+    #[builder(default = None)]
     pub end: Option<u64>,
-    #[builder(setter(skip))]
-    pub __hash: u64,
-}
-
-impl TaskBuilder {
-    pub fn try_build(&self) -> eyre::Result<Task> {
-        let mut task = Task {
-            id: self
-                .id
-                .clone()
-                .ok_or_else(|| eyre::eyre!("field id is not set"))?,
-            task_name: self
-                .task_name
-                .clone()
-                .ok_or_else(|| eyre::eyre!("field task_name is not set"))?,
-            project: self.project.clone().unwrap_or_default(),
-            computer_name: self.computer_name.clone().unwrap_or_default(),
-            tags: self.tags.clone().unwrap_or_default(),
-            start: self
-                .start
-                .ok_or_else(|| eyre::eyre!("field start is not set"))?,
-            end: self.end.unwrap_or_default(),
-            __hash: 0,
-        };
-        task.compute_new_hash();
-        Ok(task)
-    }
 }
 
 impl Hash for Task {
@@ -69,20 +44,16 @@ impl Hash for Task {
 }
 
 impl Task {
-    pub fn compute_new_hash(&mut self) {
+    pub fn get_hash(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
-        self.__hash = hasher.finish();
-    }
-
-    pub fn get_hash(&self) -> u64 {
-        self.__hash
+        hasher.finish()
     }
 }
 
 impl TaskUpdate {
     pub fn merge_with_task(self, task: &Task) -> Task {
-        let mut task = Task {
+        Task {
             id: self.id.unwrap_or(task.id.clone()),
             task_name: self.task_name.unwrap_or(task.task_name.clone()),
             project: self.project.unwrap_or(task.project.clone()),
@@ -90,9 +61,6 @@ impl TaskUpdate {
             tags: self.tags.unwrap_or(task.tags.clone()),
             start: self.start.unwrap_or(task.start),
             end: self.end.unwrap_or(task.end),
-            __hash: 0,
-        };
-        task.compute_new_hash();
-        task
+        }
     }
 }

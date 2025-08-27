@@ -15,8 +15,8 @@ impl From<TaskWithMeta> for dto::TaskDto {
     fn from(v: TaskWithMeta) -> Self {
         Self {
             id_prefix: v.prefix,
+            __hash: v.task.get_hash(),
             id: v.task.id,
-            __hash: v.task.__hash,
             task_name: v.task.task_name,
             project: v.task.project,
             tags: v.task.tags,
