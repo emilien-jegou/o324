@@ -1,10 +1,10 @@
 use crate::{
+    app,
     config::{self, Config},
     core::supervisor::{FailurePolicy, RetryStrategy, SupervisedTaskManager},
-    services,
 };
 use clap::Args;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 #[derive(Args, Debug)]
 pub struct Command {}
@@ -12,8 +12,7 @@ pub struct Command {}
 pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
     // NB: SIGHUP should reload config
     let storage = config::create_storage_from_config(&config)?;
-    let app = Arc::new(services::build(storage.clone(), config)?);
-    // NB: failure policy won't be called if retries is infinite
+    let app = app::build(storage.clone(), config)?;
     let supervisor = SupervisedTaskManager::try_new()?.try_claim_ownership(FailurePolicy::Panic)?;
 
     let _dbus_handle = supervisor.spawn_supervised_task(

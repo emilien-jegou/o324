@@ -5,6 +5,8 @@ mod config;
 mod core;
 mod entities;
 mod services;
+mod repositories;
+mod app;
 
 mod commands {
     pub mod start;

@@ -6,8 +6,6 @@ use crate::entities::prefix_trie_node::PrefixTrieNode;
 #[cfg(test)]
 mod tests;
 
-// This implementation should be placed where PrefixTrieNode is defined,
-// for example in `src/entities/prefix_trie_node.rs`.
 impl Cacheable for PrefixTrieNode {
     fn cache_key(&self) -> String {
         self.prefix.clone()
@@ -17,15 +15,11 @@ impl Cacheable for PrefixTrieNode {
 /// The main interface for the prefix index.
 #[derive(Clone)]
 pub struct TaskPrefixRepository {
-    // The type now explicitly includes the caching strategy
     repo: Repository<PrefixTrieNode, InMemoryCache<PrefixTrieNode>>,
 }
 
 impl TaskPrefixRepository {
-    /// Opens an existing index file or creates a new one if it doesn't exist.
     pub fn new(db: Storage) -> Self {
-        // The builder API works exactly as you desired, but now it uses
-        // the type system to construct the correct kind of repository.
         Self {
             repo: Repository::<PrefixTrieNode, InMemoryCache<PrefixTrieNode>>::builder(db)
                 .with_cache()
@@ -33,7 +27,6 @@ impl TaskPrefixRepository {
         }
     }
 
-    // For reference, here is one of the methods, unchanged:
     pub fn add_ids(&self, ids: &[String]) -> eyre::Result<()> {
         self.repo.write_cached(|cached_txn| {
             for id in ids {
@@ -66,7 +59,6 @@ impl TaskPrefixRepository {
                         }
 
                         if changed {
-                            // Note: The transaction helper is now just `CachedTransaction`
                             cached_txn.upsert(existing_node)?;
                         }
                     } else {
@@ -83,7 +75,6 @@ impl TaskPrefixRepository {
         })
     }
 
-    // `contains` and `find_shortest_unique_prefix` are also unchanged.
     pub fn contains(&self, id: &str) -> eyre::Result<bool> {
         Ok(self.repo.get(id)?.is_some_and(|node| node.is_end_of_id))
     }

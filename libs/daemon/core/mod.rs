@@ -1,4 +1,5 @@
 pub mod storage;
+pub mod named_model;
 pub mod utils;
 pub mod tracing;
 pub mod repository;
