@@ -30,7 +30,7 @@ pkgs.mkShell {
       openssl
       wmctrl
       pkg-config
-      (pkgs.rust-bin.nightly."2025-07-07".default.override {
+      (pkgs.rust-bin.nightly."2025-08-26".default.override {
         extensions = ["rust-src" "rustfmt" "rust-analyzer" "clippy"];
         targets = ["wasm32-unknown-unknown" "x86_64-unknown-linux-gnu" ];
       })
@@ -45,9 +45,9 @@ pkgs.mkShell {
       elixir-ls
 
       ## Versio
-      gpgme
-      gnupg
-      libgpg-error
+      #gpgme
+      #gnupg
+      #libgpg-error
 
       ## GUI
       # We only install packages needed for local development
@@ -63,21 +63,26 @@ pkgs.mkShell {
 
     shellHook =
     ''
+      #[ ! -f .packages/bin/cargo-tauri ] && cargo install tauri-cli --root .packages/
       [ ! -f .packages/bin/cargo-expand ] && cargo install cargo-expand --root .packages/
-      [ ! -f .packages/bin/cargo-tauri ] && cargo install tauri-cli --root .packages/
       [ ! -f .packages/bin/bacon ] && cargo install bacon --locked --root .packages/
       [ ! -f .packages/bin/cargo-watch ] && cargo install cargo-watch --root .packages/
 
-      if [ ! -f .packages/bin/versio ]; then
-        echo "Building versio from source..."
-        build_dir=$(mktemp -d -t versio-build-XXXXXX)
-        current_path=$(pwd)
-        git clone https://github.com/emilien-jegou/versio.git $build_dir/versio
-        cd $build_dir/versio && cargo build --release --bin versio
-        cp target/release/versio $current_path/.packages/bin
-        cd $current_path
-        rm -rf $build_dir
-      fi
+      [ ! -f .packages/bin/cargo-audit ] && cargo install cargo-audit --root .packages/
+      [ ! -f .packages/bin/cargo-deny ] && cargo install cargo-deny --root .packages/
+      [ ! -f .packages/bin/cargo-udeps ] && cargo install cargo-udeps --root .packages/
+      [ ! -f .packages/bin/cargo-outdated ] && cargo install cargo-outdated --root .packages/
+
+      #if [ ! -f .packages/bin/versio ]; then
+      #  echo "Building versio from source..."
+      #  build_dir=$(mktemp -d -t versio-build-XXXXXX)
+      #  current_path=$(pwd)
+      #  git clone https://github.com/emilien-jegou/versio.git $build_dir/versio
+      #  cd $build_dir/versio && cargo build --release --bin versio
+      #  cp target/release/versio $current_path/.packages/bin
+      #  cd $current_path
+      #  rm -rf $build_dir
+      #fi
 
       export PATH="$PATH:$(pwd)/.packages/bin/:$(pwd)/bin/";
       export LD_LIBRARY_PATH=${pkgs.libappindicator-gtk3}/lib:$LD_LIBRARY_PATH
