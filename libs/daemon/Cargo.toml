@@ -9,7 +9,8 @@ name = "o324-daemon"
 path = "main.rs"
 
 [dependencies]
-wrap_builder = { path = "../wrap-builder" }
+wrap-builder = { path = "../wrap-builder" }
+window-tracker = { path = "../window-tracker" }
 o324-dbus = { path = "../dbus" }
 async-trait = "0.1"
 bincode = { version = "2.0", features = ["serde"] }
@@ -19,10 +20,7 @@ eyre = "0.6"
 futures-util = "0.3"
 native_db = "0.8.2"
 native_model = "0.4.20"
-libc = "0.2"
 log = "0.4"
-nix = { version = "0.30", features = ["process", "user"] }
-once_cell = "1.18"
 patronus = { path = "../patronus" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -49,6 +47,11 @@ sysinfo = "0.37"
 signal = "0.7.0"
 comfy-table = "7.0"
 typed-builder = "0.21.2"
+
+# window tracker
+nix = { version = "0.30", features = ["process", "user"] }
+once_cell = "1.18"
+libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3.10"

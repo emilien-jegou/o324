@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
 
-use crate::services::window_events::window_tracker::{
+use crate::{
     Compositor, WindowEvent, WindowGeometry, WindowInfo, WindowProvider, WindowTrackerError,
 };
 

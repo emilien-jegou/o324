@@ -1,5 +1,5 @@
 [package]
-name = "wrap_builder"
+name = "wrap-builder"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"

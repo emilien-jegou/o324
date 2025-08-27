@@ -1,5 +1,5 @@
-use crate::services::window_events::window_tracker::x11::X11Backend;
-use crate::services::window_events::window_tracker::{
+use crate::x11::X11Backend;
+use crate::{
     Compositor, DisplayServer, WindowEvent, WindowInfo, WindowProvider, WindowTrackerError,
 };
 use async_trait::async_trait;

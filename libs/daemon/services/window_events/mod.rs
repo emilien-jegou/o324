@@ -8,8 +8,6 @@ use window_tracker::WindowTracker;
 use window_tracker::WindowTrackerError;
 use wrap_builder::wrap_builder;
 
-mod window_tracker;
-
 // 2. Define a custom error enum for this service
 #[derive(Error, Debug)]
 pub enum Error {
