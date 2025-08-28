@@ -1,4 +1,4 @@
-use native_db::{transaction::RwTransaction, ToInput};
+use native_db::{transaction::RwTransaction, Key, ToInput};
 use native_model::Model;
 use std::marker::PhantomData;
 
@@ -131,6 +131,18 @@ where
                 .insert_into_cache(key.to_string(), item.clone());
         }
         Ok(item_from_db)
+    }
+
+    pub fn scan_by_key(&self, key: &str) -> eyre::Result<Vec<T>> {
+        self.db.read(|r_txn| {
+            let results = r_txn
+                .scan()
+                .primary::<T>()?
+                .start_with(key.to_string())?
+                .collect::<Result<Vec<T>, _>>()?;
+
+            Ok(results)
+        })
     }
 
     pub fn write_cached<F, R>(&self, f: F) -> eyre::Result<R>

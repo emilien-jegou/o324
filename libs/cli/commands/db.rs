@@ -1,5 +1,4 @@
 use clap::{Args, Subcommand};
-use eyre::bail;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
 
 #[derive(Args, Debug)]
@@ -22,7 +21,6 @@ pub struct Command {
 }
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    // 1. Construct the operation DTO based on the CLI command.
     let operation_dto = match command.operation {
         Operation::Tables | Operation::Scan(ScanCommand { table_name: None }) => {
             dto::DbOperationDto {
@@ -38,51 +36,30 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         },
     };
 
-    // 2. Call the proxy with the constructed DTO.
-    let result = proxy.db_query(operation_dto).await?;
+    let result = proxy.db_query(operation_dto).await?.unpack();
 
-    // 3. Handle the structured result by matching on its `result_type`.
-    //    This section is updated to use the new field names.
-    match result.result_type {
-        dto::DbResultTypeDto::TableList => {
-            // Use `result.table_list` instead of `result.tables`
-            if let Some(table_list) = result.table_list {
-                if table_list.is_empty() {
-                    println!("No tables found in the database.");
-                } else {
-                    println!("Available tables:");
-                    for table_name in table_list {
-                        println!("- {table_name}");
-                    }
-                }
+    match result {
+        dto::DbResultDto::TableList(list) => {
+            if list.is_empty() {
+                println!("No tables found in the database.");
             } else {
-                bail!("Service returned TableList type but did not provide table list data.");
+                println!("Available tables:");
+                for table_name in list {
+                    println!("- {table_name}");
+                }
             }
         }
-        dto::DbResultTypeDto::TableRows => {
-            // Use `result.table_rows` instead of `result.rows`
-            if let Some(table_rows) = result.table_rows {
-                if table_rows.is_empty() {
-                    println!("Table is empty or does not exist.");
-                } else {
-                    println!("Found {} row(s):", table_rows.len());
-                    for json_row_string in table_rows {
-                        // The inner logic remains the same: parse and pretty-print the JSON string.
-                        let value: serde_json::Value = serde_json::from_str(&json_row_string)?;
-                        let pretty_json = serde_json::to_string_pretty(&value)?;
-                        println!("{pretty_json}");
-                    }
-                }
+        dto::DbResultDto::TableRows(rows) => {
+            if rows.is_empty() {
+                println!("Table is empty or does not exist.");
             } else {
-                bail!("Service returned TableRows type but did not provide table row data.");
+                println!("Found {} row(s):", rows.len());
+                for json_row_string in rows {
+                    let value: serde_json::Value = serde_json::from_str(&json_row_string)?;
+                    let pretty_json = serde_json::to_string_pretty(&value)?;
+                    println!("{pretty_json}");
+                }
             }
-        }
-        dto::DbResultTypeDto::Error => {
-            // Use `result.error` instead of `result.error_message`
-            let err_msg = result
-                .error
-                .unwrap_or_else(|| "Unknown error from service".to_string());
-            bail!("Service returned an error: {}", err_msg);
         }
     }
 

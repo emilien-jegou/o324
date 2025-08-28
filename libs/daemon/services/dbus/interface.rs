@@ -4,7 +4,7 @@ use zbus::{fdo, interface};
 
 use crate::services::{
     storage_bridge::{DbOperation, StorageBridgeService},
-    task::TaskService,
+    task::{error::TaskServiceError, TaskService},
 };
 
 #[derive(TypedBuilder)]
@@ -49,10 +49,13 @@ impl O324ServiceInterface for O324Service {
 
     async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>> {
         self.task_service
-            .get_task_by_id(task_id)
+            .get_task(task_id)
             .await
             .map(|x| x.map(|t| t.into()))
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+            .or_else(|e| match e {
+                TaskServiceError::Default(e) => Err(fdo::Error::Failed(e.to_string())),
+                TaskServiceError::RefError(items) => todo!(),
+            })
     }
 
     async fn edit_task(
@@ -87,25 +90,20 @@ impl O324ServiceInterface for O324Service {
             .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
-    async fn db_query(&self, operation: dto::DbOperationDto) -> fdo::Result<dto::DbResultDto> {
+    async fn db_query(
+        &self,
+        operation: dto::DbOperationDto,
+    ) -> fdo::Result<dto::DbResultDtoPacked> {
         let internal_operation =
             DbOperation::try_from(operation).map_err(fdo::Error::InvalidArgs)?;
 
-        match self.storage_bridge_service.db_query(internal_operation) {
-            Ok(internal_result) => {
-                let result_dto: dto::DbResultDto = internal_result.into();
-                Ok(result_dto)
-            }
-            Err(e) => {
-                let error_dto = dto::DbResultDto {
-                    result_type: dto::DbResultTypeDto::Error,
-                    table_list: None,
-                    table_rows: None,
-                    error: Some(e.to_string()),
-                };
-                Ok(error_dto)
-            }
-        }
+        let res: dto::DbResultDto = self
+            .storage_bridge_service
+            .db_query(internal_operation)
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?
+            .into();
+
+        Ok(res.pack())
     }
 
     async fn ping(&self) -> fdo::Result<String> {

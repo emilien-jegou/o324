@@ -145,7 +145,7 @@ impl Drop for SupervisedTaskManagerOwner {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::type_complexity)]
 pub enum FailurePolicy {
     Panic,
     Log,

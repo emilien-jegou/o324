@@ -1,3 +1,4 @@
+use dyn_variant_macro::dyn_variant;
 use serde::{Deserialize, Serialize};
 use zvariant::{Optional, Type};
 
@@ -50,12 +51,11 @@ pub struct TaskActionUpsertDto {
     pub __hash: u64,
 }
 
-// This is not an enum due to zbus limitations
-#[derive(Type, Serialize, Deserialize, Debug)]
-pub struct TaskActionDto {
-    pub action_type: TaskActionType,
-    pub upsert_action: Optional<TaskActionUpsertDto>,
-    pub delete_action: Optional<TaskId>,
+#[dyn_variant]
+#[derive(Debug)]
+pub enum TaskActionDto {
+    Upsert(TaskActionUpsertDto),
+    Delete(TaskId),
 }
 
 /// Defines the *type* of database operation to perform. This is a simple enum.
@@ -74,20 +74,9 @@ pub struct DbOperationDto {
     pub table_name: Option<String>,
 }
 
-/// Defines the *type* of result returned from the database. This is a simple enum.
-#[derive(Type, Debug, Deserialize, Serialize, PartialEq, Eq, Clone, Copy)]
-pub enum DbResultTypeDto {
-    TableList,
-    TableRows,
-    Error,
-}
-
-/// The actual result payload received from the D-Bus service.
-/// Contains the result type and the corresponding optional data.
-#[derive(Type, Serialize, Deserialize, Debug)]
-pub struct DbResultDto {
-    pub result_type: DbResultTypeDto,
-    pub table_list: Option<Vec<String>>,
-    pub table_rows: Option<Vec<String>>,
-    pub error: Option<String>,
+#[dyn_variant]
+#[derive(Debug)]
+pub enum DbResultDto {
+    TableList(Vec<String>),
+    TableRows(Vec<String>),
 }
