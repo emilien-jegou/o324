@@ -79,6 +79,10 @@ impl TaskPrefixRepository {
         Ok(self.repo.get(id)?.is_some_and(|node| node.is_end_of_id))
     }
 
+    pub fn search_by_prefix(&self, prefix: &str) -> eyre::Result<Vec<PrefixTrieNode>> {
+        self.repo.scan_by_key(prefix)
+    }
+
     pub fn find_shortest_unique_prefix(&self, id: &str) -> eyre::Result<String> {
         if !self.contains(id)? {
             return Ok(id.into());

@@ -50,21 +50,11 @@ impl From<dto::TaskUpdateDto> for TaskUpdate {
     }
 }
 
-// FIX: Updated the conversion to build the new TaskActionDto struct.
-// Convert from Core TaskAction -> DTO TaskAction (for sending data out)
 impl From<TaskAction> for dto::TaskActionDto {
     fn from(action: TaskAction) -> Self {
         match action {
-            TaskAction::Upsert(task) => Self {
-                action_type: TaskActionType::Upsert,
-                upsert_action: Optional::from(Some(task.into())),
-                delete_action: Optional::from(None),
-            },
-            TaskAction::Delete(id) => Self {
-                action_type: TaskActionType::Delete,
-                upsert_action: Optional::from(None),
-                delete_action: Optional::from(Some(id)),
-            },
+            TaskAction::Upsert(task) => dto::TaskActionDto::Upsert(task.into()),
+            TaskAction::Delete(task_id) => dto::TaskActionDto::Delete(task_id),
         }
     }
 }
@@ -103,22 +93,11 @@ impl TryFrom<dto::DbOperationDto> for DbOperation {
     }
 }
 
-// This converts our internal result enum into the DTO for the response.
 impl From<DbResult> for dto::DbResultDto {
     fn from(result: DbResult) -> Self {
         match result {
-            DbResult::TableList(tables) => dto::DbResultDto {
-                result_type: dto::DbResultTypeDto::TableList,
-                table_list: Some(tables),
-                table_rows: None,
-                error: None,
-            },
-            DbResult::TableRows(rows) => dto::DbResultDto {
-                result_type: dto::DbResultTypeDto::TableRows,
-                table_list: None,
-                table_rows: Some(rows),
-                error: None,
-            },
+            DbResult::TableList(tables) => dto::DbResultDto::TableList(tables),
+            DbResult::TableRows(rows) => dto::DbResultDto::TableRows(rows),
         }
     }
 }

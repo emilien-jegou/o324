@@ -12,6 +12,8 @@ use crate::{
 };
 use wrap_builder::wrap_builder;
 
+pub mod error;
+
 #[wrap_builder(Arc)]
 pub struct TaskService {
     task_repository: TaskRepository,
@@ -27,7 +29,8 @@ impl TaskServiceInner {
     pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<TaskWithMeta> {
         let (task, _) = self.task_repository.start_new_task(input).await?;
 
-        self.task_prefix_repository.add_ids(&[task.id.clone()])?;
+        self.task_prefix_repository
+            .add_ids(std::slice::from_ref(&task.id))?;
 
         let prefix = self
             .task_prefix_repository
@@ -93,20 +96,31 @@ impl TaskServiceInner {
         Ok(task)
     }
 
-    pub async fn get_task_by_id(&self, task_id: String) -> eyre::Result<Option<TaskWithMeta>> {
-        let maybe_task = self.task_repository.get_task_by_id(task_id).await?;
+    pub async fn get_task(&self, task_ref: String) -> error::Result<Option<TaskWithMeta>> {
+        let task_ids = self.task_prefix_repository.search_by_prefix(&task_ref)?;
 
-        let maybe_result: eyre::Result<Option<TaskWithMeta>> = maybe_task
-            .map(|task| {
+        if task_ids.len() > 1 {
+            let unique_ids_matchs = task_ids
+                .into_iter()
+                .filter(|t| t.is_end_of_id)
+                .map(|t| t.prefix)
+                .collect::<Vec<String>>();
+            return Err(error::TaskServiceError::RefError(unique_ids_matchs));
+        }
+
+        let maybe_task = self.task_repository.get_task_by_id(task_ref).await?;
+
+        let task: Option<TaskWithMeta> = maybe_task
+            .map(|task| -> eyre::Result<TaskWithMeta> {
                 let prefix = self
                     .task_prefix_repository
                     .find_shortest_unique_prefix(&task.id)?;
 
                 Ok(TaskWithMeta { task, prefix })
             })
-            .transpose();
+            .transpose()?;
 
-        maybe_result
+        Ok(task)
     }
 
     pub async fn edit_task(

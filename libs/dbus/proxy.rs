@@ -28,5 +28,6 @@ pub trait O324Service {
         end_timestamp: u64,
     ) -> fdo::Result<Vec<dto::TaskDto>>;
     async fn ping(&self) -> fdo::Result<String>;
-    async fn db_query(&self, operation: dto::DbOperationDto) -> fdo::Result<dto::DbResultDto>;
+    async fn db_query(&self, operation: dto::DbOperationDto)
+        -> fdo::Result<dto::DbResultDtoPacked>;
 }

@@ -29,7 +29,7 @@ impl NamedModels {
     ///
     /// The generic bound `T: ToInput + 'static` is required to match the underlying
     /// library's `define` method and to use `TypeId::of`.
-    pub fn define<T: ToInput + 'static>(&mut self, name: &str) -> native_db::db_type::Result<()> {
+    pub fn define<T: ToInput + 'static>(&mut self, name: &str) -> eyre::Result<()> {
         let model = T::native_db_model();
         self.inner.define::<T>()?;
         self.names

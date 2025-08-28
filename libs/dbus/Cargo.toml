@@ -9,6 +9,7 @@ name = "o324_dbus"
 path = "lib.rs"
 
 [dependencies]
+dyn_variant_macro = { path = "./macros" }
 zbus = "5.9"
 zvariant = { version = "5.6", features = ["option-as-array"] }
 serde = { version = "1.0", features = ["derive"] }
