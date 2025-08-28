@@ -613,6 +613,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn_variant_macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "endi"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1191,6 +1199,7 @@ dependencies = [
 name = "o324-dbus"
 version = "0.2.0"
 dependencies = [
+ "dyn_variant_macro",
  "serde",
  "tempfile",
  "zbus",

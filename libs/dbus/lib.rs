@@ -43,5 +43,5 @@ pub trait O324ServiceInterface {
     fn db_query(
         &self,
         operation: dto::DbOperationDto,
-    ) -> impl std::future::Future<Output = fdo::Result<dto::DbResultDto>>;
+    ) -> impl std::future::Future<Output = fdo::Result<dto::DbResultDtoPacked>>;
 }
