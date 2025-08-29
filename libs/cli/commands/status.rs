@@ -1,13 +1,12 @@
-use std::fmt::Display;
-
-// Make sure this path is correct for your project
 use crate::utils::display::{LogBuilder, LogType};
 use crate::utils::displayable_id::DisplayableId;
+use crate::utils::command_error;
 use chrono::{DateTime, Duration, Local, Utc};
 use clap::Args;
 use colored::Colorize;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
+use std::fmt::Display;
 
 #[derive(Serialize, Debug)]
 struct StatusOutput<'a> {
@@ -22,8 +21,8 @@ pub struct Command {
     json: bool,
 }
 
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    let tasks = proxy.list_last_tasks(1).await?;
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
+    let tasks = proxy.list_last_tasks(0, 1).await?;
 
     if let Some(task) = tasks.first().filter(|t| t.end.is_none()) {
         let elapsed = Utc::now() - ms_to_datetime(task.start)?;
@@ -41,10 +40,41 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         println!("{{}}");
     } else {
         // Use the LogBuilder for a simple message to ensure consistent spacing.
-        LogBuilder::new(LogType::Info, "No task is currently running.").print();
+        log::info!("No task is currently running.");
     }
 
     Ok(())
+}
+
+fn format_duration_human(duration: Duration) -> String {
+    let secs = duration.num_seconds();
+
+    if secs < 60 {
+        return format!("{secs}s");
+    }
+
+    let hours = secs / 3600;
+    let minutes = (secs % 3600) / 60;
+    let seconds = secs % 60;
+
+    let mut parts = Vec::new();
+    if hours > 0 {
+        parts.push(format!("{hours}h"));
+    }
+    if minutes > 0 {
+        parts.push(format!("{minutes}m"));
+    }
+    // Always show seconds for a running task for a "live" feel
+    if seconds >= 0 || parts.is_empty() {
+        parts.push(format!("{seconds}s"));
+    }
+
+    parts.join(" ")
+}
+
+fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
+    DateTime::from_timestamp_millis(ms as i64)
+        .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
 
 fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Result<()> {
@@ -75,49 +105,15 @@ fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Re
     let started_str = format!(
         "{} (on {})",
         start_time_local.format("%H:%M:%S"),
-        task.computer_name.dimmed()
+        task.computer_name
     );
 
-    // Use the LogBuilder to print the structured output
     LogBuilder::new(LogType::Status, message)
         .with_branch("ID", display_id)
-        .with_branch("Started", started_str)
         .with_branch("Project", project_display)
         .with_optional_branch("Tags", tags_display)
+        .with_branch("Started", started_str.dimmed())
         .print();
 
     Ok(())
-}
-
-// --- More Precise and Consistent Duration Formatting ---
-// Renamed to avoid confusion and match the one from `stop` command.
-fn format_duration_human(duration: Duration) -> String {
-    let secs = duration.num_seconds();
-
-    if secs < 60 {
-        return format!("{secs}s");
-    }
-
-    let hours = secs / 3600;
-    let minutes = (secs % 3600) / 60;
-    let seconds = secs % 60;
-
-    let mut parts = Vec::new();
-    if hours > 0 {
-        parts.push(format!("{hours}h"));
-    }
-    if minutes > 0 {
-        parts.push(format!("{minutes}m"));
-    }
-    // Always show seconds for a running task for a "live" feel
-    if seconds >= 0 || parts.is_empty() {
-        parts.push(format!("{seconds}s"));
-    }
-
-    parts.join(" ")
-}
-
-fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
-    DateTime::from_timestamp_millis(ms as i64)
-        .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }

@@ -18,6 +18,7 @@ pub struct TaskPrefixRepository {
     repo: Repository<PrefixTrieNode, InMemoryCache<PrefixTrieNode>>,
 }
 
+#[allow(dead_code)]
 impl TaskPrefixRepository {
     pub fn new(db: Storage) -> Self {
         Self {

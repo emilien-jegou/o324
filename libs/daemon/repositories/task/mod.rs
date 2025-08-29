@@ -1,5 +1,4 @@
 use crate::{
-    config::Config,
     core::{
         storage::Storage,
         utils::{self, generate_random_id},
@@ -15,7 +14,7 @@ pub mod defs;
 
 #[wrap_builder(Arc)]
 pub struct TaskRepository {
-    pub config: Config,
+    pub computer_name: String,
     pub storage: Storage,
 }
 
@@ -45,7 +44,7 @@ impl TaskRepositoryInner {
                 .id(task_id.clone())
                 .task_name(input.task_name)
                 .project(input.project)
-                .computer_name(self.config.core.computer_name.clone())
+                .computer_name(self.computer_name.clone())
                 .tags(input.tags)
                 .start(current_timestamp)
                 .end(None)
@@ -181,20 +180,33 @@ impl TaskRepositoryInner {
         Ok((task, task_actions))
     }
 
+    pub async fn match_prefix(&self, task_id_prefix: TaskId) -> eyre::Result<Vec<Task>> {
+        self.storage.read(|qr| {
+            let tasks = qr
+                .scan()
+                .primary::<Task>()?
+                .start_with(task_id_prefix)?
+                .collect::<Result<Vec<Task>, _>>()?;
+
+            Ok(tasks)
+        })
+    }
+
     pub async fn get_task_by_id(&self, task_id: TaskId) -> eyre::Result<Option<Task>> {
         self.storage
             .read(|qr| Ok(qr.get().primary::<Task>(task_id)?))
     }
 
-    pub async fn list_last_tasks(&self, count: u64) -> eyre::Result<Vec<Task>> {
+    pub async fn list_last_tasks(&self, offset: u64, count: u64) -> eyre::Result<Vec<Task>> {
         self.storage.read(|qr| {
             let tasks = qr
                 .scan()
                 .secondary::<Task>(TaskKey::start)?
                 .all()?
                 .rev()
+                .skip(offset as usize)
                 .take(count as usize)
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<Task>, _>>()?;
 
             Ok(tasks)
         })

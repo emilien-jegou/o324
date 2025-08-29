@@ -1,16 +1,19 @@
 use clap::Subcommand;
 use o324_dbus::{proxy::O324ServiceProxy, zbus::Connection};
 
+use crate::utils::command_error;
+
 pub mod cancel;
+pub mod db;
 pub mod delete;
 pub mod edit;
 pub mod log;
+pub mod playground;
 pub mod resume;
 pub mod start;
 pub mod stats;
 pub mod status;
 pub mod stop;
-pub mod db;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -34,10 +37,12 @@ pub enum Command {
     Delete(delete::Command),
     /// Query the database directly; this is mainly use in development
     Db(db::Command),
+    /// Only in dev mode
+    Playground(playground::Command),
 }
 
 impl Command {
-    pub async fn execute(self) -> eyre::Result<()> {
+    pub async fn execute(self) -> command_error::Result<()> {
         let connection = Connection::session().await.map_err(|e| {
             eyre::eyre!(
                 "Failed to connect to the D-Bus session bus.\n\n\
@@ -81,6 +86,7 @@ impl Command {
             Self::Edit(o) => edit::handle(o, proxy).await?,
             Self::Delete(o) => delete::handle(o, proxy).await?,
             Self::Db(o) => db::handle(o, proxy).await?,
+            Self::Playground(o) => playground::handle(o, proxy).await?,
         };
 
         Ok(())

@@ -1,6 +1,9 @@
 use crate::utils::{
+    command_error,
     display::{LogBuilder, LogType},
     displayable_id::DisplayableId,
+    task_ref::TaskRef,
+    time,
 };
 use clap::Args;
 use colored::*;
@@ -10,7 +13,7 @@ use std::fmt::Display;
 #[derive(Args, Debug)]
 pub struct Command {
     /// Id of the task to edit or "current" for editing active task
-    task_ref: String,
+    task_ref: TaskRef,
 
     /// Name of the task
     #[clap(short, long)]
@@ -44,7 +47,7 @@ impl Command {
     }
 }
 
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
     let task_update = dto::TaskUpdateDto {
         task_name: command.name.clone().into(),
         project: command.parse_project_value().into(),
@@ -53,11 +56,12 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         end: command.end.map(Option::Some).into(),
     };
 
-    let task = proxy.edit_task(command.task_ref, task_update).await?;
+    let task_g = command.task_ref.get_task(&proxy).await?;
+    let task = proxy.edit_task(task_g.id, task_update).await?;
 
     let task_id = DisplayableId::from(&task);
     let message = format!(
-        "Successfully edited task '{}'",
+        "Edited task '{}'",
         task.task_name.cyan().bold()
     );
 
@@ -73,10 +77,13 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         None
     };
 
+    let time_display = time::format_time_period_for_display(task.start, task.end);
+
     LogBuilder::new(LogType::Success, message)
         .with_branch("ID", task_id)
         .with_branch("Project", project_display)
         .with_optional_branch("Tags", tags_display)
+        .with_branch("Time", time_display.dimmed())
         .print();
 
     Ok(())

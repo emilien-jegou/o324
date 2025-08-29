@@ -1,5 +1,6 @@
 use crate::utils::display::{LogBuilder, LogType};
 use crate::utils::displayable_id::DisplayableId;
+use crate::utils::{command_error, time};
 use clap::Args;
 use colored::*;
 use o324_dbus::proxy::O324ServiceProxy;
@@ -7,7 +8,7 @@ use o324_dbus::proxy::O324ServiceProxy;
 #[derive(Args, Debug)]
 pub struct Command {}
 
-pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
     let task = proxy.stop_current_task().await?;
 
     match task {
@@ -19,7 +20,7 @@ pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()>
                         "{} {}",
                         "✗".red().bold(),
                         "Failed to stop task: Service returned an inconsistent task state (no end time).".red()
-                    ));
+                    ).into());
                 }
             };
 
@@ -35,15 +36,19 @@ pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()>
                 None
             };
 
+            let time_display =
+                time::format_time_period_for_display(stopped_task.start, stopped_task.end);
+
             LogBuilder::new(LogType::Stop, message)
                 .with_branch("ID", task_id)
-                .with_branch("Duration", format_duration(duration))
                 .with_optional_branch("Project", stopped_task.project.as_ref().map(|p| p.cyan()))
                 .with_optional_branch("Tags", tags_display)
+                .with_branch("Duration", format_duration(duration).dimmed())
+                .with_branch("Time", time_display.dimmed())
                 .print();
         }
         None => {
-            LogBuilder::new(LogType::Info, "No task was running.").print();
+            log::info!("No task was running.");
         }
     }
 

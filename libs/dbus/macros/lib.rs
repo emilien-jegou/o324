@@ -2,11 +2,26 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Fields, Ident, ItemEnum, Type};
 
-// A helper struct to keep variant information organized.
-struct PackedInfo<'a> {
-    name: &'a Ident,
-    ty: &'a Type,
-    field_name: Ident,
+// A helper enum to distinguish between variant types.
+enum VariantInfo<'a> {
+    /// A variant with a single field, e.g., `Single(TaskDto)`.
+    Tuple {
+        name: &'a Ident,
+        ty: &'a Type,
+        field_name: Ident,
+    },
+    /// A variant with no fields, e.g., `NotFound`.
+    Unit { name: &'a Ident },
+}
+
+impl<'a> VariantInfo<'a> {
+    /// Helper to get the variant's name regardless of its type.
+    fn name(&self) -> &'a Ident {
+        match self {
+            VariantInfo::Tuple { name, .. } => name,
+            VariantInfo::Unit { name } => name,
+        }
+    }
 }
 
 #[proc_macro_attribute]
@@ -22,71 +37,111 @@ pub fn dyn_variant(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut all_variants = Vec::new();
 
     for variant in &input_enum.variants {
-        let ty = match &variant.fields {
-            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
+        match &variant.fields {
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                let ty = &fields.unnamed[0].ty;
+                all_variants.push(VariantInfo::Tuple {
+                    name: &variant.ident,
+                    ty,
+                    field_name: format_ident!("__{}", variant.ident.to_string().to_lowercase()),
+                });
+            }
+            Fields::Unit => {
+                all_variants.push(VariantInfo::Unit {
+                    name: &variant.ident,
+                });
+            }
             _ => {
-                let msg = "dyn_variant supports only tuple-style variants with a single field, e.g., `MyPacked(String)`";
+                let msg = "dyn_variant supports only tuple-style variants with a single field (e.g., `MyVariant(String)`) or unit-style variants (e.g., `MyVariant`).";
                 return syn::Error::new_spanned(&variant.fields, msg)
                     .to_compile_error()
                     .into();
             }
         };
-
-        all_variants.push(PackedInfo {
-            name: &variant.ident,
-            ty,
-            field_name: format_ident!("__{}", variant.ident.to_string().to_lowercase()),
-        });
     }
 
-    let variant_names = all_variants.iter().map(|v| v.name);
-    let variant_types = all_variants.iter().map(|v| v.ty);
-    let variant_struct_field_names = all_variants.iter().map(|v| &v.field_name);
+    let tuple_variants: Vec<_> = all_variants
+        .iter()
+        .filter(|v| matches!(v, VariantInfo::Tuple { .. }))
+        .collect();
 
-    // --- Generate `pack()` method match arms (with previous fix) ---
+    let variant_names = all_variants.iter().map(|v| v.name());
+
+    let variant_struct_field_names = tuple_variants.iter().map(|v| match v {
+        VariantInfo::Tuple { field_name, .. } => field_name,
+        _ => unreachable!(),
+    });
+    let variant_types = tuple_variants.iter().map(|v| match v {
+        VariantInfo::Tuple { ty, .. } => ty,
+        _ => unreachable!(),
+    });
+
+    // --- Generate `pack()` method match arms ---
     let pack_match_arms = all_variants.iter().map(|variant_info| {
-        let variant_name = variant_info.name;
-        let active_field_name = &variant_info.field_name;
+        let variant_name = variant_info.name();
 
-        let field_initializers = all_variants.iter().map(|current_variant| {
-            let current_field_name = &current_variant.field_name;
-            let current_type = current_variant.ty;
+        let field_initializers = tuple_variants.iter().map(|v| {
+            // `v` is always a VariantInfo::Tuple here
+            let (current_field_name, current_type) = match v {
+                VariantInfo::Tuple { field_name, ty, .. } => (field_name, ty),
+                _ => unreachable!(),
+            };
 
-            if current_field_name == active_field_name {
-                quote! { #current_field_name: Some(value).into() }
+            if let VariantInfo::Tuple {
+                name: active_variant_name,
+                ..
+            } = variant_info
+            {
+                // FIX #1: Dereference one side for an unambiguous comparison.
+                // This resolves the subtle type inference issues that caused the trait errors.
+                if *active_variant_name == v.name() {
+                    quote! { #current_field_name: Some(value).into() }
+                } else {
+                    quote! { #current_field_name: None::<#current_type>.into() }
+                }
             } else {
+                // The active variant is a Unit variant, so all data fields are None.
                 quote! { #current_field_name: None::<#current_type>.into() }
             }
         });
 
-        quote! {
-            #enum_name::#variant_name(value) => {
-                #variant_struct_name {
+        match variant_info {
+            VariantInfo::Tuple { .. } => quote! {
+                #enum_name::#variant_name(value) => #variant_struct_name {
                     variant: #variant_type_name::#variant_name,
                     #( #field_initializers ),*
                 }
-            }
+            },
+            VariantInfo::Unit { .. } => quote! {
+                #enum_name::#variant_name => #variant_struct_name {
+                    variant: #variant_type_name::#variant_name,
+                    #( #field_initializers ),*
+                }
+            },
         }
     });
 
-    // --- Generate `unpack()` method match arms (with NEW fix) ---
     let unpack_match_arms = all_variants.iter().map(|variant_info| {
-        let variant_name = variant_info.name;
-        let struct_field_name = &variant_info.field_name;
-        quote! {
-            #variant_type_name::#variant_name => {
-                let value = self.#struct_field_name.as_ref().unwrap_or_else(|| {
-                    panic!(
-                        "Invalid dynamic variant state: `{}` variant is missing its data.",
-                        stringify!(#variant_name)
-                    );
-                });
-                #enum_name::#variant_name(value.clone())
-            }
+        let variant_name = variant_info.name();
+
+        match variant_info {
+            VariantInfo::Tuple { field_name: struct_field_name, .. } => quote! {
+                #variant_type_name::#variant_name => {
+                    let value = self.#struct_field_name.take().unwrap_or_else(|| {
+                        unreachable!(
+                            "Internal consistency error in dyn_variant: The variant is `{}` but its corresponding data field is None. This should never happen.",
+                            stringify!(#variant_name)
+                        );
+                    });
+                    #enum_name::#variant_name(value)
+                }
+            },
+            VariantInfo::Unit { .. } => quote! {
+                #variant_type_name::#variant_name => #enum_name::#variant_name,
+            },
         }
     });
 
-    // --- Assemble the final token stream ---
     let expanded = quote! {
         #input_enum
 
@@ -113,7 +168,8 @@ pub fn dyn_variant(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl #variant_struct_name {
             #[doc = "Unpacks the flattened struct back into the original enum."]
-            #visibility fn unpack(self) -> #enum_name {
+            // FIX #2: Add `mut self` to allow calling `.take()` which requires a mutable receiver.
+            #visibility fn unpack(mut self) -> #enum_name {
                 match self.variant {
                     #( #unpack_match_arms ),*
                 }

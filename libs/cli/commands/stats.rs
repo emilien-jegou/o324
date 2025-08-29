@@ -5,7 +5,7 @@ use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
 use std::collections::HashMap;
 
-// --- JSON Output Structs ---
+use crate::utils::command_error;
 
 #[derive(Serialize, Debug, Clone)]
 struct SessionInfo {
@@ -101,42 +101,6 @@ enum StatsSubcommand {
     Year,
 }
 
-// --- Main Handler Logic ---
-
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    if let Some(subcommand) = command.subcommand {
-        match subcommand {
-            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
-            _ => {
-                let (start_utc, end_utc, _, context) = calculate_date_range(&command)?;
-                handle_generic_subcommand(
-                    subcommand,
-                    start_utc,
-                    end_utc,
-                    context,
-                    command.json,
-                    &proxy,
-                )
-                .await?;
-            }
-        }
-    } else {
-        // Handle session summary for the calculated period
-        let (start_utc, end_utc, title, context) = calculate_date_range(&command)?;
-        let title_with_summary = format!("Summary for {title}");
-        handle_period_summary(
-            start_utc,
-            end_utc,
-            &title_with_summary,
-            &context,
-            command.json,
-            &proxy,
-        )
-        .await?;
-    }
-    Ok(())
-}
-
 async fn handle_generic_subcommand(
     subcommand: StatsSubcommand,
     start_utc: DateTime<Utc>,
@@ -149,11 +113,8 @@ async fn handle_generic_subcommand(
     let end_timestamp_ms = end_utc.timestamp_millis() as u64;
 
     let all_tasks = proxy
-        .list_last_tasks(50000) // Increased limit for longer periods
-        .await?
-        .into_iter()
-        .filter(|task| task.start >= start_timestamp_ms && task.start < end_timestamp_ms)
-        .collect::<Vec<dto::TaskDto>>();
+        .list_task_range(start_timestamp_ms, end_timestamp_ms)
+        .await?;
 
     if !json && all_tasks.is_empty() {
         println!("No tasks found for the period: {context}.");
@@ -184,11 +145,8 @@ async fn handle_period_summary(
     let end_timestamp_ms = end_utc.timestamp_millis() as u64;
 
     let mut period_tasks = proxy
-        .list_last_tasks(50000)
-        .await?
-        .into_iter()
-        .filter(|task| task.start >= start_timestamp_ms && task.start < end_timestamp_ms)
-        .collect::<Vec<dto::TaskDto>>();
+        .list_task_range(start_timestamp_ms, end_timestamp_ms)
+        .await?;
 
     if period_tasks.is_empty() {
         if json {
@@ -486,13 +444,11 @@ async fn handle_year_stats<'a>(json: bool, proxy: &O324ServiceProxy<'a>) -> eyre
         .unwrap()
         .with_timezone(&Utc);
     let start_timestamp_ms = start_of_year_utc.timestamp_millis() as u64;
+    let end_timestamp_ms = Utc::now().timestamp_millis() as u64;
 
     let year_tasks = proxy
-        .list_last_tasks(50000)
-        .await?
-        .into_iter()
-        .filter(|task| task.start >= start_timestamp_ms)
-        .collect::<Vec<dto::TaskDto>>();
+        .list_task_range(start_timestamp_ms, end_timestamp_ms)
+        .await?;
 
     if !json && year_tasks.is_empty() {
         print_header("Yearly Activity", &year);
@@ -920,4 +876,38 @@ fn format_duration_pretty(duration: Duration) -> String {
 fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms as i64)
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
+}
+
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
+    if let Some(subcommand) = command.subcommand {
+        match subcommand {
+            StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
+            _ => {
+                let (start_utc, end_utc, _, context) = calculate_date_range(&command)?;
+                handle_generic_subcommand(
+                    subcommand,
+                    start_utc,
+                    end_utc,
+                    context,
+                    command.json,
+                    &proxy,
+                )
+                .await?;
+            }
+        }
+    } else {
+        // Handle session summary for the calculated period
+        let (start_utc, end_utc, title, context) = calculate_date_range(&command)?;
+        let title_with_summary = format!("Summary for {title}");
+        handle_period_summary(
+            start_utc,
+            end_utc,
+            &title_with_summary,
+            &context,
+            command.json,
+            &proxy,
+        )
+        .await?;
+    }
+    Ok(())
 }

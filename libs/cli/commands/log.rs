@@ -8,7 +8,7 @@ use o324_dbus::{
 };
 use std::collections::HashMap;
 
-use crate::utils::displayable_id::DisplayableId;
+use crate::utils::{command_error, displayable_id::DisplayableId};
 
 /// A wrapper struct for display purposes, bundling a task with its unique ID info.
 #[derive(Debug)]
@@ -76,20 +76,6 @@ pub struct Command {
     #[clap(long)]
     json: bool,
 }
-
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    let tasks = proxy.list_last_tasks(50).await?;
-
-    if command.json {
-        json_output(&tasks).await?;
-    } else {
-        short_output(&tasks).await?;
-    }
-
-    Ok(())
-}
-
-// --- Logic and Presentation Separation ---
 
 pub async fn short_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     if tasks.is_empty() {
@@ -502,5 +488,17 @@ fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
 
 pub async fn json_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     println!("{}", serde_json::to_string_pretty(tasks)?);
+    Ok(())
+}
+
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
+    let tasks = proxy.list_last_tasks(0, 50).await?;
+
+    if command.json {
+        json_output(&tasks).await?;
+    } else {
+        short_output(&tasks).await?;
+    }
+
     Ok(())
 }
