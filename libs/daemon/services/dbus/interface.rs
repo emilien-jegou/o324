@@ -4,7 +4,7 @@ use zbus::{fdo, interface};
 
 use crate::services::{
     storage_bridge::{DbOperation, StorageBridgeService},
-    task::{error::TaskServiceError, TaskService},
+    task::TaskService,
 };
 
 #[derive(TypedBuilder)]
@@ -47,15 +47,26 @@ impl O324ServiceInterface for O324Service {
             .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
-    async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>> {
-        self.task_service
-            .get_task(task_id)
+    async fn get_task_by_prefix(
+        &self,
+        task_ref: String,
+    ) -> fdo::Result<dto::TaskByPrefixDtoPacked> {
+        let tasks = self
+            .task_service
+            .match_prefix(task_ref)
             .await
-            .map(|x| x.map(|t| t.into()))
-            .or_else(|e| match e {
-                TaskServiceError::Default(e) => Err(fdo::Error::Failed(e.to_string())),
-                TaskServiceError::RefError(items) => todo!(),
-            })
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        let res = match tasks.len() {
+            0 => dto::TaskByPrefixDto::NotFound,
+            1 => {
+                let owned_task = tasks.into_iter().next().unwrap();
+                dto::TaskByPrefixDto::Single(owned_task.into())
+            }
+            _ => dto::TaskByPrefixDto::Many(tasks.into_iter().map(|x| x.into()).collect()),
+        };
+
+        Ok(res.pack())
     }
 
     async fn edit_task(
@@ -70,9 +81,9 @@ impl O324ServiceInterface for O324Service {
             .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
-    async fn list_last_tasks(&self, count: u64) -> fdo::Result<Vec<dto::TaskDto>> {
+    async fn list_last_tasks(&self, offset: u64, count: u64) -> fdo::Result<Vec<dto::TaskDto>> {
         self.task_service
-            .list_last_tasks(count)
+            .list_last_tasks(offset, count)
             .await
             .map(|tasks| tasks.into_iter().map(|t| t.into()).collect())
             .map_err(|e| fdo::Error::Failed(e.to_string()))

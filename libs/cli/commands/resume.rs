@@ -1,18 +1,20 @@
 use crate::{
     commands::start::print_started_task,
     utils::{
+        command_error,
         display::{LogBuilder, LogType},
         displayable_id::DisplayableId,
+        task_ref::TaskRef,
     },
 };
 use clap::Args;
-use colored::*; // Import the color extension methods
+use colored::*;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
 
 #[derive(Args, Debug)]
 pub struct Command {
     /// Resume a task by id. If not provided, the last task will be resumed.
-    task_id: Option<String>,
+    task_ref: Option<TaskRef>,
 
     /// New name for the resumed task
     #[clap(short, long)]
@@ -39,18 +41,13 @@ impl Command {
     }
 }
 
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    let task_to_resume = match command.task_id {
-        Some(ref id) => proxy
-            .get_task_by_id(id.clone())
-            .await?
-            .ok_or_else(|| eyre::eyre!("Couldn't find task with given id"))?,
-        None => proxy
-            .list_last_tasks(1)
-            .await?
-            .pop()
-            .ok_or_else(|| eyre::eyre!("No task to resume"))?,
-    };
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
+    let task_to_resume = command
+        .task_ref
+        .clone()
+        .unwrap_or(TaskRef::Last)
+        .get_task(&proxy)
+        .await?;
 
     let task_to_resume_id = DisplayableId::from(&task_to_resume);
     LogBuilder::new(
@@ -77,7 +74,8 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
                 "✗".red().bold(),
                 "Tried to resume a running task but no changes were detected, no operation needed."
                     .red()
-            ));
+            )
+            .into());
         }
     }
 
@@ -100,4 +98,3 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
     print_started_task(task);
     Ok(())
 }
-

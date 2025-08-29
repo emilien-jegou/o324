@@ -15,13 +15,14 @@ pub trait O324Service {
     async fn stop_current_task(&self) -> fdo::Result<Option<dto::TaskDto>>;
     async fn cancel_current_task(&self) -> fdo::Result<Option<dto::TaskDto>>;
     async fn delete_task(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
-    async fn get_task_by_id(&self, task_id: String) -> fdo::Result<Option<dto::TaskDto>>;
+    async fn get_task_by_prefix(&self, task_ref: String)
+        -> fdo::Result<dto::TaskByPrefixDtoPacked>;
     async fn edit_task(
         &self,
         task_ref_str: String,
         update: dto::TaskUpdateDto,
     ) -> fdo::Result<dto::TaskDto>;
-    async fn list_last_tasks(&self, count: u64) -> fdo::Result<Vec<dto::TaskDto>>;
+    async fn list_last_tasks(&self, offset: u64, count: u64) -> fdo::Result<Vec<dto::TaskDto>>;
     async fn list_task_range(
         &self,
         start_timestamp: u64,

@@ -23,7 +23,7 @@ pub struct App {
 pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
     let task_repository = TaskRepository::builder()
         .storage(storage.clone())
-        .config(config.clone())
+        .computer_name(config.core.computer_name.clone())
         .build();
 
     let task_prefix_repository = TaskPrefixRepository::new(storage.clone());

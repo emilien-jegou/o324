@@ -1,7 +1,8 @@
 use clap::Parser;
 
+use crate::utils::exit_code::ExitCode;
+
 mod commands;
-mod tracing;
 pub mod utils;
 
 // Note: for uniformity, we dont use clap `default_value` or `default_value_t` options
@@ -19,12 +20,18 @@ struct Args {
 }
 
 #[tokio::main]
-pub async fn main() -> eyre::Result<()> {
+pub async fn main() -> eyre::Result<ExitCode> {
     color_eyre::install()?;
-    tracing::setup()?;
+    utils::log::SimpleLogger::init(log::LevelFilter::Trace)?;
 
     let args = Args::parse();
 
-    args.command.execute().await?;
-    Ok(())
+    if let Err(error) = args.command.execute().await {
+        if let utils::command_error::Error::ExitWithError(_, ref report) = error {
+            log::error!("{}", report);
+        };
+        return Ok(*error.code());
+    }
+
+    Ok(ExitCode::Success)
 }

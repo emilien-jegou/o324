@@ -1,4 +1,4 @@
-// Make sure this path is correct for your project structure
+use crate::utils::command_error;
 use crate::utils::display::{LogBuilder, LogType};
 use crate::utils::displayable_id::DisplayableId;
 use clap::Args;
@@ -44,7 +44,7 @@ pub fn print_started_task(task: dto::TaskDto) {
         .print();
 }
 
-pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
     let task = proxy
         .start_new_task(dto::StartTaskInputDto {
             task_name: command.task_name,

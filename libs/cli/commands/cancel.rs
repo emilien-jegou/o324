@@ -1,4 +1,7 @@
-use crate::utils::display::{LogBuilder, LogType};
+use crate::utils::{
+    command_error,
+    display::{LogBuilder, LogType},
+};
 use clap::Args;
 use colored::*;
 use o324_dbus::proxy::O324ServiceProxy;
@@ -6,7 +9,7 @@ use o324_dbus::proxy::O324ServiceProxy;
 #[derive(Args, Debug)]
 pub struct Command {}
 
-pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
+pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
     let task = proxy.cancel_current_task().await?;
 
     match task {
@@ -18,7 +21,7 @@ pub async fn handle(_: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()>
                 .print();
         }
         None => {
-            LogBuilder::new(LogType::Info, "No task was running to cancel.").print();
+            log::info!("No task was running to cancel.");
         }
     }
 

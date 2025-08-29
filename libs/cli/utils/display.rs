@@ -5,11 +5,8 @@ use std::fmt::Display;
 pub enum LogType {
     Success,
     Info,
-    /// For the 'start' command.
     Start,
-    /// For the 'status' command.
     Status,
-    /// For the 'stop' command.
     Stop,
 }
 
@@ -65,7 +62,6 @@ impl<'a> LogBuilder<'a> {
             LogType::Stop => ("✔", "green"),
         };
 
-        // Print the main header line with a preceding newline for spacing.
         println!(
             "\n{} {}",
             symbol.color(color).bold(),
@@ -77,13 +73,15 @@ impl<'a> LogBuilder<'a> {
             return;
         }
 
-        // Print each detail with the appropriate tree connector.
         for (i, (label, value)) in self.details.iter().enumerate() {
-            let prefix = if i == count - 1 { "  ╰─" } else { "  ├─" };
+            let prefix = if i == count - 1 {
+                "  ╰─"
+            } else {
+                "  ├─"
+            };
             let padded_label = format!("{label}:");
             // Pad to 9 to align with "Duration:" and "Started:" from other commands
             println!("{} {:<9} {}", prefix.dimmed(), padded_label.bold(), value);
         }
     }
 }
-

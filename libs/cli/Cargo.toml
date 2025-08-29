@@ -13,11 +13,16 @@ o324-dbus = { path = "../dbus", features = ["proxy"] }
 clap = { version = "4.4.11", features = ["derive"] }
 eyre = "0.6.9"
 tokio = { version = "1", features = ["full"] }
+log = { version = "0.4", features = ["std"] }
 colored = "3.0"
 chrono = "0.4.34"
 serde_json = "1.0"
 serde = "1.0"
 color-eyre = "0.6.3"
-tracing = "0.1.40"
-tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt", "registry"] }
+palette = "0.7"
+terminal_size = "0.4.3"
+lazy_static = "1.5"
+termios = "0.3"
+regex = "1.11"
+libc = "0.2"
+rand = "0.9"

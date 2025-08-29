@@ -1,3 +1,4 @@
+
 use dyn_variant_macro::dyn_variant;
 use serde::{Deserialize, Serialize};
 use zvariant::{Optional, Type};
@@ -79,4 +80,16 @@ pub struct DbOperationDto {
 pub enum DbResultDto {
     TableList(Vec<String>),
     TableRows(Vec<String>),
+}
+
+
+#[dyn_variant]
+#[derive(Debug)]
+pub enum TaskByPrefixDto {
+    /// Exact match was found
+    Single(TaskDto),
+    /// Multiple tasks were found
+    Many(Vec<TaskDto>),
+    /// No task found
+    NotFound,
 }

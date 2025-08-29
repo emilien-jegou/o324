@@ -1,4 +1,4 @@
-use native_db::{transaction::RwTransaction, Key, ToInput};
+use native_db::{transaction::RwTransaction, ToInput};
 use native_model::Model;
 use std::marker::PhantomData;
 
@@ -105,6 +105,7 @@ where
 }
 
 // Main Repository implementation
+#[allow(dead_code)]
 impl<T, C> Repository<T, C>
 where
     T: Cacheable + ToInput + Clone + Send + Sync + 'static,
