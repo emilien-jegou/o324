@@ -1,6 +1,4 @@
-use o324_dbus::dto::{self, TaskActionType};
-use zvariant::Optional;
-
+use o324_dbus::dto::{self};
 use crate::{
     entities::task::{Task, TaskUpdate},
     repositories::task::defs::{StartTaskInput, TaskAction},

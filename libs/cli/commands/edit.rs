@@ -1,6 +1,7 @@
 use crate::utils::{
     display::{LogBuilder, LogType},
     displayable_id::DisplayableId,
+    id::TaskRef,
 };
 use clap::Args;
 use colored::*;
@@ -10,7 +11,7 @@ use std::fmt::Display;
 #[derive(Args, Debug)]
 pub struct Command {
     /// Id of the task to edit or "current" for editing active task
-    task_ref: String,
+    task_id: TaskRef,
 
     /// Name of the task
     #[clap(short, long)]
@@ -53,7 +54,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
         end: command.end.map(Option::Some).into(),
     };
 
-    let task = proxy.edit_task(command.task_ref, task_update).await?;
+    let task = proxy.edit_task(command.task_id.0, task_update).await?;
 
     let task_id = DisplayableId::from(&task);
     let message = format!(

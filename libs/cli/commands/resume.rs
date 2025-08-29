@@ -3,16 +3,17 @@ use crate::{
     utils::{
         display::{LogBuilder, LogType},
         displayable_id::DisplayableId,
+        id::TaskRef,
     },
 };
 use clap::Args;
-use colored::*; // Import the color extension methods
+use colored::*;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
 
 #[derive(Args, Debug)]
 pub struct Command {
     /// Resume a task by id. If not provided, the last task will be resumed.
-    task_id: Option<String>,
+    task_id: Option<TaskRef>,
 
     /// New name for the resumed task
     #[clap(short, long)]
@@ -41,10 +42,50 @@ impl Command {
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
     let task_to_resume = match command.task_id {
-        Some(ref id) => proxy
-            .get_task_by_id(id.clone())
-            .await?
-            .ok_or_else(|| eyre::eyre!("Couldn't find task with given id"))?,
+        Some(ref id) => {
+            let by_prefix = proxy.get_task_by_prefix(id.0.clone()).await?.unpack();
+
+            match by_prefix {
+                dto::TaskByPrefixDto::Single(task_dto) => task_dto,
+                dto::TaskByPrefixDto::Many(task_dtos) => {
+                    let mut error_message = format!(
+                        "{} The provided ID '{}' is ambiguous and matches multiple tasks:\n",
+                        "✗".red().bold(),
+                        id.0.yellow()
+                    );
+
+                    for task in task_dtos {
+                        let display_id = DisplayableId::from(&task);
+                        let mut parts = vec![
+                            format!("ID: {}", display_id.to_string().bold()),
+                            format!("Name: '{}'", task.task_name.cyan()),
+                        ];
+
+                        if let Some(project) = &task.project {
+                            parts.push(format!("Project: {}", project.green()));
+                        }
+
+                        if !task.tags.is_empty() {
+                            let tags_str = task.tags.join(", ");
+                            parts.push(format!("Tags: [{}]", tags_str.blue()));
+                        }
+
+                        let task_line = format!("  - {}", parts.join(" | "));
+                        error_message.push_str(&task_line);
+                        error_message.push('\n');
+                    }
+
+                    error_message.push_str("\nPlease use a more specific ID to select a task.");
+
+                    // Propagate the constructed error message, halting the function.
+                    Err(eyre::eyre!(error_message))?
+                }
+                dto::TaskByPrefixDto::NotFound => {
+                    // This also works seamlessly due to the Display implementation.
+                    Err(eyre::eyre!("Task with ref {id} was not found"))?
+                }
+            }
+        }
         None => proxy
             .list_last_tasks(1)
             .await?
@@ -100,4 +141,3 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Resu
     print_started_task(task);
     Ok(())
 }
-

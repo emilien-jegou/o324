@@ -181,6 +181,18 @@ impl TaskRepositoryInner {
         Ok((task, task_actions))
     }
 
+    pub async fn match_prefix(&self, task_id_prefix: TaskId) -> eyre::Result<Vec<Task>> {
+        self.storage.read(|qr| {
+            let tasks = qr
+                .scan()
+                .primary::<Task>()?
+                .start_with(task_id_prefix)?
+                .collect::<Result<Vec<Task>, _>>()?;
+
+            Ok(tasks)
+        })
+    }
+
     pub async fn get_task_by_id(&self, task_id: TaskId) -> eyre::Result<Option<Task>> {
         self.storage
             .read(|qr| Ok(qr.get().primary::<Task>(task_id)?))
@@ -194,7 +206,7 @@ impl TaskRepositoryInner {
                 .all()?
                 .rev()
                 .take(count as usize)
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<Task>, _>>()?;
 
             Ok(tasks)
         })

@@ -1,15 +1,18 @@
-use crate::utils::display::{LogBuilder, LogType};
+use crate::utils::{
+    display::{LogBuilder, LogType},
+    id::TaskRef,
+};
 use clap::Args;
 use colored::*;
 use o324_dbus::proxy::O324ServiceProxy;
 
 #[derive(Args, Debug)]
 pub struct Command {
-    task_id: String,
+    task_id: TaskRef,
 }
 
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> eyre::Result<()> {
-    let task = proxy.delete_task(command.task_id.clone()).await?;
+    let task = proxy.delete_task(command.task_id.0.clone()).await?;
 
     match task {
         Some(deleted_task) => {

@@ -36,10 +36,10 @@ pub trait O324ServiceInterface {
         end_timestamp: u64,
     ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::TaskDto>>>;
     fn ping(&self) -> impl std::future::Future<Output = fdo::Result<String>>;
-    fn get_task_by_id(
+    fn get_task_by_prefix(
         &self,
-        task_id: String,
-    ) -> impl std::future::Future<Output = fdo::Result<Option<dto::TaskDto>>>;
+        task_ref: String,
+    ) -> impl std::future::Future<Output = fdo::Result<dto::TaskByPrefixDtoPacked>>;
     fn db_query(
         &self,
         operation: dto::DbOperationDto,

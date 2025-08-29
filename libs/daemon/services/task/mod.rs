@@ -12,8 +12,6 @@ use crate::{
 };
 use wrap_builder::wrap_builder;
 
-pub mod error;
-
 #[wrap_builder(Arc)]
 pub struct TaskService {
     task_repository: TaskRepository,
@@ -96,18 +94,7 @@ impl TaskServiceInner {
         Ok(task)
     }
 
-    pub async fn get_task(&self, task_ref: String) -> error::Result<Option<TaskWithMeta>> {
-        let task_ids = self.task_prefix_repository.search_by_prefix(&task_ref)?;
-
-        if task_ids.len() > 1 {
-            let unique_ids_matchs = task_ids
-                .into_iter()
-                .filter(|t| t.is_end_of_id)
-                .map(|t| t.prefix)
-                .collect::<Vec<String>>();
-            return Err(error::TaskServiceError::RefError(unique_ids_matchs));
-        }
-
+    pub async fn get_task(&self, task_ref: String) -> eyre::Result<Option<TaskWithMeta>> {
         let maybe_task = self.task_repository.get_task_by_id(task_ref).await?;
 
         let task: Option<TaskWithMeta> = maybe_task
@@ -121,6 +108,25 @@ impl TaskServiceInner {
             .transpose()?;
 
         Ok(task)
+    }
+
+    pub async fn match_prefix(&self, task_ref: String) -> eyre::Result<Vec<TaskWithMeta>> {
+        // NB: we may want to skip invalid tasks here instead of failing on any erroneous
+        let tasks = self
+            .task_repository
+            .match_prefix(task_ref)
+            .await?
+            .into_iter()
+            .map(|task| {
+                let prefix = self
+                    .task_prefix_repository
+                    .find_shortest_unique_prefix(&task.id)?;
+
+                Ok(TaskWithMeta { task, prefix })
+            })
+            .collect::<eyre::Result<Vec<TaskWithMeta>>>()?;
+
+        Ok(tasks)
     }
 
     pub async fn edit_task(

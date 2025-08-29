@@ -1,4 +1,4 @@
-use native_db::{transaction::RwTransaction, Key, ToInput};
+use native_db::{transaction::RwTransaction, ToInput};
 use native_model::Model;
 use std::marker::PhantomData;
 
