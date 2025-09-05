@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     entities::task::{Task, TaskUpdate},
     repositories::{
+        project_color::ProjectColorRepository,
         task::{
             defs::{StartTaskInput, TaskRef},
             TaskRepository,
@@ -16,40 +17,79 @@ use wrap_builder::wrap_builder;
 pub struct TaskService {
     task_repository: TaskRepository,
     task_prefix_repository: TaskPrefixRepository,
+    project_color_repository: ProjectColorRepository,
 }
 
 pub struct TaskWithMeta {
     pub task: Task,
     pub prefix: String,
+    pub project_color_hue: Option<u32>,
 }
 
 #[allow(dead_code)]
 impl TaskServiceInner {
+    async fn task_with_meta(&self, task: Task) -> eyre::Result<TaskWithMeta> {
+        let prefix = self
+            .task_prefix_repository
+            .find_shortest_unique_prefix(&task.id)?;
+
+        let project_color_hue = match task.project.as_ref() {
+            Some(project) => Some(self.project_color_repository.get(project).await?),
+            None => None,
+        };
+
+        Ok(TaskWithMeta {
+            task,
+            prefix,
+            project_color_hue,
+        })
+    }
+
+    async fn tasks_with_meta(&self, tasks: Vec<Task>) -> eyre::Result<Vec<TaskWithMeta>> {
+        let colors = self
+            .project_color_repository
+            .get_many(
+                tasks
+                    .iter()
+                    .filter_map(|task| task.project.as_deref())
+                    .collect::<Vec<&str>>()
+                    .as_slice(),
+            )
+            .await?;
+
+        let mut acc = Vec::new();
+
+        for task in tasks {
+            let prefix = self
+                .task_prefix_repository
+                .find_shortest_unique_prefix(&task.id)?;
+
+            let project_color_hue = task.project.as_ref().map(|p| *colors.get(p).unwrap());
+
+            acc.push(TaskWithMeta {
+                prefix,
+                project_color_hue,
+                task,
+            });
+        }
+
+        Ok(acc)
+    }
+
     pub async fn start_new_task(&self, input: StartTaskInput) -> eyre::Result<TaskWithMeta> {
         let (task, _) = self.task_repository.start_new_task(input).await?;
 
         self.task_prefix_repository
             .add_ids(std::slice::from_ref(&task.id))?;
 
-        let prefix = self
-            .task_prefix_repository
-            .find_shortest_unique_prefix(&task.id)?;
-
-        Ok(TaskWithMeta { task, prefix })
+        self.task_with_meta(task).await
     }
 
     pub async fn stop_current_task(&self) -> eyre::Result<Option<TaskWithMeta>> {
         let (task, _) = self.task_repository.stop_current_task().await?;
 
         let task = if let Some(task_inner) = task {
-            let prefix = self
-                .task_prefix_repository
-                .find_shortest_unique_prefix(&task_inner.id)?;
-
-            Some(TaskWithMeta {
-                task: task_inner,
-                prefix,
-            })
+            Some(self.task_with_meta(task_inner).await?)
         } else {
             None
         };
@@ -61,14 +101,7 @@ impl TaskServiceInner {
         let (task, _) = self.task_repository.cancel_current_task().await?;
 
         let task = if let Some(task_inner) = task {
-            let prefix = self
-                .task_prefix_repository
-                .find_shortest_unique_prefix(&task_inner.id)?;
-
-            Some(TaskWithMeta {
-                task: task_inner,
-                prefix,
-            })
+            Some(self.task_with_meta(task_inner).await?)
         } else {
             None
         };
@@ -80,14 +113,7 @@ impl TaskServiceInner {
         let (task, _) = self.task_repository.delete_task(task_id).await?;
 
         let task = if let Some(task_inner) = task {
-            let prefix = self
-                .task_prefix_repository
-                .find_shortest_unique_prefix(&task_inner.id)?;
-
-            Some(TaskWithMeta {
-                task: task_inner,
-                prefix,
-            })
+            Some(self.task_with_meta(task_inner).await?)
         } else {
             None
         };
@@ -98,36 +124,19 @@ impl TaskServiceInner {
     pub async fn get_task(&self, task_ref: String) -> eyre::Result<Option<TaskWithMeta>> {
         let maybe_task = self.task_repository.get_task_by_id(task_ref).await?;
 
-        let task: Option<TaskWithMeta> = maybe_task
-            .map(|task| -> eyre::Result<TaskWithMeta> {
-                let prefix = self
-                    .task_prefix_repository
-                    .find_shortest_unique_prefix(&task.id)?;
-
-                Ok(TaskWithMeta { task, prefix })
-            })
-            .transpose()?;
+        let task = if let Some(task_inner) = maybe_task {
+            Some(self.task_with_meta(task_inner).await?)
+        } else {
+            None
+        };
 
         Ok(task)
     }
 
     pub async fn match_prefix(&self, task_ref: String) -> eyre::Result<Vec<TaskWithMeta>> {
-        // NB: we may want to skip invalid tasks here instead of failing on any erroneous
-        let tasks = self
-            .task_repository
-            .match_prefix(task_ref)
-            .await?
-            .into_iter()
-            .map(|task| {
-                let prefix = self
-                    .task_prefix_repository
-                    .find_shortest_unique_prefix(&task.id)?;
+        let tasks = self.task_repository.match_prefix(task_ref).await?;
 
-                Ok(TaskWithMeta { task, prefix })
-            })
-            .collect::<eyre::Result<Vec<TaskWithMeta>>>()?;
-
-        Ok(tasks)
+        self.tasks_with_meta(tasks).await
     }
 
     pub async fn edit_task(
@@ -137,26 +146,16 @@ impl TaskServiceInner {
     ) -> eyre::Result<TaskWithMeta> {
         let (task, _) = self.task_repository.edit_task(task_ref, update).await?;
 
-        let prefix = self
-            .task_prefix_repository
-            .find_shortest_unique_prefix(&task.id)?;
-
-        Ok(TaskWithMeta { task, prefix })
+        self.task_with_meta(task).await
     }
 
-    pub async fn list_last_tasks(&self, offset: u64, count: u64) -> eyre::Result<Vec<TaskWithMeta>> {
+    pub async fn list_last_tasks(
+        &self,
+        offset: u64,
+        count: u64,
+    ) -> eyre::Result<Vec<TaskWithMeta>> {
         let tasks = self.task_repository.list_last_tasks(offset, count).await?;
-
-        tasks
-            .into_iter()
-            .map(|task| {
-                let prefix = self
-                    .task_prefix_repository
-                    .find_shortest_unique_prefix(&task.id)?;
-
-                Ok(TaskWithMeta { task, prefix })
-            })
-            .collect()
+        self.tasks_with_meta(tasks).await
     }
 
     pub async fn list_task_range(
@@ -169,15 +168,6 @@ impl TaskServiceInner {
             .list_task_range(start_timestamp, end_timestamp)
             .await?;
 
-        tasks
-            .into_iter()
-            .map(|task| {
-                let prefix = self
-                    .task_prefix_repository
-                    .find_shortest_unique_prefix(&task.id)?;
-
-                Ok(TaskWithMeta { task, prefix })
-            })
-            .collect()
+        self.tasks_with_meta(tasks).await
     }
 }

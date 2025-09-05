@@ -6,3 +6,4 @@ pub mod repository;
 pub mod cache_strategy;
 pub mod supervisor;
 pub mod color;
+pub mod batch_loader;

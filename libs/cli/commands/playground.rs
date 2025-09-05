@@ -294,7 +294,7 @@ pub async fn handle(command: Command, _proxy: O324ServiceProxy<'_>) -> command_e
         let event_key = (event.start.timestamp(), event.end.timestamp());
         if let std::collections::hash_map::Entry::Vacant(e) = event_hues.entry(event_key) {
             // TODO
-            e.insert(200 as f32);
+            e.insert(200_f32);
             //if let Some(hue) = hue_generator.next_number() {
             //    e.insert(hue as f32);
             //}

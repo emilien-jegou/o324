@@ -15,7 +15,7 @@ pub struct Storage {
 impl Storage {
     pub fn try_new(path: impl AsRef<Path>, models: &'static NamedModels) -> eyre::Result<Self> {
         let builder = Builder::new();
-        let db = builder.open(models.get_inner(), path)?;
+        let db = builder.create(models.get_inner(), path)?;
         Ok(Self {
             db: Arc::new(db),
             models,
