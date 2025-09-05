@@ -5,7 +5,10 @@ use wrap_builder::wrap_builder;
 use crate::{
     config::Config,
     core::storage::Storage,
-    repositories::{task::TaskRepository, task_prefix::TaskPrefixRepository},
+    repositories::{
+        project_color::ProjectColorRepository, task::TaskRepository,
+        task_prefix::TaskPrefixRepository,
+    },
     services::{
         dbus::DbusService, storage_bridge::StorageBridgeService, task::TaskService,
         window_events::WindowEventService,
@@ -28,9 +31,14 @@ pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
 
     let task_prefix_repository = TaskPrefixRepository::new(storage.clone());
 
+    let project_color_repository = ProjectColorRepository::builder()
+        .storage(storage.clone())
+        .build();
+
     let task_service = TaskService::builder()
         .task_repository(task_repository)
         .task_prefix_repository(task_prefix_repository)
+        .project_color_repository(project_color_repository)
         .build();
 
     let storage_bridge_service = StorageBridgeService::builder()
