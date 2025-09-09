@@ -1,9 +1,13 @@
-use std::sync::Arc;
-
+use crate::core::utils::unix_now;
+use crate::entities::activity::Activity;
+use crate::repositories::activity::defs::StartActivity;
+use crate::repositories::activity::ActivityRepository;
 use crate::services::task::TaskService;
+use std::sync::Arc;
 
 use thiserror::Error;
 use tracing::{error, info};
+use window_tracker::WindowEvent;
 use window_tracker::WindowTracker;
 use window_tracker::WindowTrackerError;
 use wrap_builder::wrap_builder;
@@ -21,12 +25,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[wrap_builder(Arc)]
 #[allow(dead_code)]
-pub struct WindowEventService {
+pub struct ActivityService {
     task_service: TaskService,
+    activity_repository: ActivityRepository,
 }
 
 async fn build_window_tracker() -> Result<WindowTracker> {
-    WindowTracker::new().await.map_err(|e| {
+    WindowTracker::try_new().await.map_err(|e| {
       error!("Failed to initialize WindowTracker: {}", e);
       if let WindowTrackerError::UnsupportedCompositor(_) = &e {
           error!("\nThis windowing environment is not yet supported.");
@@ -39,11 +44,24 @@ async fn build_window_tracker() -> Result<WindowTracker> {
     })
 }
 
-impl WindowEventService {
-    pub async fn start(&self) -> Result<()> {
+impl ActivityService {
+    async fn handle_window_event(&self, event: WindowEvent) -> eyre::Result<()> {
+        info!("Window event: {:#?}", event);
+        match event {
+            WindowEvent::WindowFocused(info) | WindowEvent::WindowTitleChanged(info) => {
+                self.activity_repository.register(StartActivity {
+                    app_title: Some(info.title.clone()),
+                    app_name: info.app_name.clone(),
+                    at: unix_now(),
+                })?;
+            }
+            _ => (),
+        }
+        Ok(())
+    }
+
+    pub async fn start_monitoring(&self) -> Result<()> {
         let window_tracker = build_window_tracker().await?;
-        info!("Display server: {:?}", window_tracker.get_display_server());
-        info!("Compositor: {:?}", window_tracker.get_compositor());
 
         match window_tracker.get_active_window().await {
             Ok(Some(window)) => info!("Initial active window: {}", window.title),
@@ -58,11 +76,23 @@ impl WindowEventService {
         })?;
 
         while let Some(event) = events.recv().await {
-            info!("Window event: {:#?}", event);
-            // self.task_service.handle_window_event(event).await;
+            if let Err(err) = self.handle_window_event(event).await {
+                tracing::warn!("An error occured while handling a window event: {err}");
+            }
         }
 
         info!("Window event monitoring stream has ended.");
         Ok(())
+    }
+
+    pub async fn list_activity_range(
+        &self,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> eyre::Result<Vec<Activity>> {
+        Ok(self
+            .activity_repository
+            .list_activity_range(start_timestamp, end_timestamp)
+            .await?)
     }
 }

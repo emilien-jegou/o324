@@ -239,7 +239,7 @@ impl SupervisedTaskManager {
     /// claim writer ownership.
     pub fn try_new() -> eyre::Result<Self> {
         let db =
-            InterProcessStorage::<SupervisorState>::try_new("supervised_task_service_shmem_v10")?;
+            InterProcessStorage::<SupervisorState>::try_new("supervised_task_service_shmem_v11")?;
 
         Ok(Self(Arc::new(SupervisedTaskManagerInner { db })))
     }

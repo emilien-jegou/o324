@@ -14,6 +14,7 @@ pub mod start;
 pub mod stats;
 pub mod status;
 pub mod stop;
+pub mod activity;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -37,6 +38,8 @@ pub enum Command {
     Delete(delete::Command),
     /// Query the database directly; this is mainly use in development
     Db(db::Command),
+    /// Shows the user window activity
+    Activity(activity::Command),
     /// Only in dev mode
     Playground(playground::Command),
 }
@@ -86,6 +89,7 @@ impl Command {
             Self::Edit(o) => edit::handle(o, proxy).await?,
             Self::Delete(o) => delete::handle(o, proxy).await?,
             Self::Db(o) => db::handle(o, proxy).await?,
+            Self::Activity(o) => activity::handle(o, proxy).await?,
             Self::Playground(o) => playground::handle(o, proxy).await?,
         };
 

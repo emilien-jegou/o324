@@ -6,12 +6,12 @@ use crate::{
     config::Config,
     core::storage::Storage,
     repositories::{
-        project_color::ProjectColorRepository, task::TaskRepository,
+        activity::ActivityRepository, project_color::ProjectColorRepository, task::TaskRepository,
         task_prefix::TaskPrefixRepository,
     },
     services::{
-        dbus::DbusService, storage_bridge::StorageBridgeService, task::TaskService,
-        window_events::WindowEventService,
+        activity::ActivityService, dbus::DbusService, storage_bridge::StorageBridgeService,
+        task::TaskService,
     },
 };
 
@@ -19,12 +19,17 @@ use crate::{
 #[wrap_builder(Arc)]
 pub struct App {
     pub dbus_service: DbusService,
-    pub window_event_service: WindowEventService,
+    pub activity_service: ActivityService,
     pub config: Config,
 }
 
 pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
     let task_repository = TaskRepository::builder()
+        .storage(storage.clone())
+        .computer_name(config.core.computer_name.clone())
+        .build();
+
+    let activity_repository = ActivityRepository::builder()
         .storage(storage.clone())
         .computer_name(config.core.computer_name.clone())
         .build();
@@ -45,18 +50,20 @@ pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
         .storage(storage.clone())
         .build();
 
-    let dbus_service = DbusService::builder()
+    let activity_service = ActivityService::builder()
         .task_service(task_service.clone())
-        .storage_bridge_service(storage_bridge_service)
+        .activity_repository(activity_repository.clone())
         .build();
 
-    let window_event_service = WindowEventService::builder()
-        .task_service(task_service)
+    let dbus_service = DbusService::builder()
+        .task_service(task_service.clone())
+        .activity_service(activity_service.clone())
+        .storage_bridge_service(storage_bridge_service)
         .build();
 
     Ok(App::builder()
         .dbus_service(dbus_service)
-        .window_event_service(window_event_service)
+        .activity_service(activity_service)
         .config(config)
         .build())
 }

@@ -5,7 +5,10 @@ use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::utils::command_error;
+use crate::utils::{
+    command_error,
+    time::{calculate_date_range, convert_to_utc_range, DateRange, UtcDateRangeInfo},
+};
 
 #[derive(Serialize, Debug, Clone)]
 struct SessionInfo {
@@ -47,44 +50,15 @@ struct YearSummary {
 
 #[derive(Args, Debug)]
 pub struct Command {
-    /// Number of last days to look at for stats (used by subcommands, fallback)
-    #[clap(long, short, global = true, default_value_t = 30)]
-    last: u64,
-
     /// Output results in JSON format
     #[clap(long, global = true)]
-    json: bool,
-
-    /// Set a custom start date for the stats period (YYYY-MM-DD or YYYY-MM)
-    #[clap(long, requires = "end")]
-    start: Option<String>,
-
-    /// Set a custom end date for the stats period (YYYY-MM-DD or YYYY-MM)
-    #[clap(long, requires = "start")]
-    end: Option<String>,
-
-    /// Show summary/stats for the current week (Mon-Sun)
-    #[clap(long, alias = "week", short = 'w', conflicts_with_all = &["last_week", "day", "this_month", "last_month", "start"])]
-    this_week: bool,
-
-    /// Show summary/stats for the previous week (Mon-Sun)
-    #[clap(long, conflicts_with_all = &["this_week", "day", "this_month", "last_month", "start"])]
-    last_week: bool,
-
-    /// Show summary/stats for the current month
-    #[clap(long, conflicts_with_all = &["this_week", "last_week", "day", "last_month", "start"])]
-    this_month: bool,
-
-    /// Show summary/stats for the previous month
-    #[clap(long, conflicts_with_all = &["this_week", "last_week", "day", "this_month", "start"])]
-    last_month: bool,
-
-    /// Show summary for a specific day (YYYY-MM-DD, today, yesterday, Nd_ago)
-    #[clap(long, short, conflicts_with_all = &["this_week", "last_week", "this_month", "last_month", "start"])]
-    day: Option<String>,
+    pub json: bool,
 
     #[command(subcommand)]
     subcommand: Option<StatsSubcommand>,
+
+    #[clap(flatten)]
+    pub date_range: DateRange,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy)]
@@ -130,8 +104,6 @@ async fn handle_generic_subcommand(
     }
     Ok(())
 }
-
-// --- Specific Handlers ---
 
 async fn handle_period_summary(
     start_utc: DateTime<Utc>,
@@ -490,167 +462,6 @@ async fn handle_year_stats<'a>(json: bool, proxy: &O324ServiceProxy<'a>) -> eyre
     Ok(())
 }
 
-// --- Date Range Calculation Logic ---
-fn calculate_date_range(
-    cmd: &Command,
-) -> eyre::Result<(DateTime<Utc>, DateTime<Utc>, String, String)> {
-    let now_local = Local::now();
-    let today = now_local.date_naive();
-
-    let (start_date, end_date, title, context) =
-        if let (Some(start_str), Some(end_str)) = (&cmd.start, &cmd.end) {
-            let start = parse_date_string(start_str, false)?;
-            let end = parse_date_string(end_str, true)?;
-            (
-                start,
-                end,
-                "Custom Period".to_string(),
-                format!("{start} to {end}"),
-            )
-        } else if cmd.this_month {
-            let start = today.with_day(1).unwrap();
-            let end = {
-                let next_month_start = if today.month() == 12 {
-                    today
-                        .with_year(today.year() + 1)
-                        .unwrap()
-                        .with_month(1)
-                        .unwrap()
-                        .with_day(1)
-                        .unwrap()
-                } else {
-                    today
-                        .with_month(today.month() + 1)
-                        .unwrap()
-                        .with_day(1)
-                        .unwrap()
-                };
-                next_month_start - Duration::days(1)
-            };
-            (
-                start,
-                end,
-                "This Month".to_string(),
-                today.format("%B %Y").to_string(),
-            )
-        } else if cmd.last_month {
-            let first_of_this_month = today.with_day(1).unwrap();
-            let end = first_of_this_month - Duration::days(1);
-            let start = end.with_day(1).unwrap();
-            (
-                start,
-                end,
-                "Last Month".to_string(),
-                start.format("%B %Y").to_string(),
-            )
-        } else if cmd.this_week {
-            let days_from_mon = today.weekday().num_days_from_monday() as i64;
-            let start = today - Duration::days(days_from_mon);
-            let end = start + Duration::days(6);
-            (
-                start,
-                end,
-                "This Week".to_string(),
-                format!("{start} to {end}"),
-            )
-        } else if cmd.last_week {
-            let days_from_mon = today.weekday().num_days_from_monday() as i64;
-            let start_of_this_week = today - Duration::days(days_from_mon);
-            let start = start_of_this_week - Duration::days(7);
-            let end = start + Duration::days(6);
-            (
-                start,
-                end,
-                "Last Week".to_string(),
-                format!("{start} to {end}"),
-            )
-        } else if let Some(day_str) = &cmd.day {
-            let date = parse_day_string(day_str)?;
-            (date, date, format!("Day: {day_str}"), date.to_string())
-        } else {
-            // Fallback logic
-            if cmd.subcommand.is_some() {
-                let end = today;
-                let start = end - Duration::days(cmd.last as i64 - 1);
-                (
-                    start,
-                    end,
-                    format!("Last {} Days", cmd.last),
-                    format!("{start} to {end}"),
-                )
-            } else {
-                // Default summary is 'Today'
-                (today, today, "Today".to_string(), today.to_string())
-            }
-        };
-
-    // Convert local NaiveDate to UTC DateTime for querying
-    let start_local = start_date
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(Local)
-        .unwrap();
-    let end_local = (end_date + Duration::days(1))
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(Local)
-        .unwrap();
-
-    Ok((
-        start_local.with_timezone(&Utc),
-        end_local.with_timezone(&Utc),
-        title,
-        context,
-    ))
-}
-
-// --- Presentation and Helper Functions ---
-
-fn parse_date_string(date_str: &str, is_end_of_period: bool) -> eyre::Result<NaiveDate> {
-    if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-        return Ok(date);
-    }
-    if let Ok(date) = NaiveDate::parse_from_str(&format!("{date_str}-01"), "%Y-%m-%d") {
-        if is_end_of_period {
-            let next_month_date = if date.month() == 12 {
-                date.with_year(date.year() + 1)
-                    .unwrap()
-                    .with_month(1)
-                    .unwrap()
-            } else {
-                date.with_month(date.month() + 1).unwrap()
-            };
-            return Ok(next_month_date - Duration::days(1));
-        } else {
-            return Ok(date);
-        }
-    }
-    eyre::bail!(
-        "Invalid date format '{}'. Use YYYY-MM-DD or YYYY-MM.",
-        date_str
-    )
-}
-
-fn parse_day_string(day_str: &str) -> eyre::Result<NaiveDate> {
-    let today = Local::now().date_naive();
-    match day_str {
-        "today" => Ok(today),
-        "yesterday" => Ok(today - Duration::days(1)),
-        s if s.ends_with("d_ago") => {
-            let days_ago_str = s.trim_end_matches("d_ago");
-            let days_ago: i64 = days_ago_str.parse()?;
-            Ok(today - Duration::days(days_ago))
-        }
-        s => NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|e| {
-            eyre::eyre!(
-                "Invalid date format '{}': {}. Use YYYY-MM-DD, today, yesterday, or Nd_ago.",
-                s,
-                e
-            )
-        }),
-    }
-}
-
 fn create_category_summary(
     summary: &HashMap<String, Duration>,
     total: Duration,
@@ -878,12 +689,33 @@ fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
         .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
 }
 
+pub fn calculate_date_range_with_default(command: &Command) -> eyre::Result<UtcDateRangeInfo> {
+    let range = calculate_date_range(command.date_range.clone())?.unwrap_or_else(|| {
+        let today = Local::now().date_naive();
+        if command.subcommand.is_some() {
+            let end = today;
+            let num_days = (command.date_range.last.clone().max(1) as i64) - 1;
+            let start = end - Duration::days(num_days);
+            (
+                start,
+                end,
+                format!("Last {} Days", command.date_range.last),
+                format!("{start} to {end}"),
+            )
+        } else {
+            (today, today, "Today".to_string(), today.to_string())
+        }
+    });
+
+    Ok(convert_to_utc_range(range))
+}
+
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
     if let Some(subcommand) = command.subcommand {
         match subcommand {
             StatsSubcommand::Year => handle_year_stats(command.json, &proxy).await?,
             _ => {
-                let (start_utc, end_utc, _, context) = calculate_date_range(&command)?;
+                let (start_utc, end_utc, _, context) = calculate_date_range_with_default(&command)?;
                 handle_generic_subcommand(
                     subcommand,
                     start_utc,
@@ -897,7 +729,7 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
         }
     } else {
         // Handle session summary for the calculated period
-        let (start_utc, end_utc, title, context) = calculate_date_range(&command)?;
+        let (start_utc, end_utc, title, context) = calculate_date_range_with_default(&command)?;
         let title_with_summary = format!("Summary for {title}");
         handle_period_summary(
             start_utc,

@@ -31,4 +31,9 @@ pub trait O324Service {
     async fn ping(&self) -> fdo::Result<String>;
     async fn db_query(&self, operation: dto::DbOperationDto)
         -> fdo::Result<dto::DbResultDtoPacked>;
+    async fn list_activity_range(
+        &self,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> fdo::Result<Vec<dto::ActivityDto>>;
 }
