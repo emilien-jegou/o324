@@ -3,6 +3,7 @@ use typed_builder::TypedBuilder;
 use zbus::{fdo, interface};
 
 use crate::services::{
+    activity::ActivityService,
     storage_bridge::{DbOperation, StorageBridgeService},
     task::TaskService,
 };
@@ -10,6 +11,7 @@ use crate::services::{
 #[derive(TypedBuilder)]
 pub struct O324Service {
     task_service: TaskService,
+    activity_service: ActivityService,
     storage_bridge_service: StorageBridgeService,
 }
 
@@ -115,6 +117,18 @@ impl O324ServiceInterface for O324Service {
             .into();
 
         Ok(res.pack())
+    }
+
+    async fn list_activity_range(
+        &self,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> fdo::Result<Vec<dto::ActivityDto>> {
+        self.activity_service
+            .list_activity_range(start_timestamp, end_timestamp)
+            .await
+            .map(|list| list.into_iter().map(|t| t.into()).collect())
+            .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
     async fn ping(&self) -> fdo::Result<String> {

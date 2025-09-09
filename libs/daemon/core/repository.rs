@@ -126,7 +126,7 @@ where
         }
         let item_from_db = self
             .db
-            .read(|r_txn| Ok(r_txn.get().primary::<T>(key.to_string())?))?;
+            .read_txn(|r_txn| Ok(r_txn.get().primary::<T>(key.to_string())?))?;
         if let Some(item) = &item_from_db {
             self.cache_handler
                 .insert_into_cache(key.to_string(), item.clone());
@@ -135,7 +135,7 @@ where
     }
 
     pub fn scan_by_key(&self, key: &str) -> eyre::Result<Vec<T>> {
-        self.db.read(|r_txn| {
+        self.db.read_txn(|r_txn| {
             let results = r_txn
                 .scan()
                 .primary::<T>()?
@@ -150,7 +150,7 @@ where
     where
         F: FnOnce(&mut CachedTransaction<T, C>) -> eyre::Result<R>,
     {
-        self.db.write(|rw_txn| {
+        self.db.write_txn(|rw_txn| {
             let mut cached_txn = CachedTransaction {
                 txn: rw_txn,
                 cache_handler: &self.cache_handler,

@@ -1,12 +1,15 @@
-use o324_dbus::dto::{self};
 use crate::{
-    entities::task::{Task, TaskUpdate},
+    entities::{
+        activity::Activity,
+        task::{Task, TaskUpdate},
+    },
     repositories::task::defs::{StartTaskInput, TaskAction},
     services::{
         storage_bridge::{DbOperation, DbResult},
         task::TaskWithMeta,
     },
 };
+use o324_dbus::dto::{self};
 
 // Convert from Core Task -> DTO Task (for sending data out)
 impl From<TaskWithMeta> for dto::TaskDto {
@@ -96,6 +99,18 @@ impl From<DbResult> for dto::DbResultDto {
         match result {
             DbResult::TableList(tables) => dto::DbResultDto::TableList(tables),
             DbResult::TableRows(rows) => dto::DbResultDto::TableRows(rows),
+        }
+    }
+}
+
+impl From<Activity> for dto::ActivityDto {
+    fn from(value: Activity) -> Self {
+        Self {
+            id: value.id,
+            app_title: value.app_title,
+            app_name: value.app_name,
+            at: value.at,
+            computer_name: value.computer_name,
         }
     }
 }

@@ -15,6 +15,12 @@ projects:
       toml: "package.version"
     hooks:
       post_write: cargo update --workspace
+    depends:
+      2883893795:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
   - name: "o324-daemon"
     id: 1166628683
     labels: cargo
@@ -26,6 +32,21 @@ projects:
     hooks:
       post_write: cargo update --workspace
     depends:
+      2676537624:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      605988443:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
+      2883893795:
+        size: patch
+        files:
+          - file: "Cargo.toml"
+            toml: "package.version"
       1244452204:
         size: patch
         files:
@@ -36,6 +57,36 @@ projects:
     labels: cargo
     changelog: "CHANGELOG.html"
     root: "libs/patronus"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
+  - name: "o324-dbus"
+    id: 2883893795
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/dbus"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
+  - name: "wrap-builder"
+    id: 2676537624
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/wrap-builder"
+    version:
+      file: "Cargo.toml"
+      toml: "package.version"
+    hooks:
+      post_write: cargo update --workspace
+  - name: "window-tracker"
+    id: 605988443
+    labels: cargo
+    changelog: "CHANGELOG.html"
+    root: "libs/window-tracker"
     version:
       file: "Cargo.toml"
       toml: "package.version"
