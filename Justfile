@@ -1,19 +1,11 @@
-build-cli:
-	cargo build --bin o324-cli
+start-dev-daemon:
+	cargo watch -x 'run --bin "o324-daemon" -- --config ./examples/demo-config.toml start'
 
-build-gui:
-	#!/usr/bin/env bash
-
-build: build-gui
+build:
 	cargo build
-
-watch CRATE:
-	cargo-watch -x 'check --color=always -p {{CRATE}}'
 
 clear:
 	rm -rf ./target
-
-gui-dev:
 
 clear-all: _confirm_prompt clear
 	rm -rf ./packages

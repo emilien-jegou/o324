@@ -4,9 +4,7 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{self, ConnectionExt, Window};
 use x11rb::rust_connection::RustConnection;
 
-use super::WindowGeometry;
-use super::WindowInfo;
-use super::WindowTrackerError;
+use crate::{WindowGeometry, WindowInfo, WindowTrackerError};
 
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("X11 Init Error: {0}")]
@@ -65,7 +63,7 @@ pub struct X11Backend {
 }
 
 impl X11Backend {
-    pub fn new() -> Result<Self, WindowTrackerError> {
+    pub fn try_new() -> Result<Self, WindowTrackerError> {
         let (conn, screen_num) = X11_CONNECTION.as_ref().map_err(Clone::clone)?.clone();
         let atoms = X11Atoms::intern_all(&*conn)?;
         let root = conn.setup().roots[screen_num].root;
@@ -115,7 +113,7 @@ impl X11Backend {
 
         let pid = pid_cookie.reply()?.value32().and_then(|mut i| i.next());
         let geom = geom_cookie.reply()?;
-        let details = pid.and_then(super::utils::get_process_info);
+        let details = pid.and_then(crate::utils::get_process_info);
 
         Ok(Some(WindowInfo {
             id: window.to_string(),

@@ -47,7 +47,7 @@ impl BatchCall<String, u32> for ProjectColorBatcher {
         let color_generator = self.color_generator.clone();
 
         async move {
-            storage.write(move |qr| {
+            storage.write_txn(move |qr| {
                 let mut results = HashMap::new();
                 for project in projects.into_iter() {
                     if let Some(existing) = qr.get().primary::<ProjectColor>(project.clone())? {

@@ -34,7 +34,7 @@ impl StorageBridgeServiceInner {
                 Ok(DbResult::TableList(names))
             }
             DbOperation::ScanTable { table_name } => {
-                let rows = self.storage.read(|txn| {
+                let rows = self.storage.read_txn(|txn| {
                     let (tid, _) = self.storage.models.get(&table_name).ok_or_else(|| {
                         eyre::eyre!("Table '{}' not found or not scannable.", table_name)
                     })?;

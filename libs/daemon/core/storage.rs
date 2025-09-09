@@ -1,6 +1,6 @@
 use native_db::{
     transaction::{self},
-    Builder, Database,
+    Builder, Database, ToInput,
 };
 use std::{path::Path, sync::Arc};
 
@@ -8,34 +8,35 @@ use crate::core::named_model::NamedModels;
 
 #[derive(Clone)]
 pub struct Storage {
-    db: Arc<Database<'static>>,
+    inner_storage: Arc<Database<'static>>,
     pub models: &'static NamedModels,
 }
 
+#[allow(dead_code)]
 impl Storage {
     pub fn try_new(path: impl AsRef<Path>, models: &'static NamedModels) -> eyre::Result<Self> {
         let builder = Builder::new();
         let db = builder.create(models.get_inner(), path)?;
         Ok(Self {
-            db: Arc::new(db),
+            inner_storage: Arc::new(db),
             models,
         })
     }
 
     /// Executes read-only operation within a transaction
-    pub fn read<F, R>(&self, f: F) -> eyre::Result<R>
+    pub fn read_txn<F, R>(&self, f: F) -> eyre::Result<R>
     where
         F: FnOnce(transaction::RTransaction) -> eyre::Result<R>,
     {
-        f(self.db.r_transaction()?)
+        f(self.inner_storage.r_transaction()?)
     }
 
     /// Executes read-write operation within a transaction
-    pub fn write<F, R>(&self, f: F) -> eyre::Result<R>
+    pub fn write_txn<F, R>(&self, f: F) -> eyre::Result<R>
     where
         F: FnOnce(&mut transaction::RwTransaction) -> eyre::Result<R>,
     {
-        let mut txn = self.db.rw_transaction()?;
+        let mut txn = self.inner_storage.rw_transaction()?;
         match f(&mut txn) {
             Ok(result) => {
                 txn.commit()?;
@@ -48,6 +49,22 @@ impl Storage {
                 e
             }
         }
+    }
+
+    pub fn insert<T: ToInput>(&self, item: T) -> eyre::Result<()> {
+        self.write_txn(|qr| Ok(qr.insert(item)?))
+    }
+
+    pub fn update<T: ToInput>(&self, old_item: T, updated_item: T) -> eyre::Result<()> {
+        self.write_txn(|qr| Ok(qr.update(old_item, updated_item)?))
+    }
+
+    pub fn upsert<T: ToInput>(&self, item: T) -> eyre::Result<Option<T>> {
+        self.write_txn(|qr| Ok(qr.upsert(item)?))
+    }
+
+    pub fn remove<T: ToInput>(&self, item: T) -> eyre::Result<T> {
+        self.write_txn(|qr| Ok(qr.remove(item)?))
     }
 }
 
@@ -125,12 +142,12 @@ mod tests {
             value: 100,
         };
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(item1.clone())?;
             Ok(())
         })?;
 
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let retrieved_item = txn.get().primary::<Item>(1_u32)?.unwrap();
             assert_eq!(item1, retrieved_item);
             Ok(())
@@ -148,18 +165,18 @@ mod tests {
             value: 100,
         };
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(item1.clone())?;
             Ok(())
         })?;
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             let item_to_remove = txn.get().primary::<Item>(1_u32)?.unwrap();
             txn.remove(item_to_remove)?;
             Ok(())
         })?;
 
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let result = txn.get().primary::<Item>(1_u32)?;
             assert!(result.is_none());
             Ok(())
@@ -192,7 +209,7 @@ mod tests {
             value: 40,
         };
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(item1.clone())?;
             txn.upsert(item2.clone())?;
             txn.upsert(item3.clone())?;
@@ -200,7 +217,7 @@ mod tests {
             Ok(())
         })?;
 
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             // Test all_primary
             let all_items = txn
                 .scan()
@@ -257,13 +274,13 @@ mod tests {
             username: "bob".to_string(),
             email: "b@b.com".to_string(),
         };
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(user1.clone())?;
             txn.upsert(user2.clone())?;
             txn.upsert(user3.clone())?;
             Ok(())
         })?;
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let al_users = txn
                 .scan()
                 .primary::<User>()?
@@ -296,14 +313,14 @@ mod tests {
             value: 300,
         };
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(item1.clone())?;
             txn.upsert(item2.clone())?;
             txn.upsert(item3.clone())?;
             Ok(())
         })?;
 
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             // all_by_secondary (using range workaround)
             let mut red_items = txn
                 .scan()
@@ -351,13 +368,13 @@ mod tests {
             email: "alice@example.com".to_string(),
         };
 
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(user1.clone())?;
             Ok(())
         })?;
 
         // Test get().secondary() which only works for unique keys
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let found_user: User = txn
                 .get()
                 .secondary(UserKey::email, "alice@example.com".to_string())?
@@ -367,7 +384,7 @@ mod tests {
         })?;
 
         // Test uniqueness constraint
-        let result = storage.write(|txn| {
+        let result = storage.write_txn(|txn| {
             txn.upsert(user2_clash)?;
             Ok(())
         });
@@ -394,34 +411,34 @@ mod tests {
         };
 
         // Initially, no singleton exists
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let s = txn.get().primary::<Settings>(0_u32)?;
             assert!(s.is_none());
             Ok(())
         })?;
 
         // Set the singleton
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             txn.upsert(settings.clone())?;
             Ok(())
         })?;
 
         // Get the singleton
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let s = txn.get().primary::<Settings>(0_u32)?.unwrap();
             assert_eq!(s, settings);
             Ok(())
         })?;
 
         // Remove the singleton
-        storage.write(|txn| {
+        storage.write_txn(|txn| {
             let s = txn.get().primary::<Settings>(0_u32)?.unwrap();
             txn.remove(s)?;
             Ok(())
         })?;
 
         // Singleton should be gone
-        storage.read(|txn| {
+        storage.read_txn(|txn| {
             let s = txn.get().primary::<Settings>(0_u32)?;
             assert!(s.is_none());
             Ok(())

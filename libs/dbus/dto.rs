@@ -1,4 +1,3 @@
-
 use dyn_variant_macro::dyn_variant;
 use serde::{Deserialize, Serialize};
 use zvariant::{Optional, Type};
@@ -82,7 +81,6 @@ pub enum DbResultDto {
     TableRows(Vec<String>),
 }
 
-
 #[dyn_variant]
 #[derive(Debug)]
 pub enum TaskByPrefixDto {
@@ -92,4 +90,13 @@ pub enum TaskByPrefixDto {
     Many(Vec<TaskDto>),
     /// No task found
     NotFound,
+}
+
+#[derive(Type, Serialize, Deserialize, Debug)]
+pub struct ActivityDto {
+    pub id: String,
+    pub app_name: String,
+    pub start: u64,
+    pub last_active: u64,
+    pub computer_name: String,
 }

@@ -24,10 +24,10 @@ impl TaskRepositoryInner {
         &self,
         input: StartTaskInput,
     ) -> eyre::Result<(Task, Vec<TaskAction>)> {
-        let current_timestamp = utils::unix_now();
+        let current_timestamp = utils::unix_now_ms();
         let mut task_actions = Vec::new();
 
-        let task = self.storage.write(|qr| {
+        let task = self.storage.write_txn(|qr| {
             // If a task is already running, stop it first by setting its end time.
             if let Some(mut current) = qr
                 .get()
@@ -59,10 +59,10 @@ impl TaskRepositoryInner {
 
     /// Stops the currently running task by setting its end time.
     pub async fn stop_current_task(&self) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
-        let current_timestamp = utils::unix_now();
+        let current_timestamp = utils::unix_now_ms();
         let mut task_actions = Vec::new();
 
-        let stopped_task = self.storage.write(|qr| {
+        let stopped_task = self.storage.write_txn(|qr| {
             // Find the currently running task by querying for a task with `end: None`.
             if let Some(mut current_task) = qr
                 .get()
@@ -87,7 +87,7 @@ impl TaskRepositoryInner {
     pub async fn cancel_current_task(&self) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
 
-        let canceled_task = self.storage.write(|qr| {
+        let canceled_task = self.storage.write_txn(|qr| {
             // Find the currently running task.
             if let Some(current_task) = qr
                 .get()
@@ -113,7 +113,7 @@ impl TaskRepositoryInner {
     ) -> eyre::Result<(Option<Task>, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
 
-        let deleted_task = self.storage.write(|qr| {
+        let deleted_task = self.storage.write_txn(|qr| {
             if let Some(task_to_delete) = qr.get().primary::<Task>(task_id.clone())? {
                 qr.remove(task_to_delete.clone())?;
                 task_actions.push(TaskAction::Delete(task_id));
@@ -133,9 +133,9 @@ impl TaskRepositoryInner {
         update_task: TaskUpdate,
     ) -> eyre::Result<(Task, Vec<TaskAction>)> {
         let mut task_actions = Vec::new();
-        let current_timestamp = utils::unix_now();
+        let current_timestamp = utils::unix_now_ms();
 
-        let task = self.storage.write(|qr| {
+        let task = self.storage.write_txn(|qr| {
             let task_id = match task_ref {
                 TaskRef::Current => {
                     qr.get()
@@ -181,7 +181,7 @@ impl TaskRepositoryInner {
     }
 
     pub async fn match_prefix(&self, task_id_prefix: TaskId) -> eyre::Result<Vec<Task>> {
-        self.storage.read(|qr| {
+        self.storage.read_txn(|qr| {
             let tasks = qr
                 .scan()
                 .primary::<Task>()?
@@ -194,11 +194,11 @@ impl TaskRepositoryInner {
 
     pub async fn get_task_by_id(&self, task_id: TaskId) -> eyre::Result<Option<Task>> {
         self.storage
-            .read(|qr| Ok(qr.get().primary::<Task>(task_id)?))
+            .read_txn(|qr| Ok(qr.get().primary::<Task>(task_id)?))
     }
 
     pub async fn list_last_tasks(&self, offset: u64, count: u64) -> eyre::Result<Vec<Task>> {
-        self.storage.read(|qr| {
+        self.storage.read_txn(|qr| {
             let tasks = qr
                 .scan()
                 .secondary::<Task>(TaskKey::start)?
@@ -217,7 +217,7 @@ impl TaskRepositoryInner {
         start_timestamp: u64,
         end_timestamp: u64,
     ) -> eyre::Result<Vec<Task>> {
-        self.storage.read(|qr| {
+        self.storage.read_txn(|qr| {
             let filtered_tasks = qr
                 .scan()
                 .secondary::<Task>(TaskKey::start)?

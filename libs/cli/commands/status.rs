@@ -1,12 +1,11 @@
-use crate::utils::display::{LogBuilder, LogType};
-use crate::utils::displayable_id::DisplayableId;
 use crate::utils::command_error;
-use chrono::{DateTime, Duration, Local, Utc};
+use crate::utils::display::LogType;
+use crate::utils::task_log_builder::TaskLogBuilder;
+use crate::utils::time::ms_to_datetime;
+use chrono::Utc;
 use clap::Args;
-use colored::Colorize;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
 use serde::Serialize;
-use std::fmt::Display;
 
 #[derive(Serialize, Debug)]
 struct StatusOutput<'a> {
@@ -34,7 +33,11 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
             };
             println!("{}", serde_json::to_string_pretty(&output)?);
         } else {
-            pretty_print_running_task(task, elapsed)?;
+            TaskLogBuilder::new(LogType::Start, "Running", task)
+                .with_project()
+                .with_tags()
+                .with_elapsed(elapsed)
+                .print();
         }
     } else if command.json {
         println!("{{}}");
@@ -42,78 +45,6 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
         // Use the LogBuilder for a simple message to ensure consistent spacing.
         log::info!("No task is currently running.");
     }
-
-    Ok(())
-}
-
-fn format_duration_human(duration: Duration) -> String {
-    let secs = duration.num_seconds();
-
-    if secs < 60 {
-        return format!("{secs}s");
-    }
-
-    let hours = secs / 3600;
-    let minutes = (secs % 3600) / 60;
-    let seconds = secs % 60;
-
-    let mut parts = Vec::new();
-    if hours > 0 {
-        parts.push(format!("{hours}h"));
-    }
-    if minutes > 0 {
-        parts.push(format!("{minutes}m"));
-    }
-    // Always show seconds for a running task for a "live" feel
-    if seconds >= 0 || parts.is_empty() {
-        parts.push(format!("{seconds}s"));
-    }
-
-    parts.join(" ")
-}
-
-fn ms_to_datetime(ms: u64) -> eyre::Result<DateTime<Utc>> {
-    DateTime::from_timestamp_millis(ms as i64)
-        .ok_or_else(|| eyre::eyre!("Failed to create DateTime from milliseconds: {}", ms))
-}
-
-fn pretty_print_running_task(task: &dto::TaskDto, elapsed: Duration) -> eyre::Result<()> {
-    let start_time_local = ms_to_datetime(task.start)?.with_timezone(&Local);
-    let elapsed_str = format_duration_human(elapsed);
-    let display_id = DisplayableId::from(task);
-
-    // Construct the main message string for the builder
-    let message = format!(
-        "Task '{}' is running (for {})",
-        task.task_name.cyan().bold(),
-        elapsed_str.bold()
-    );
-
-    // Use a Box<dyn Display> to handle the two potential types for project display
-    let project_display: Box<dyn Display> = if let Some(p) = &task.project {
-        Box::new(p.cyan())
-    } else {
-        Box::new("<none>".italic())
-    };
-
-    let tags_display = if !task.tags.is_empty() {
-        Some(task.tags.join(", ").yellow())
-    } else {
-        None
-    };
-
-    let started_str = format!(
-        "{} (on {})",
-        start_time_local.format("%H:%M:%S"),
-        task.computer_name
-    );
-
-    LogBuilder::new(LogType::Status, message)
-        .with_branch("ID", display_id)
-        .with_branch("Project", project_display)
-        .with_optional_branch("Tags", tags_display)
-        .with_branch("Started", started_str.dimmed())
-        .print();
 
     Ok(())
 }

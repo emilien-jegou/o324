@@ -41,6 +41,13 @@ pub trait O324ServiceInterface {
         &self,
         task_ref: String,
     ) -> impl std::future::Future<Output = fdo::Result<dto::TaskByPrefixDtoPacked>>;
+
+    fn list_activity_range(
+        &self,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> impl std::future::Future<Output = fdo::Result<Vec<dto::ActivityDto>>>;
+
     fn db_query(
         &self,
         operation: dto::DbOperationDto,

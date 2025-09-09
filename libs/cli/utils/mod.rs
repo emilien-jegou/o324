@@ -6,3 +6,4 @@ pub mod command_error;
 pub mod exit_code;
 pub mod log;
 pub mod time;
+pub mod task_log_builder;

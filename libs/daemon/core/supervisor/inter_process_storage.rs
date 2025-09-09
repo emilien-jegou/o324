@@ -31,11 +31,7 @@ where
     /// This function now handles the creation/opening of the shared memory
     /// and initialization of the mutex.
     pub fn try_new(shmem_name: &str) -> eyre::Result<Self> {
-        let shmem = match ShmemConf::new()
-            .size(SHMEM_SIZE)
-            .os_id(shmem_name)
-            .create()
-        {
+        let shmem = match ShmemConf::new().size(SHMEM_SIZE).os_id(shmem_name).create() {
             Ok(m) => m,
             Err(ShmemError::MappingIdExists) => ShmemConf::new().os_id(shmem_name).open()?,
             Err(e) => return Err(e.into()),

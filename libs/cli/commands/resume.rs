@@ -1,11 +1,6 @@
 use crate::{
     commands::start::print_started_task,
-    utils::{
-        command_error,
-        display::{LogBuilder, LogType},
-        displayable_id::DisplayableId,
-        task_ref::TaskRef,
-    },
+    utils::{command_error, display::LogType, task_log_builder::TaskLogBuilder, task_ref::TaskRef},
 };
 use clap::Args;
 use colored::*;
@@ -49,16 +44,11 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
         .get_task(&proxy)
         .await?;
 
-    let task_to_resume_id = DisplayableId::from(&task_to_resume);
-    LogBuilder::new(
-        LogType::Info,
-        format!(
-            "Resuming task '{}' (ID: {})",
-            task_to_resume.task_name.cyan(),
-            task_to_resume_id
-        ),
-    )
-    .print();
+    TaskLogBuilder::new(LogType::Info, "Resuming", &task_to_resume)
+        .with_project()
+        .with_tags()
+        .with_time_period()
+        .print();
 
     // A task is running if its `end` time is None.
     if task_to_resume.end.is_none() {
@@ -95,6 +85,6 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
 
     let task = proxy.start_new_task(start_task_input).await?;
 
-    print_started_task(task);
+    print_started_task(task)?;
     Ok(())
 }
