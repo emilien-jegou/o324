@@ -5,6 +5,7 @@ use crate::core::named_model::NamedModels;
 pub mod prefix_trie_node;
 pub mod task;
 pub mod project_color;
+pub mod activity;
 
 pub fn get_models() -> NamedModels {
     let mut models = NamedModels::new();
@@ -13,6 +14,7 @@ pub fn get_models() -> NamedModels {
         .define::<prefix_trie_node::PrefixTrieNode>("prefix-trie-node")
         .unwrap();
     models.define::<project_color::ProjectColor>("project_color").unwrap();
+    models.define::<activity::Activity>("activity").unwrap();
     models
 }
 

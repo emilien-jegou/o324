@@ -10,7 +10,7 @@ use std::time::Duration;
 pub struct Command {}
 
 pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
-    // NB: SIGHUP should reload config
+    // TODO: SIGHUP should reload config
     let storage = config::create_storage_from_config(&config)?;
     let app = app::build(storage.clone(), config)?;
     let supervisor = SupervisedTaskManager::try_new()?.try_claim_ownership(FailurePolicy::Panic)?;
@@ -33,7 +33,7 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
     );
 
     let _we_handle = supervisor.spawn_supervised_task(
-        "WindowEventService",
+        "ActivityService",
         RetryStrategy::Exponential {
             max_attempts: None,
             initial_delay: Duration::from_secs(2),
@@ -44,20 +44,14 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
             let app_cloned = app.clone();
             move || {
                 let app = app_cloned.clone();
-                async move { app.window_event_service.start().await }
+                async move { app.activity_service.start_monitoring().await }
             }
         },
     );
 
     tracing::info!("All services spawned. Application is running. Press Ctrl-C to exit.");
-
-    // Wait for a shutdown signal
     wait_for_shutdown_signal().await;
-
     tracing::info!("Shutdown signal received. Cleaning up services and exiting.");
-
-    // When this function returns, the `_dbus_handle` and `_we_handle` variables
-    // will be dropped, triggering the cleanup logic in `SupervisedTaskHandle::drop`.
     Ok(())
 }
 

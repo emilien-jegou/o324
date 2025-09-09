@@ -1,25 +1,22 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::error;
 use x11rb::rust_connection::{ConnectError, ConnectionError, ReplyError};
 
+pub mod backends;
 pub mod providers;
 pub mod utils;
-pub mod x11;
 
-use x11::X11InitError;
+use backends::x11::X11InitError;
 
-use providers::{
-    ewmh::EwmhProvider, fht_compositor::FhtProvider, gnome::GnomeProvider,
-    hyprland::HyprlandProvider, kde::KdeProvider, niri::NiriProvider, sway::SwayProvider,
-};
+use crate::providers::{fht::FhtProvider, wayland::WaylandProvider, x11::X11Provider};
 
 #[derive(Error, Debug)]
 #[allow(dead_code)]
 pub enum WindowTrackerError {
-    #[error("Unsupported display server: {0}")]
-    UnsupportedDisplayServer(String),
+    #[error("Unsupported display server")]
+    UnsupportedDisplayServer,
     #[error("Compositor not supported: {0}")]
     UnsupportedCompositor(String),
     #[error("Command execution failed: {0}")]
@@ -40,6 +37,10 @@ pub enum WindowTrackerError {
     DBusError(#[from] zbus::Error),
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Wayland connection error: {0}")]
+    WaylandConnection(String),
+    #[error("Wayland protocol not supported: {0}")]
+    WaylandProtocolMissing(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,25 +80,17 @@ pub enum DisplayServer {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Compositor {
-    Sway,
-    Gnome(DisplayServer),
-    Kde(DisplayServer),
-    Hyprland,
-    Niri,
+    X11,
+    Wayland,
     Fht,
-    Unknown,
 }
 
 impl Compositor {
-    pub async fn into_provider(self) -> Result<Box<dyn WindowProvider>, WindowTrackerError> {
+    pub async fn try_into_provider(&self) -> Result<Box<dyn WindowProvider>, WindowTrackerError> {
         match self {
-            Compositor::Sway => Ok(Box::new(SwayProvider::new().await?)),
-            Compositor::Hyprland => Ok(Box::new(HyprlandProvider::new().await?)),
-            Compositor::Niri => Ok(Box::new(NiriProvider::new().await?)),
-            Compositor::Fht => Ok(Box::new(FhtProvider::new().await?)),
-            Compositor::Gnome(ds) => Ok(Box::new(GnomeProvider::new(ds).await?)),
-            Compositor::Kde(ds) => Ok(Box::new(KdeProvider::new(ds).await?)),
-            Compositor::Unknown => Ok(Box::new(EwmhProvider::new()?)),
+            Compositor::Wayland => Ok(Box::new(WaylandProvider::try_new().await?)),
+            Compositor::Fht => Ok(Box::new(FhtProvider::try_new().await?)),
+            Compositor::X11 => Ok(Box::new(X11Provider::try_new()?)),
         }
     }
 }
@@ -119,41 +112,43 @@ pub enum WindowEvent {
     WindowFocused(WindowInfo),
     WindowOpened(WindowInfo),
     WindowClosed(String),
-    WindowTitleChanged { id: String, new_title: String },
+    WindowTitleChanged(WindowInfo),
 }
 
 pub struct WindowTracker {
     provider: Box<dyn WindowProvider>,
-    display_server: DisplayServer,
+}
+
+async fn find_window_provider() -> Result<Box<dyn WindowProvider>, WindowTrackerError> {
+    // The orders of compositors is important since there may
+    // be detection conflict, e.g. x11 detected on wayland
+    let providers_to_try = [Compositor::Fht, Compositor::Wayland, Compositor::X11];
+
+    for compositor in providers_to_try {
+        match compositor.try_into_provider().await {
+            Ok(provider) => return Ok(provider),
+            Err(e) => {
+                tracing::debug!("skipping compositor {compositor:?} due to error: {e:?}");
+            }
+        }
+    }
+
+    // If the loop finishes without returning, none of them worked.
+    Err(WindowTrackerError::UnsupportedDisplayServer)
 }
 
 #[allow(dead_code)]
 impl WindowTracker {
-    pub async fn new() -> Result<Self, WindowTrackerError> {
-        let compositor = Self::detect_environment().await.ok_or_else(|| {
-            WindowTrackerError::UnsupportedDisplayServer(
-                "Could not detect a supported display server or compositor.".to_string(),
-            )
-        })?;
+    pub async fn try_new() -> Result<Self, WindowTrackerError> {
+        let window_provider = find_window_provider().await?;
 
-        let provider = compositor.clone().into_provider().await?;
-
-        let display_server = match &compositor {
-            Compositor::Gnome(ds) | Compositor::Kde(ds) => ds.clone(),
-            Compositor::Sway | Compositor::Hyprland | Compositor::Niri | Compositor::Fht => {
-                DisplayServer::Wayland
-            }
-            Compositor::Unknown => DisplayServer::X11,
-        };
-
-        info!(
-            "Detected display server: {:?}, compositor: {:?}",
-            display_server, &compositor
+        tracing::info!(
+            "Using display server: {:?}",
+            window_provider.get_compositor()
         );
 
         Ok(Self {
-            provider,
-            display_server,
+            provider: window_provider,
         })
     }
 
@@ -171,39 +166,7 @@ impl WindowTracker {
         self.provider.start_monitoring().await
     }
 
-    pub fn get_display_server(&self) -> &DisplayServer {
-        &self.display_server
-    }
-
     pub fn get_compositor(&self) -> Compositor {
         self.provider.get_compositor()
-    }
-
-    async fn detect_environment() -> Option<Compositor> {
-        // Chain provider detection methods. Order is important: more specific checks first.
-        if let Some(c) = HyprlandProvider::detect().await {
-            return Some(c);
-        }
-        if let Some(c) = SwayProvider::detect().await {
-            return Some(c);
-        }
-        if let Some(c) = NiriProvider::detect().await {
-            return Some(c);
-        }
-        if let Some(c) = FhtProvider::detect().await {
-            return Some(c);
-        }
-        if let Some(c) = GnomeProvider::detect().await {
-            return Some(c);
-        }
-        if let Some(c) = KdeProvider::detect().await {
-            return Some(c);
-        }
-        // X11 Fallback for other EWMH-compliant WMs
-        if let Some(c) = EwmhProvider::detect().await {
-            return Some(c);
-        }
-
-        None
     }
 }

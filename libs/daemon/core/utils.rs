@@ -1,7 +1,7 @@
 use rand::{distr::Alphanumeric, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn unix_now() -> u64 {
+pub fn unix_now_ms() -> u64 {
     let now = SystemTime::now();
     let unix_timestamp = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
     unix_timestamp.as_millis() as u64

@@ -45,20 +45,16 @@ impl WindowInfo {
 pub struct FhtProvider;
 
 impl FhtProvider {
-    pub async fn new() -> Result<Self, WindowTrackerError> {
-        Ok(Self {})
-    }
-
-    pub async fn detect() -> Option<Compositor> {
+    pub async fn try_new() -> Result<Self, WindowTrackerError> {
         let desktop_session = env::var("XDG_CURRENT_DESKTOP")
             .unwrap_or_default()
             .to_lowercase();
 
-        if desktop_session == "fht-compositor" {
-            Some(Compositor::Fht)
-        } else {
-            None
+        if desktop_session != "fht-compositor" {
+            return Err(WindowTrackerError::UnsupportedCompositor(format!("Expected XDG_CURRENT_DESKTOP env variable to be 'fht-compositor' got '{desktop_session}'")));
         }
+
+        Ok(Self)
     }
 
     async fn execute_fht_command(&self, args: &[&str]) -> Result<String, WindowTrackerError> {

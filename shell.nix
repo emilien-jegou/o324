@@ -30,7 +30,7 @@ pkgs.mkShell {
       openssl
       wmctrl
       pkg-config
-      (pkgs.rust-bin.nightly."2025-08-26".default.override {
+      (pkgs.rust-bin.nightly."2025-09-01".default.override {
         extensions = ["rust-src" "rustfmt" "rust-analyzer" "clippy"];
         targets = ["wasm32-unknown-unknown" "x86_64-unknown-linux-gnu" ];
       })
