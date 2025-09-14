@@ -1,8 +1,8 @@
 use std::sync::Arc;
-
 use wrap_builder::wrap_builder;
 
 use crate::{
+    actors::{activity::ActivityActor, dbus::DbusActor},
     config::Config,
     core::storage::Storage,
     repositories::{
@@ -10,16 +10,15 @@ use crate::{
         task_prefix::TaskPrefixRepository,
     },
     services::{
-        activity::ActivityService, dbus::DbusService, storage_bridge::StorageBridgeService,
-        task::TaskService,
+        activity::ActivityService, storage_bridge::StorageBridgeService, task::TaskService,
     },
 };
 
 #[allow(dead_code)]
 #[wrap_builder(Arc)]
 pub struct App {
-    pub dbus_service: DbusService,
-    pub activity_service: ActivityService,
+    pub dbus_actor: DbusActor,
+    pub activity_actor: ActivityActor,
     pub config: Config,
 }
 
@@ -55,15 +54,19 @@ pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
         .activity_repository(activity_repository.clone())
         .build();
 
-    let dbus_service = DbusService::builder()
+    let dbus_actor = DbusActor::builder()
         .task_service(task_service.clone())
         .activity_service(activity_service.clone())
         .storage_bridge_service(storage_bridge_service)
         .build();
 
-    Ok(App::builder()
-        .dbus_service(dbus_service)
+    let activity_actor = ActivityActor::builder()
         .activity_service(activity_service)
+        .build();
+
+    Ok(App::builder()
+        .dbus_actor(dbus_actor)
+        .activity_actor(activity_actor)
         .config(config)
         .build())
 }

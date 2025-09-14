@@ -44,6 +44,7 @@ comfy-table = "7.0"
 typed-builder = "0.21.2"
 once_cell = "1.18"
 futures = "0.3"
+actix = "0.13.5"
 
 [dev-dependencies]
 tempfile = "3.10"

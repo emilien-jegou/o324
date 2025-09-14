@@ -1,25 +1,27 @@
 use clap::{Parser, Subcommand};
 use directories_next::ProjectDirs;
 use std::path::PathBuf;
+
 mod config;
 mod core;
 mod entities;
 mod services;
 mod repositories;
 mod app;
+mod actors;
 
 mod commands {
     pub mod start;
     pub mod version;
-    pub mod status;
+    //pub mod status;
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Create a default config file
     Start(commands::start::Command),
-    /// Checks the status of running services
-    Status(commands::status::Command),
+    // Checks the status of running services
+    //Status(commands::status::Command),
     /// Print the daemon version
     Version(commands::version::Command),
 }
@@ -29,7 +31,7 @@ impl Command {
         use commands::*;
         match self {
             Self::Start(o) => start::handle(o, conf).await?,
-            Self::Status(o) => status::handle(o, conf).await?,
+            //Self::Status(o) => status::handle(o, conf).await?,
             Self::Version(o) => version::handle(o, conf).await?,
         };
 
