@@ -5,7 +5,6 @@ use crate::{
     config::{self, Config},
     core::supervisor::{start_with_retry, RetryStrategy},
 };
-use actix::Actor;
 use clap::Args;
 
 #[derive(Args, Debug)]
@@ -20,13 +19,13 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
     //let activity_addr = app.activity_actor.clone().start;
 
     let dbus_addr = start_with_retry(
+        app.activity_actor.clone(),
         RetryStrategy::Exponential {
             max_attempts: None,
             initial_delay: Duration::from_secs(2),
             multiplier: 2.0,
             max_delay: Some(Duration::from_secs(15)),
         },
-        app.activity_actor,
     );
 
     //let _dbus_handle = supervisor.spawn_supervised_task(

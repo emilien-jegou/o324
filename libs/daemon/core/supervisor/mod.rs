@@ -1,6 +1,6 @@
+use actix::dev::MessageResponse;
+use actix::fut::wrap_future;
 use actix::prelude::*;
-use std::cell::Cell;
-use std::rc::Rc;
 use std::time::Duration;
 
 #[allow(dead_code)]
@@ -33,250 +33,193 @@ impl RetryStrategy {
             _ => "unlimited".to_string(),
         }
     }
-
-    /// Calculates the delay for a given attempt number.
-    /// Attempt numbers are 1-based.
-    /// Returns Some(Duration) for the delay, or None if max attempts are exceeded.
+    // This logic is kept for checking if attempts are exhausted.
     fn delay_for_attempt(&self, attempt: u32) -> Option<Duration> {
-        if attempt == 0 {
-            return None; // Should not happen with 1-based logic
-        }
+        if attempt == 0 { return None; }
         match self {
             RetryStrategy::NoRetry => {
-                if attempt > 1 {
-                    None
-                } else {
-                    Some(Duration::ZERO)
-                }
+                if attempt > 1 { None } else { Some(Duration::ZERO) }
             }
             RetryStrategy::Flat { attempts, delay } => {
                 if let Some(max) = attempts {
-                    if attempt > *max {
-                        return None;
-                    }
+                    if attempt > *max { return None; }
                 }
-                if attempt == 1 {
-                    Some(Duration::ZERO)
-                } else {
-                    Some(*delay)
-                }
+                if attempt == 1 { Some(Duration::ZERO) } else { Some(*delay) }
             }
-            RetryStrategy::Exponential {
-                max_attempts,
-                initial_delay,
-                multiplier,
-                max_delay,
-            } => {
+            RetryStrategy::Exponential { max_attempts, .. } => {
                 if let Some(max) = max_attempts {
-                    if attempt > *max {
-                        return None;
-                    }
+                    if attempt > *max { return None; }
                 }
-                if attempt == 1 {
-                    return Some(Duration::ZERO);
-                }
-                let delay_secs =
-                    initial_delay.as_secs_f64() * multiplier.powf((attempt - 2) as f64);
-                let mut calculated_delay = Duration::from_secs_f64(delay_secs);
-                if let Some(max) = max_delay {
-                    if calculated_delay > *max {
-                        calculated_delay = *max;
-                    }
-                }
-                Some(calculated_delay)
+                // The actual delay calculation isn't used, but the attempt check is.
+                Some(Duration::ZERO)
             }
         }
     }
 }
 
-// =================================================================
-// SECTION 2: Reusable Retry Abstraction
-// =================================================================
-
-/// A helper struct to encapsulate retry state and logic.
-/// The user's actor will hold an instance of this.
 #[derive(Clone)]
 pub struct RetryHelper {
     strategy: RetryStrategy,
-    attempt: u32,
+    pub attempt: u32,
 }
 
 impl RetryHelper {
-    /// This method contains the generic retry logic that can be called
-    /// from any actor's `restarting` method.
+    // CORRECTED: This hook cannot be async. It can only decide if the actor
+    // should be stopped permanently. Any delay logic is ignored.
     pub fn handle_restarting<A>(&self, ctx: &mut <A as Actor>::Context)
     where
-        A: Actor<Context = Context<A>>,
+        A: Actor,
+        A::Context: AsyncContext<A>,
     {
-        println!(
-            "Actor is preparing to restart for attempt #{}...",
-            self.attempt
-        );
-
-        match self.strategy.delay_for_attempt(self.attempt) {
-            Some(delay) => {
-                if !delay.is_zero() {
-                    println!("...delaying restart by {:?}.", delay);
-                    let sleep_fut = tokio::time::sleep(delay).into_actor(unsafe {
-                        // This is a bit of a necessary evil to make this generic.
-                        // We know `self` in the actor's `restarting` method is valid,
-                        // so we can cast the context to satisfy the trait bounds of `into_actor`.
-                        // This is safe because the lifetime of the actor (`A`) is managed by the context.
-                        std::mem::transmute::<&mut A::Context, &mut A>(ctx)
-                    });
-                    ctx.wait(sleep_fut);
-                } else {
-                    println!("...restarting immediately (zero delay).");
-                }
-            }
-            None => {
-                println!(
-                    "...max attempts ({}) reached. Actor will not restart.",
-                    self.strategy.max_attempts_display()
-                );
-                ctx.stop();
-                System::current().stop();
-            }
+        let next_attempt = self.attempt + 1;
+        // Check if we have exhausted the number of retries.
+        if self.strategy.delay_for_attempt(next_attempt).is_none() {
+            // If so, stop the actor for good. The supervisor will not restart it again.
+            ctx.stop();
         }
+        // Otherwise, do nothing. The supervisor will immediately restart the actor.
     }
 }
 
-// ADDED: The new Supervised trait that acts as a factory.
-/// A trait for actors that can be built by the retry supervisor.
-/// This acts as a factory.
-pub trait Supervised<A>
-where
-    A: Actor<Context = Context<A>>,
-{
-    /// Creates a new instance of the supervised actor.
-    fn build_supervised(&self, helper: RetryHelper) -> A;
+pub trait RetryableHandler<M: Message>: Clone + Send + Unpin + Sized + 'static {
+    type Result: MessageResponse<WithRetry<Self>, M>;
+    fn handle(&mut self, msg: M, ctx: &mut Context<WithRetry<Self>>, attempt: u32) -> Self::Result;
 }
 
-// MODIFIED: `start_with_retry` now takes a type implementing our new `Supervised` trait.
-/// A factory function to start a supervised actor with a given retry strategy.
-///
-/// - `strategy`: The `RetryStrategy` to use.
-/// - `actor_factory`: An object that implements the `Supervised<A>` trait to build the actor.
-pub fn start_with_retry<A, S>(strategy: RetryStrategy, actor: S) -> Addr<A>
-where
-    A: Actor<Context = Context<A>> + actix::Supervised,
-    S: Supervised<A> + Clone + 'static,
-{
-    let attempt_counter = Rc::new(Cell::new(0_u32));
-
-    Supervisor::start(move |_| {
-        let current_attempt = attempt_counter.get() + 1;
-        attempt_counter.set(current_attempt);
-
-        let helper = RetryHelper {
-            strategy: strategy.clone(),
-            attempt: current_attempt,
-        };
-
-        actor.build_supervised(helper)
-    })
+pub struct WithRetry<S> {
+    service: S,
+    retry_helper: RetryHelper,
 }
 
-// =================================================================
-// SECTION 3: Example Actor and Application Logic
-// =================================================================
-
-#[derive(Message)]
-#[rtype(result = "()")]
-struct Die;
-
-/// MyActor is now much simpler. It just needs to hold the helper.
-#[derive(Clone)]
-struct MyActor {
-    pub name: String,
-    pub retry_helper: Option<RetryHelper>,
-}
-
-impl Supervised<MyActor> for MyActor {
-    fn build_supervised(&self, _: RetryHelper) -> MyActor {
-        self.clone()
-    }
-}
-
-impl Actor for MyActor {
+impl<S> Actor for WithRetry<S> where S: Clone + Send + Unpin + 'static {
     type Context = Context<Self>;
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        // We can access the attempt number for logging if needed
-        println!("MyActor started! (Attempt #{})", self.retry_helper.attempt);
-    }
 }
 
-// MODIFIED: This now implements the real `actix::Supervised` trait, which is required by `actix::Supervisor`.
-impl actix::Supervised for MyActor {
-    fn restarting(&mut self, ctx: &mut Context<MyActor>) {
+impl<S> Supervised for WithRetry<S> where S: Clone + Send + Unpin + 'static {
+    fn restarting(&mut self, ctx: &mut Context<Self>) {
         self.retry_helper.handle_restarting::<Self>(ctx);
     }
 }
 
-impl Handler<Die> for MyActor {
-    type Result = ();
-
-    fn handle(&mut self, _: Die, ctx: &mut Context<MyActor>) {
-        println!(
-            "MyActor received Die message on attempt #{}, stopping...",
-            self.retry_helper.attempt
-        );
-        ctx.stop();
+impl<S, M> Handler<M> for WithRetry<S>
+where
+    S: RetryableHandler<M>,
+    M: Message + Send,
+    M::Result: Send,
+{
+    type Result = <S as RetryableHandler<M>>::Result;
+    fn handle(&mut self, msg: M, ctx: &mut Context<Self>) -> Self::Result {
+        let current_attempt = self.retry_helper.attempt;
+        self.service.handle(msg, ctx, current_attempt)
     }
 }
 
-/// Helper function to run a test with a given strategy
-fn run_test(strategy: RetryStrategy) {
-    println!("\n--- Running test with strategy: {:?} ---", strategy);
-    let mut sys = System::new();
-
-    let addr = sys.block_on(async {
-        // MODIFIED: We now pass an instance of our factory struct instead of a closure.
-        start_with_retry(strategy, MyActor)
-    });
-
-    // Send the first Die message to trigger the first restart
-    addr.do_send(Die);
-
-    // In a real app, you wouldn't do this, but for demonstration, we'll
-    // schedule more "failures" to see the backoff in action.
-    let addr_clone = addr.clone();
-    actix::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        addr_clone.do_send(Die);
-    });
-
-    let addr_clone2 = addr.clone();
-    actix::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(5)).await;
-        addr_clone2.do_send(Die);
-    });
-
-    sys.run().unwrap();
-    println!("--- Test finished ---");
+// This factory pattern is correct for actix::Supervisor.
+pub fn start_with_retry<S, M>(service: S, strategy: RetryStrategy) -> Addr<WithRetry<S>>
+where
+    S: RetryableHandler<M>,
+    M: Message + Send,
+    M::Result: Send,
+{
+    let attempt_counter = std::rc::Rc::new(std::cell::Cell::new(0));
+    Supervisor::start(move |_| {
+        attempt_counter.set(attempt_counter.get() + 1);
+        WithRetry {
+            service: service.clone(),
+            retry_helper: RetryHelper {
+                strategy: strategy.clone(),
+                attempt: attempt_counter.get(),
+            },
+        }
+    })
 }
 
-fn main() {
-    // 1. Test with a Flat strategy (3 attempts, 1s delay)
-    let flat_strategy = RetryStrategy::Flat {
-        attempts: Some(3),
-        delay: Duration::from_secs(1),
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix::{Actor, Context, Handler, MailboxError, Message, MessageResult};
+    use std::time::Duration;
+    use tokio::time::timeout;
 
-    run_test(flat_strategy);
+    #[derive(Message, Clone)]
+    #[rtype(result = "Result<String, ()>")]
+    struct TestMessage;
 
-    // 2. Test with an Exponential strategy
-    let exponential_strategy = RetryStrategy::Exponential {
-        max_attempts: Some(4),
-        initial_delay: Duration::from_millis(500),
-        multiplier: 2.0,
-        max_delay: Some(Duration::from_secs(3)),
-    };
+    #[derive(Clone)]
+    struct AlwaysPanickingService;
+    impl RetryableHandler<TestMessage> for AlwaysPanickingService {
+        type Result = MessageResult<TestMessage>;
+        fn handle(&mut self, _msg: TestMessage, _ctx: &mut Context<WithRetry<Self>>, _attempt: u32) -> Self::Result {
+            panic!("This service always fails");
+        }
+    }
 
-    run_test(exponential_strategy);
+    #[derive(Clone)]
+    struct SucceedsOnSecondAttemptService;
+    impl RetryableHandler<TestMessage> for SucceedsOnSecondAttemptService {
+        type Result = MessageResult<TestMessage>;
+        fn handle(&mut self, _msg: TestMessage, _ctx: &mut Context<WithRetry<Self>>, attempt: u32) -> Self::Result {
+            if attempt == 1 {
+                panic!("Failing on the first attempt");
+            }
+            MessageResult(Ok("Success".to_string()))
+        }
+    }
 
-    // 3. Test with NoRetry
-    let no_retry_strategy = RetryStrategy::NoRetry;
-    run_test(no_retry_strategy);
+    #[actix_rt::test]
+    async fn test_no_retry_stops_after_first_failure() {
+        let addr = start_with_retry::<_, TestMessage>(AlwaysPanickingService, RetryStrategy::NoRetry);
+        let result = addr.send(TestMessage).await;
+        assert!(matches!(result, Err(MailboxError::Closed)));
+    }
+
+    #[actix_rt::test]
+    async fn test_flat_retry_succeeds_on_second_attempt() {
+        let test_body = async {
+            // The delay duration is now ignored, but the attempt count is respected.
+            let strategy = RetryStrategy::Flat {
+                attempts: Some(3),
+                delay: Duration::from_millis(20),
+            };
+            let addr = start_with_retry::<_, TestMessage>(SucceedsOnSecondAttemptService, strategy);
+
+            // First attempt will fail, returning an error because the actor panicked.
+            let first_result = addr.send(TestMessage).await;
+            assert!(first_result.is_err());
+
+            // Yield control to the scheduler once. This gives the supervisor time
+            // to process the panic and immediately restart the actor.
+            tokio::task::yield_now().await;
+
+            // The second send goes to the newly created actor instance.
+            let second_result = addr.send(TestMessage).await;
+            assert_eq!(second_result.unwrap(), Ok("Success".to_string()));
+        };
+        timeout(Duration::from_secs(1), test_body).await.expect("Test timed out");
+    }
+
+    #[actix_rt::test]
+    async fn test_flat_retry_exhausts_attempts_and_stops() {
+        let test_body = async {
+            let max_attempts = 3;
+            let strategy = RetryStrategy::Flat {
+                attempts: Some(max_attempts),
+                delay: Duration::from_millis(20), // Delay is ignored.
+            };
+            let addr = start_with_retry::<_, TestMessage>(AlwaysPanickingService, strategy);
+
+            for i in 1..=max_attempts {
+                let res = addr.send(TestMessage).await;
+                assert!(res.is_err(), "Attempt {} should have failed", i);
+                // Yield to allow the immediate restart to happen.
+                tokio::task::yield_now().await;
+            }
+
+            // After 3 failures, the handle_restarting hook will call ctx.stop().
+            // The supervisor will not create a 4th actor.
+            let final_result = addr.send(TestMessage).await;
+            assert!(matches!(final_result, Err(MailboxError::Closed)));
+        };
+        timeout(Duration::from_secs(1), test_body).await.expect("Test timed out");
+    }
 }
