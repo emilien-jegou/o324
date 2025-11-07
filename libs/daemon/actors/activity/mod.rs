@@ -1,6 +1,8 @@
-use crate::core::supervisor::{RetryableHandler, WithRetry};
-use crate::services::activity::{ActivityService, Error as ActivityError};
-use actix::{Context, Message, ResponseFuture}; // We still need some actix imports
+use crate::{
+    core::supervisor::{Retry, SendableError, StartWithRetry}, // 1. Add `Retry` to imports
+    services::activity::ActivityService,
+};
+use actix::{Actor, Context, Handler, ResponseFuture};
 use std::sync::Arc;
 use wrap_builder::wrap_builder;
 
@@ -9,42 +11,26 @@ pub struct ActivityActor {
     activity_service: ActivityService,
 }
 
-// The message remains the same.
-#[derive(Message, Clone)]
-#[rtype(result = "Result<(), ActivityError>")]
-pub struct Serve;
+impl Actor for ActivityActor {
+    type Context = Context<Self>;
+}
 
-// --- Step 2: Implement `RetryableHandler` instead of `actix::Handler` ---
-impl RetryableHandler<Serve> for ActivityActor {
-    // The result type is the same as before.
-    type Result = ResponseFuture<Result<(), ActivityError>>;
+impl Handler<Retry<StartWithRetry>> for ActivityActor {
+    type Result = ResponseFuture<Result<(), SendableError>>;
 
-    // The signature changes to match the trait.
-    fn handle(
-        &mut self,
-        _msg: Serve,
-        _ctx: &mut Context<WithRetry<Self>>, // We get the wrapper's context
-        attempt: u32,                        // We get the current attempt number
-    ) -> Self::Result {
-        println!("Attempt #{} to start activity monitoring...", attempt);
+    fn handle(&mut self, msg: Retry<StartWithRetry>, _: &mut Context<Self>) -> Self::Result {
+        // The original StartWithRetry message is inside the wrapper at `msg.0`
+        // We can use it for logging the attempt number.
+        let attempt_num = msg.0 .1;
+        println!("Handling activity monitoring, attempt #{}", attempt_num);
 
-        // The core async logic is identical.
-        // We clone `self` to move it into the async block.
         let service = self.clone();
         Box::pin(async move {
             match service.activity_service.start_monitoring().await {
-                Ok(_) => {
-                    println!(
-                        "Activity monitoring started successfully on attempt #{}",
-                        attempt
-                    );
-                    Ok(())
-                }
+                Ok(_) => Ok(()),
                 Err(e) => {
-                    // It's good practice to log the error before returning it.
-                    // The error will cause the actor context to stop, triggering a restart.
-                    eprintln!("Error on attempt #{}: {:?}. Will retry.", attempt, e);
-                    Err(e)
+                    eprintln!("Error on attempt {}: {:?}", attempt_num, e);
+                    Err(Box::new(e) as SendableError)
                 }
             }
         })

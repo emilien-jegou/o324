@@ -54,10 +54,14 @@ pub fn build(storage: Storage, config: Config) -> eyre::Result<App> {
         .activity_repository(activity_repository.clone())
         .build();
 
+    let profile = config.get_current_profile()?;
+
     let dbus_actor = DbusActor::builder()
         .task_service(task_service.clone())
         .activity_service(activity_service.clone())
         .storage_bridge_service(storage_bridge_service)
+        .connection_name(profile.get_dbus_connection_name())
+        .serve_at(profile.get_dbus_service_path())
         .build();
 
     let activity_actor = ActivityActor::builder()

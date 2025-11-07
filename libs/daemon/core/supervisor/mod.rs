@@ -1,225 +1,157 @@
-use actix::dev::MessageResponse;
-use actix::fut::wrap_future;
-use actix::prelude::*;
-use std::time::Duration;
+use actix::{dev::ToEnvelope, Actor, Addr, Handler, Message};
+use std::error::Error;
 
+mod retry;
+pub use retry::{retry_send, Retry, RetryError, RetryStrategy};
+
+// --- Define a Send-able Error Type ---
+pub type SendableError = Box<dyn Error + Send + Sync>;
+
+// --- Message Definition ---
+
+#[derive(Message, Clone, Debug)]
+#[rtype(result = "Result<(), SendableError>")]
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum RetryStrategy {
-    Exponential {
-        max_attempts: Option<u32>,
-        initial_delay: Duration,
-        multiplier: f64,
-        max_delay: Option<Duration>,
-    },
-    Flat {
-        attempts: Option<u32>,
-        delay: Duration,
-    },
-    NoRetry,
-}
+pub struct StartWithRetry(pub RetryStrategy, pub u64 /* attempt number */);
 
-impl RetryStrategy {
-    fn max_attempts_display(&self) -> String {
-        match self {
-            RetryStrategy::Exponential {
-                max_attempts: Some(n),
-                ..
-            } => n.to_string(),
-            RetryStrategy::Flat {
-                attempts: Some(n), ..
-            } => n.to_string(),
-            RetryStrategy::NoRetry => "1".to_string(),
-            _ => "unlimited".to_string(),
-        }
-    }
-    // This logic is kept for checking if attempts are exhausted.
-    fn delay_for_attempt(&self, attempt: u32) -> Option<Duration> {
-        if attempt == 0 { return None; }
-        match self {
-            RetryStrategy::NoRetry => {
-                if attempt > 1 { None } else { Some(Duration::ZERO) }
-            }
-            RetryStrategy::Flat { attempts, delay } => {
-                if let Some(max) = attempts {
-                    if attempt > *max { return None; }
-                }
-                if attempt == 1 { Some(Duration::ZERO) } else { Some(*delay) }
-            }
-            RetryStrategy::Exponential { max_attempts, .. } => {
-                if let Some(max) = max_attempts {
-                    if attempt > *max { return None; }
-                }
-                // The actual delay calculation isn't used, but the attempt check is.
-                Some(Duration::ZERO)
-            }
-        }
-    }
-}
+// --- Public Helper Function ---
 
-#[derive(Clone)]
-pub struct RetryHelper {
+/// Starts and supervises a process for a given actor with a specific retry strategy.
+///
+/// This function uses a factory to create the actor. If the actor panics, it will
+/// be automatically recreated, and the operation will be retried.
+///
+/// # Arguments
+/// * `actor_factory` - A closure that creates and starts the actor, returning its `Addr`.
+/// * `strategy` - The `RetryStrategy` to apply.
+///
+/// # Returns
+/// The final result of the operation. This can be:
+/// - `Ok(Ok(()))` on success.
+/// - `Ok(Err(SendableError))` if the actor returns a permanent error.
+/// - `Err(RetryError::Exhausted)` if all retry attempts fail.
+pub async fn start_with_retry<A, F>(
+    actor_factory: F,
     strategy: RetryStrategy,
-    pub attempt: u32,
-}
-
-impl RetryHelper {
-    // CORRECTED: This hook cannot be async. It can only decide if the actor
-    // should be stopped permanently. Any delay logic is ignored.
-    pub fn handle_restarting<A>(&self, ctx: &mut <A as Actor>::Context)
-    where
-        A: Actor,
-        A::Context: AsyncContext<A>,
-    {
-        let next_attempt = self.attempt + 1;
-        // Check if we have exhausted the number of retries.
-        if self.strategy.delay_for_attempt(next_attempt).is_none() {
-            // If so, stop the actor for good. The supervisor will not restart it again.
-            ctx.stop();
-        }
-        // Otherwise, do nothing. The supervisor will immediately restart the actor.
-    }
-}
-
-pub trait RetryableHandler<M: Message>: Clone + Send + Unpin + Sized + 'static {
-    type Result: MessageResponse<WithRetry<Self>, M>;
-    fn handle(&mut self, msg: M, ctx: &mut Context<WithRetry<Self>>, attempt: u32) -> Self::Result;
-}
-
-pub struct WithRetry<S> {
-    service: S,
-    retry_helper: RetryHelper,
-}
-
-impl<S> Actor for WithRetry<S> where S: Clone + Send + Unpin + 'static {
-    type Context = Context<Self>;
-}
-
-impl<S> Supervised for WithRetry<S> where S: Clone + Send + Unpin + 'static {
-    fn restarting(&mut self, ctx: &mut Context<Self>) {
-        self.retry_helper.handle_restarting::<Self>(ctx);
-    }
-}
-
-impl<S, M> Handler<M> for WithRetry<S>
+) -> Result<Result<(), SendableError>, RetryError>
 where
-    S: RetryableHandler<M>,
-    M: Message + Send,
-    M::Result: Send,
+    A: Actor + Handler<Retry<StartWithRetry>> + Send + 'static,
+    A::Context: ToEnvelope<A, Retry<StartWithRetry>>,
+    F: FnMut() -> Addr<A> + Send + 'static,
 {
-    type Result = <S as RetryableHandler<M>>::Result;
-    fn handle(&mut self, msg: M, ctx: &mut Context<Self>) -> Self::Result {
-        let current_attempt = self.retry_helper.attempt;
-        self.service.handle(msg, ctx, current_attempt)
-    }
-}
+    let s = strategy.clone();
+    let msg_factory = |attempt: u32| StartWithRetry(s.clone(), attempt as u64);
 
-// This factory pattern is correct for actix::Supervisor.
-pub fn start_with_retry<S, M>(service: S, strategy: RetryStrategy) -> Addr<WithRetry<S>>
-where
-    S: RetryableHandler<M>,
-    M: Message + Send,
-    M::Result: Send,
-{
-    let attempt_counter = std::rc::Rc::new(std::cell::Cell::new(0));
-    Supervisor::start(move |_| {
-        attempt_counter.set(attempt_counter.get() + 1);
-        WithRetry {
-            service: service.clone(),
-            retry_helper: RetryHelper {
-                strategy: strategy.clone(),
-                attempt: attempt_counter.get(),
-            },
-        }
-    })
+    // Directly call the retry logic without the intermediate Supervisor actor.
+    retry_send(actor_factory, msg_factory, strategy).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix::{Actor, Context, Handler, MailboxError, Message, MessageResult};
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
-    use tokio::time::timeout;
 
-    #[derive(Message, Clone)]
-    #[rtype(result = "Result<String, ()>")]
-    struct TestMessage;
+    // A simple worker actor that can be configured to fail or panic.
+    struct Worker {
+        fail_for: Arc<Mutex<u32>>,
+        panic_for: Arc<Mutex<u32>>,
+    }
 
-    #[derive(Clone)]
-    struct AlwaysPanickingService;
-    impl RetryableHandler<TestMessage> for AlwaysPanickingService {
-        type Result = MessageResult<TestMessage>;
-        fn handle(&mut self, _msg: TestMessage, _ctx: &mut Context<WithRetry<Self>>, _attempt: u32) -> Self::Result {
-            panic!("This service always fails");
+    impl Actor for Worker {
+        type Context = actix::Context<Self>;
+    }
+
+    impl Handler<Retry<StartWithRetry>> for Worker {
+        type Result = actix::ResponseFuture<Result<(), SendableError>>;
+
+        fn handle(&mut self, msg: Retry<StartWithRetry>, _: &mut Self::Context) -> Self::Result {
+            let attempt_num = msg.0 .1;
+            println!("Worker received attempt #{}", attempt_num);
+
+            // We decide whether to panic in a separate scope to ensure the lock is released.
+            let should_panic = {
+                let mut panic_for_guard =
+                    self.panic_for.lock().expect("Mutex should not be poisoned");
+                if *panic_for_guard > 0 {
+                    *panic_for_guard -= 1;
+                    true // Will panic after the lock is released
+                } else {
+                    false
+                }
+            }; // MutexGuard is dropped here, lock is released.
+
+            if should_panic {
+                println!("Worker is panicking this attempt.");
+                panic!("Simulated panic on attempt {}", attempt_num);
+            }
+
+            let mut fail_for = self.fail_for.lock().expect("Mutex should not be poisoned");
+            if *fail_for > 0 {
+                *fail_for -= 1;
+                println!("Worker is failing with an error this attempt.");
+                let err: SendableError =
+                    format!("Simulated failure on attempt {}", attempt_num).into();
+                Box::pin(async { Err(err) })
+            } else {
+                println!("Worker is succeeding.");
+                Box::pin(async { Ok(()) })
+            }
         }
     }
 
-    #[derive(Clone)]
-    struct SucceedsOnSecondAttemptService;
-    impl RetryableHandler<TestMessage> for SucceedsOnSecondAttemptService {
-        type Result = MessageResult<TestMessage>;
-        fn handle(&mut self, _msg: TestMessage, _ctx: &mut Context<WithRetry<Self>>, attempt: u32) -> Self::Result {
-            if attempt == 1 {
-                panic!("Failing on the first attempt");
+    #[actix::test]
+    async fn test_start_with_retry_recovers_from_panic_and_succeeds() {
+        // Arrange: This worker will panic on attempt 1, fail with an error on
+        // attempt 2, and succeed on attempt 3.
+        let panic_for = Arc::new(Mutex::new(1));
+        let fail_for = Arc::new(Mutex::new(1));
+
+        let worker_factory = move || {
+            println!("--- Creating a new Worker instance ---");
+            Worker {
+                fail_for: fail_for.clone(),
+                panic_for: panic_for.clone(),
             }
-            MessageResult(Ok("Success".to_string()))
-        }
-    }
-
-    #[actix_rt::test]
-    async fn test_no_retry_stops_after_first_failure() {
-        let addr = start_with_retry::<_, TestMessage>(AlwaysPanickingService, RetryStrategy::NoRetry);
-        let result = addr.send(TestMessage).await;
-        assert!(matches!(result, Err(MailboxError::Closed)));
-    }
-
-    #[actix_rt::test]
-    async fn test_flat_retry_succeeds_on_second_attempt() {
-        let test_body = async {
-            // The delay duration is now ignored, but the attempt count is respected.
-            let strategy = RetryStrategy::Flat {
-                attempts: Some(3),
-                delay: Duration::from_millis(20),
-            };
-            let addr = start_with_retry::<_, TestMessage>(SucceedsOnSecondAttemptService, strategy);
-
-            // First attempt will fail, returning an error because the actor panicked.
-            let first_result = addr.send(TestMessage).await;
-            assert!(first_result.is_err());
-
-            // Yield control to the scheduler once. This gives the supervisor time
-            // to process the panic and immediately restart the actor.
-            tokio::task::yield_now().await;
-
-            // The second send goes to the newly created actor instance.
-            let second_result = addr.send(TestMessage).await;
-            assert_eq!(second_result.unwrap(), Ok("Success".to_string()));
+            .start()
         };
-        timeout(Duration::from_secs(1), test_body).await.expect("Test timed out");
+
+        let strategy = RetryStrategy::Flat {
+            max_attempts: Some(5),
+            delay: Duration::from_millis(10),
+        };
+
+        // Act
+        let final_result = start_with_retry(worker_factory, strategy).await;
+
+        // Assert
+        assert!(matches!(final_result, Ok(Ok(()))));
     }
 
-    #[actix_rt::test]
-    async fn test_flat_retry_exhausts_attempts_and_stops() {
-        let test_body = async {
-            let max_attempts = 3;
-            let strategy = RetryStrategy::Flat {
-                attempts: Some(max_attempts),
-                delay: Duration::from_millis(20), // Delay is ignored.
-            };
-            let addr = start_with_retry::<_, TestMessage>(AlwaysPanickingService, strategy);
+    #[actix::test]
+    async fn test_start_with_retry_exhausts_after_panics() {
+        // Arrange
+        let panic_for = Arc::new(Mutex::new(5));
+        let fail_for = Arc::new(Mutex::new(0));
 
-            for i in 1..=max_attempts {
-                let res = addr.send(TestMessage).await;
-                assert!(res.is_err(), "Attempt {} should have failed", i);
-                // Yield to allow the immediate restart to happen.
-                tokio::task::yield_now().await;
+        let worker_factory = move || {
+            println!("--- Creating a new Worker instance ---");
+            Worker {
+                fail_for: fail_for.clone(),
+                panic_for: panic_for.clone(),
             }
-
-            // After 3 failures, the handle_restarting hook will call ctx.stop().
-            // The supervisor will not create a 4th actor.
-            let final_result = addr.send(TestMessage).await;
-            assert!(matches!(final_result, Err(MailboxError::Closed)));
+            .start()
         };
-        timeout(Duration::from_secs(1), test_body).await.expect("Test timed out");
+
+        let strategy = RetryStrategy::Flat {
+            max_attempts: Some(3),
+            delay: Duration::from_millis(10),
+        };
+
+        // Act
+        let final_result = start_with_retry(worker_factory, strategy).await;
+
+        // Assert
+        assert!(matches!(final_result, Err(RetryError::Exhausted)));
     }
 }

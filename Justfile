@@ -30,3 +30,7 @@ versio COMMAND: generate-versio-config
 
 release:
 	just versio release
+
+run-daemon:
+  cargo run --bin o324-daemon -- -c ./examples/demo-config.toml start
+

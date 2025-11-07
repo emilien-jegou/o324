@@ -31,6 +31,12 @@ pub struct CoreConfig {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ProfileConfig {
+    // Dbus connection name (default: org.o324.Service)
+    dbus_connection_name: Option<String>,
+
+    // Dbus service path (default: /org/o324/Service)
+    dbus_service_path: Option<String>,
+
     /// Where the o324 database will be located (default: ~/.local/share/o324/)
     storage_location: Option<String>,
 
@@ -61,6 +67,20 @@ impl ProfileConfig {
             .unwrap_or("~/.local/share/o324");
         let expanded_path = shellexpand::tilde(path_str);
         PathBuf::from(expanded_path.as_ref())
+    }
+
+    pub fn get_dbus_service_path(&self) -> String {
+        self.dbus_service_path
+            .as_deref()
+            .unwrap_or("/org/o324/Service")
+            .to_string()
+    }
+
+    pub fn get_dbus_connection_name(&self) -> String {
+        self.dbus_connection_name
+            .as_deref()
+            .unwrap_or("org.o324.Service")
+            .to_string()
     }
 }
 

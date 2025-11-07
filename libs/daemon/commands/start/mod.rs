@@ -1,64 +1,58 @@
 use std::time::Duration;
 
+// use std::time::Duration;
+use tokio::task::LocalSet; // <--- The key import
+
 use crate::{
     app,
     config::{self, Config},
     core::supervisor::{start_with_retry, RetryStrategy},
 };
+use actix::Actor;
 use clap::Args;
 
 #[derive(Args, Debug)]
 pub struct Command {}
 
+// This function is async, as called from main.rs
 pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
-    // TODO: SIGHUP should reload config
     let storage = config::create_storage_from_config(&config)?;
     let app = app::build(storage.clone(), config)?;
 
-    //let dbus_addr = app.dbus_actor.clone().start;
-    //let activity_addr = app.activity_actor.clone().start;
+    LocalSet::new()
+        .run_until(async move {
+            // This code is now running inside the Actix runtime, so it's safe to start actors.
 
-    let dbus_addr = start_with_retry(
-        app.activity_actor.clone(),
-        RetryStrategy::Exponential {
-            max_attempts: None,
-            initial_delay: Duration::from_secs(2),
-            multiplier: 2.0,
-            max_delay: Some(Duration::from_secs(15)),
-        },
-    );
+            let activity_actor = app.activity_actor.clone();
+            let _ = start_with_retry(
+                move || activity_actor.clone().start(),
+                RetryStrategy::Exponential {
+                    max_attempts: Some(5),
+                    initial_delay: Duration::from_secs(2),
+                    multiplier: 2.0,
+                    max_delay: Some(Duration::from_secs(15)),
+                },
+            )
+            .await;
 
-    //let _dbus_handle = supervisor.spawn_supervised_task(
-    //    "DBusService",
-    //    {
-    //        let app_cloned = app.clone();
-    //        move || {
-    //            let app = app_cloned.clone();
-    //            async move { app.dbus_actor.serve().await }
-    //        }
-    //    },
-    //);
+            let dbus_actor = app.dbus_actor.clone();
+            let _ = start_with_retry(
+                move || dbus_actor.clone().start(),
+                RetryStrategy::Flat {
+                    max_attempts: Some(10),
+                    delay: Duration::from_secs(1),
+                },
+            )
+            .await;
 
-    //let _we_handle = supervisor.spawn_supervised_task(
-    //    "ActivityService",
-    //    RetryStrategy::Exponential {
-    //        max_attempts: None,
-    //        initial_delay: Duration::from_secs(2),
-    //        multiplier: 2.0,
-    //        max_delay: Some(Duration::from_secs(60)),
-    //    },
-    //    {
-    //        let app_cloned = app.clone();
-    //        move || {
-    //            let app = app_cloned.clone();
-    //            async move { app.activity_service.start_monitoring().await }
-    //        }
-    //    },
-    //);
+            tracing::info!("All services spawned. Application is running. Press Ctrl-C to exit.");
+            // By waiting for the shutdown signal here, we keep the async block (and thus the
+            // entire Actix System) alive until the user requests to shut down.
+            wait_for_shutdown_signal().await;
+            tracing::info!("Shutdown signal received. Cleaning up services and exiting.");
+        })
+        .await;
 
-    tracing::info!("All services spawned. Application is running. Press Ctrl-C to exit.");
-    wait_for_shutdown_signal().await;
-    tracing::info!("Shutdown signal received. Cleaning up services and exiting.");
     Ok(())
 }
 
