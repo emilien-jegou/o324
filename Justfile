@@ -25,12 +25,21 @@ generate-versio-config:
 	cd scripts && npm install && cd ..
 	./scripts/generate-versio-config
 
-versio COMMAND: generate-versio-config
-	versio -m local -x local "{{COMMAND}}"
+versio *COMMAND: generate-versio-config
+	versio -m local -x local {{COMMAND}}
 
 release:
 	just versio release
 
-run-daemon:
-  cargo run --bin o324-daemon -- -c ./examples/demo-config.toml start
+# run the daemon using the demo config ./examples/demo-config.toml
+run-daemon *ARGS:
+  cargo run --bin o324-daemon -- \
+    --config ./examples/demo-config.toml \
+    {{ARGS}}
 
+# run the cli using the demo config ./examples/demo-config.toml
+run-cli *ARGS:
+  cargo run --bin o324 -- \
+    --dbus-connection-name org.o324dev.Service \
+    --dbus-service-path "/org/o324dev/Service" \
+    {{ARGS}}

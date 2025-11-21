@@ -3,6 +3,7 @@ use o324_dbus::{proxy::O324ServiceProxy, zbus::Connection};
 
 use crate::utils::command_error;
 
+pub mod activity;
 pub mod cancel;
 pub mod db;
 pub mod delete;
@@ -14,7 +15,6 @@ pub mod start;
 pub mod stats;
 pub mod status;
 pub mod stop;
-pub mod activity;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -44,8 +44,13 @@ pub enum Command {
     Playground(playground::Command),
 }
 
+pub struct CommandOptions {
+    pub dbus_connection_name: String,
+    pub dbus_service_path: String,
+}
+
 impl Command {
-    pub async fn execute(self) -> command_error::Result<()> {
+    pub async fn execute(self, options: CommandOptions) -> command_error::Result<()> {
         let connection = Connection::session().await.map_err(|e| {
             eyre::eyre!(
                 "Failed to connect to the D-Bus session bus.\n\n\
@@ -70,7 +75,10 @@ impl Command {
         }
 
         // Now you can use this function for both calls
-        let proxy = O324ServiceProxy::new(&connection)
+        let proxy = O324ServiceProxy::builder(&connection)
+            .path(options.dbus_service_path)?
+            .destination(options.dbus_connection_name)?
+            .build()
             .await
             .map_err(formulate_proxy_error)?;
 

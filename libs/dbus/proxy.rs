@@ -5,11 +5,7 @@
 use crate::dto;
 use zbus::fdo;
 
-#[zbus::proxy(
-    interface = "org.o324.Service1",
-    default_service = "org.o324.Service",
-    default_path = "/org/o324/Service"
-)]
+#[zbus::proxy(interface = "org.o324.Service1")]
 pub trait O324Service {
     async fn start_new_task(&self, input: dto::StartTaskInputDto) -> fdo::Result<dto::TaskDto>;
     async fn stop_current_task(&self) -> fdo::Result<Option<dto::TaskDto>>;

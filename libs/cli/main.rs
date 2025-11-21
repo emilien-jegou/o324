@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::utils::exit_code::ExitCode;
+use crate::{commands::CommandOptions, utils::exit_code::ExitCode};
 
 mod commands;
 pub mod utils;
@@ -17,6 +17,30 @@ struct Args {
     /// Subcommand to execute
     #[command(subcommand)]
     command: commands::Command,
+
+    // Dbus connection name (default: org.o324.Service)
+    #[arg(long)]
+    dbus_connection_name: Option<String>,
+
+    // Dbus service path (default: /org/o324/Service)
+    #[arg(long)]
+    dbus_service_path: Option<String>,
+}
+
+impl Args {
+    pub fn get_dbus_service_path(&self) -> String {
+        self.dbus_service_path
+            .as_deref()
+            .unwrap_or("/org/o324/Service")
+            .to_string()
+    }
+
+    pub fn get_dbus_connection_name(&self) -> String {
+        self.dbus_connection_name
+            .as_deref()
+            .unwrap_or("org.o324.Service")
+            .to_string()
+    }
 }
 
 #[tokio::main]
@@ -26,7 +50,12 @@ pub async fn main() -> eyre::Result<ExitCode> {
 
     let args = Args::parse();
 
-    if let Err(error) = args.command.execute().await {
+    let options = CommandOptions {
+        dbus_connection_name: args.get_dbus_connection_name(),
+        dbus_service_path: args.get_dbus_service_path(),
+    };
+
+    if let Err(error) = args.command.execute(options).await {
         if let utils::command_error::Error::ExitWithError(_, ref report) = error {
             log::error!("{}", report);
         };

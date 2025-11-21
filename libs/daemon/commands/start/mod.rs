@@ -21,7 +21,15 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
 
     LocalSet::new()
         .run_until(async move {
-            // This code is now running inside the Actix runtime, so it's safe to start actors.
+            let dbus_actor = app.dbus_actor.clone();
+            let _ = start_with_retry(
+                move || dbus_actor.clone().start(),
+                RetryStrategy::Flat {
+                    max_attempts: Some(10),
+                    delay: Duration::from_secs(1),
+                },
+            )
+            .await;
 
             let activity_actor = app.activity_actor.clone();
             let _ = start_with_retry(
@@ -35,15 +43,6 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
             )
             .await;
 
-            let dbus_actor = app.dbus_actor.clone();
-            let _ = start_with_retry(
-                move || dbus_actor.clone().start(),
-                RetryStrategy::Flat {
-                    max_attempts: Some(10),
-                    delay: Duration::from_secs(1),
-                },
-            )
-            .await;
 
             tracing::info!("All services spawned. Application is running. Press Ctrl-C to exit.");
             // By waiting for the shutdown signal here, we keep the async block (and thus the

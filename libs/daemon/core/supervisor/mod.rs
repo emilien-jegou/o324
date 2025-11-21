@@ -4,17 +4,12 @@ use std::error::Error;
 mod retry;
 pub use retry::{retry_send, Retry, RetryError, RetryStrategy};
 
-// --- Define a Send-able Error Type ---
 pub type SendableError = Box<dyn Error + Send + Sync>;
-
-// --- Message Definition ---
 
 #[derive(Message, Clone, Debug)]
 #[rtype(result = "Result<(), SendableError>")]
 #[allow(dead_code)]
 pub struct StartWithRetry(pub RetryStrategy, pub u64 /* attempt number */);
-
-// --- Public Helper Function ---
 
 /// Starts and supervises a process for a given actor with a specific retry strategy.
 ///
@@ -40,10 +35,13 @@ where
     F: FnMut() -> Addr<A> + Send + 'static,
 {
     let s = strategy.clone();
-    let msg_factory = |attempt: u32| StartWithRetry(s.clone(), attempt as u64);
 
-    // Directly call the retry logic without the intermediate Supervisor actor.
-    retry_send(actor_factory, msg_factory, strategy).await
+    retry_send(
+        actor_factory,
+        |attempt: u32| StartWithRetry(s.clone(), attempt as u64),
+        strategy,
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -2,6 +2,6 @@
 computer_name = "dev"
 
 [profile.default]
-dbus_connection_name = "org.o324-dev.Service"
-dbus_service_path = "/org/o324-dev/Service"
+dbus_connection_name = "org.o324dev.Service"
+dbus_service_path = "/org/o324dev/Service"
 storage_location = "~/.cache/o324-dev/"
