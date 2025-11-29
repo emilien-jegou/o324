@@ -134,8 +134,8 @@ impl FromStr for TaskRef {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(suffix) = s.strip_prefix('@') {
             return match suffix.to_lowercase().as_str() {
-                "current" => Ok(TaskRef::Current),
-                "last" => Ok(TaskRef::Last),
+                "c" | "cur" | "curr" | "current" => Ok(TaskRef::Current),
+                "l" | "last" => Ok(TaskRef::Last),
                 // It's not a keyword, so try to parse it as a history number.
                 num_str => match num_str.parse::<u32>() {
                     Ok(n) => Ok(TaskRef::Ago(n)),
