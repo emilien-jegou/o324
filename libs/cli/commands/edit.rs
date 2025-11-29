@@ -1,5 +1,6 @@
 use crate::utils::{
-    command_error, display::LogType, task_log_builder::TaskLogBuilder, task_ref::TaskRef,
+    command_error, date_input::DateInput, display::LogType, task_log_builder::TaskLogBuilder,
+    task_ref::TaskRef, time_input::TimeInput,
 };
 use clap::Args;
 use o324_dbus::{dto, proxy::O324ServiceProxy};
@@ -21,19 +22,21 @@ pub struct Command {
     #[clap(long, use_value_delimiter = true)]
     tags: Option<Vec<String>>,
 
-    /// Start date of the task as unix timestamp
-    #[clap(long, use_value_delimiter = true)]
-    start: Option<u64>,
+    /// Start date of the task.
+    #[clap(long)]
+    start: Option<DateInput>,
 
-    /// End date of the task as unix timestamp
-    #[clap(long, use_value_delimiter = true)]
-    end: Option<u64>,
+    /// End date of the task (Absolute).
+    #[clap(long)]
+    end: Option<DateInput>,
+
+    /// Duration of the task (Relative).
+    /// *Takes precedence over --end if both are provided.*
+    #[clap(long, short = 'D')]
+    duration: Option<TimeInput>,
 }
 
 impl Command {
-    /// None -> don't update the project
-    /// Some(None) -> untie the project value from the task
-    /// Some(Some(x)) -> set the new value for the task project
     pub fn parse_project_value(&self) -> Option<Option<String>> {
         self.project
             .clone()
@@ -41,13 +44,32 @@ impl Command {
     }
 }
 
+fn resolve_task_end_update(
+    end: Option<DateInput>,
+    duration: Option<TimeInput>,
+) -> Option<dto::TaskUpdateEndDto> {
+    match (end, duration) {
+        // Conflict: Duration wins
+        (Some(_), Some(dur)) => {
+            log::warn!("Both --end and --duration provided; Using --duration.");
+            Some(dto::TaskUpdateEndDto::Relative(dur.as_millis()))
+        }
+        (None, Some(dur)) => Some(dto::TaskUpdateEndDto::Relative(dur.as_millis())),
+        (Some(date), None) => Some(dto::TaskUpdateEndDto::Absolute(date.as_u64())),
+        (None, None) => None,
+    }
+}
+
 pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_error::Result<()> {
+    let project_update = command.parse_project_value();
+    let start_ts = command.start.as_ref().map(|d| d.as_u64());
+    let end_dto_val = resolve_task_end_update(command.end, command.duration);
     let task_update = dto::TaskUpdateDto {
         task_name: command.name.clone().into(),
-        project: command.parse_project_value().into(),
+        project: project_update.into(),
         tags: command.tags.into(),
-        start: command.start.into(),
-        end: command.end.map(Option::Some).into(),
+        start: start_ts.into(),
+        end: end_dto_val.map(Option::Some).into(),
     };
 
     let task_g = command.task_ref.get_task(&proxy).await?;

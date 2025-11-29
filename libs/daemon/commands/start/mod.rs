@@ -1,8 +1,3 @@
-use std::time::Duration;
-
-// use std::time::Duration;
-use tokio::task::LocalSet; // <--- The key import
-
 use crate::{
     app,
     config::{self, Config},
@@ -10,6 +5,8 @@ use crate::{
 };
 use actix::Actor;
 use clap::Args;
+use std::time::Duration;
+use tokio::task::LocalSet;
 
 #[derive(Args, Debug)]
 pub struct Command {}
@@ -42,7 +39,6 @@ pub async fn handle(_: Command, config: Config) -> eyre::Result<()> {
                 },
             )
             .await;
-
 
             tracing::info!("All services spawned. Application is running. Press Ctrl-C to exit.");
             // By waiting for the shutdown signal here, we keep the async block (and thus the

@@ -1,7 +1,7 @@
 use crate::{
     entities::{
         activity::Activity,
-        task::{Task, TaskUpdate},
+        task::{Task, TaskUpdate, TaskUpdateEnd},
     },
     repositories::task::defs::{StartTaskInput, TaskAction},
     services::{
@@ -9,7 +9,7 @@ use crate::{
         task::TaskWithMeta,
     },
 };
-use o324_dbus::dto::{self};
+use o324_dbus::dto::{self, TaskUpdateEndDto};
 
 // Convert from Core Task -> DTO Task (for sending data out)
 impl From<TaskWithMeta> for dto::TaskDto {
@@ -42,12 +42,14 @@ impl From<dto::StartTaskInputDto> for StartTaskInput {
 // Convert from DTO TaskUpdate -> Core TaskUpdate (for receiving data)
 impl From<dto::TaskUpdateDto> for TaskUpdate {
     fn from(dto: dto::TaskUpdateDto) -> Self {
-        TaskUpdate::default()
-            .set_opt_task_name(dto.task_name)
-            .set_opt_project(dto.project)
-            .set_opt_tags(dto.tags)
-            .set_opt_start(dto.start)
-            .set_opt_end(dto.end)
+        TaskUpdate {
+            task_name: dto.task_name.into(),
+            project: dto.project.into(),
+            tags: dto.tags.into(),
+            start: dto.start.into(),
+            end: Option::<Option<TaskUpdateEndDto>>::from(dto.end)
+                .map(|x| x.map(TaskUpdateEnd::from)),
+        }
     }
 }
 

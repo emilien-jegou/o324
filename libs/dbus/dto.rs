@@ -17,13 +17,22 @@ pub struct TaskDto {
     pub __hash: u64,
 }
 
+#[derive(Type, PartialEq, Debug, Serialize, Deserialize)]
+pub enum TaskUpdateEndDto {
+    /// Absolute end date (timestamp)
+    Absolute(u64),
+
+    /// Relative end date (in ms)
+    Relative(u64),
+}
+
 #[derive(Type, Serialize, Deserialize, Debug)]
 pub struct TaskUpdateDto {
     pub task_name: Optional<String>,
     pub project: Optional<Option<String>>,
     pub tags: Optional<Vec<String>>,
     pub start: Optional<u64>,
-    pub end: Optional<Option<u64>>,
+    pub end: Optional<Option<TaskUpdateEndDto>>,
 }
 
 #[derive(Type, Serialize, Deserialize, Debug)]
