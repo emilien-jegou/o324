@@ -3,7 +3,7 @@ use crate::{
         activity::Activity,
         task::{Task, TaskUpdate, TaskUpdateEnd},
     },
-    repositories::task::defs::{StartTaskInput, TaskAction},
+    repositories::task::defs::{StartTaskAt, StartTaskInput, TaskAction},
     services::{
         storage_bridge::{DbOperation, DbResult},
         task::TaskWithMeta,
@@ -28,18 +28,44 @@ impl From<TaskWithMeta> for dto::TaskDto {
     }
 }
 
-// Convert from DTO StartTaskInput -> Core StartTaskInput (for receiving data)
-impl From<dto::StartTaskInputDto> for StartTaskInput {
-    fn from(dto: dto::StartTaskInputDto) -> Self {
-        Self {
+use eyre::{eyre, Result}; // Assuming eyre is used for errors
+
+impl TryFrom<dto::StartTaskInputDto> for StartTaskInput {
+    type Error = eyre::Report;
+
+    fn try_from(dto: dto::StartTaskInputDto) -> Result<Self, Self::Error> {
+        let at = match dto.start {
+            Some(start_ts) => {
+                let end_ts = match dto.end {
+                    Some(dto::TaskUpdateEndDto::Absolute(ts)) => Some(ts),
+                    Some(dto::TaskUpdateEndDto::Relative(ms)) => Some(start_ts + ms),
+                    None => None,
+                };
+
+                Some(StartTaskAt {
+                    start: start_ts,
+                    end: end_ts,
+                })
+            }
+            None => {
+                if dto.end.is_some() {
+                    return Err(eyre!(
+                        "End time or duration cannot be specified without a start time."
+                    ));
+                }
+                None
+            }
+        };
+
+        Ok(Self {
             task_name: dto.task_name,
             project: dto.project,
             tags: dto.tags,
-        }
+            at,
+        })
     }
 }
 
-// Convert from DTO TaskUpdate -> Core TaskUpdate (for receiving data)
 impl From<dto::TaskUpdateDto> for TaskUpdate {
     fn from(dto: dto::TaskUpdateDto) -> Self {
         TaskUpdate {

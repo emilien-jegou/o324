@@ -40,6 +40,10 @@ pub struct StartTaskInputDto {
     pub task_name: String,
     pub project: Option<String>,
     pub tags: Vec<String>,
+    /// Optional start timestamp. If None, defaults to current time.
+    pub start: Option<u64>,
+    /// Optional end definition (absolute or relative duration).
+    pub end: Option<TaskUpdateEndDto>,
 }
 
 #[derive(Type, Debug, Deserialize, Serialize)]

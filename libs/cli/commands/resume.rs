@@ -1,5 +1,5 @@
 use crate::{
-    commands::start::print_started_task,
+    commands::new::print_started_task,
     utils::{command_error, display::LogType, task_log_builder::TaskLogBuilder, task_ref::TaskRef},
 };
 use clap::Args;
@@ -81,6 +81,8 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
             .tags
             .clone()
             .unwrap_or_else(|| task_to_resume.tags.clone()),
+        start: None.into(),
+        end: None.into(),
     };
 
     let task = proxy.start_new_task(start_task_input).await?;

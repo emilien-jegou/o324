@@ -36,6 +36,15 @@ pub enum TaskUpdateEnd {
     Relative(u64),
 }
 
+impl TaskUpdateEnd {
+    pub fn calc_from_start(self, start_timestamp: u64) -> u64 {
+        match self {
+            TaskUpdateEnd::Absolute(timestamp) => timestamp,
+            TaskUpdateEnd::Relative(ms) => start_timestamp + ms,
+        }
+    }
+}
+
 impl From<TaskUpdateEndDto> for TaskUpdateEnd {
     fn from(value: TaskUpdateEndDto) -> Self {
         match value {
@@ -75,15 +84,10 @@ impl Task {
 
 impl TaskUpdate {
     pub fn merge_with_task(self, task: &Task) -> Task {
-        let end_abs = self.end.map(|opt_tu| {
-            opt_tu.map(|tu: TaskUpdateEnd| match tu {
-                TaskUpdateEnd::Absolute(timestamp) => timestamp,
-                TaskUpdateEnd::Relative(ms) => {
-                    let start_timestamp = self.start.unwrap_or(task.start);
-                    start_timestamp + ms
-                }
-            })
-        });
+        let start = self.start.unwrap_or(task.start);
+        let end_abs = self
+            .end
+            .map(|opt_tu| opt_tu.map(|tu: TaskUpdateEnd| tu.calc_from_start(start)));
 
         Task {
             id: task.id.clone(),
@@ -91,7 +95,7 @@ impl TaskUpdate {
             project: self.project.unwrap_or(task.project.clone()),
             computer_name: task.computer_name.clone(),
             tags: self.tags.unwrap_or(task.tags.clone()),
-            start: self.start.unwrap_or(task.start),
+            start: start,
             end: end_abs.unwrap_or(task.end),
         }
     }

@@ -2,10 +2,13 @@ use o324_dbus::{dto, O324ServiceInterface};
 use typed_builder::TypedBuilder;
 use zbus::{fdo, interface};
 
-use crate::services::{
-    activity::ActivityService,
-    storage_bridge::{DbOperation, StorageBridgeService},
-    task::TaskService,
+use crate::{
+    repositories::task::defs::StartTaskInput,
+    services::{
+        activity::ActivityService,
+        storage_bridge::{DbOperation, StorageBridgeService},
+        task::TaskService,
+    },
 };
 
 #[derive(TypedBuilder)]
@@ -18,8 +21,12 @@ pub struct O324Service {
 #[interface(name = "org.o324.Service1")]
 impl O324ServiceInterface for O324Service {
     async fn start_new_task(&self, input: dto::StartTaskInputDto) -> fdo::Result<dto::TaskDto> {
+        let new_task_input: StartTaskInput = input
+            .try_into()
+            .map_err(|e: eyre::Report| fdo::Error::Failed(e.to_string()))?;
+
         self.task_service
-            .start_new_task(input.into())
+            .start_new_task(new_task_input)
             .await
             .map(|task| task.into())
             .map_err(|e| fdo::Error::Failed(e.to_string()))

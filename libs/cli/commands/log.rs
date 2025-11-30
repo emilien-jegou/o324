@@ -6,7 +6,7 @@ use o324_dbus::{
     dto::{self},
     proxy::O324ServiceProxy,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::utils::{command_error, displayable_id::DisplayableId};
 
@@ -230,10 +230,13 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
     Ok(result)
 }
 
-/// Colors the activity percentage string based on its value using absolute RGB.
+/// Colors the activity percentage string based on its value.
 fn colorize_percentage(percentage: i64) -> ColoredString {
     let text = format!("{percentage}% active");
-    if percentage <= 55 {
+    if percentage > 100 {
+        // Just red, no extra symbols here (handled in session view manually)
+        colored::Colorize::red(text.as_str())
+    } else if percentage <= 55 {
         colored::Colorize::truecolor(&*text, 230, 60, 60)
     } else if percentage <= 65 {
         colored::Colorize::truecolor(&*text, 255, 165, 0)
@@ -253,14 +256,13 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
     let mut session_progress_count = 0;
     let mut daily_session_number = 0;
 
-    // --- MODIFICATION: Use an indexed loop to allow peeking at the next item ---
     for (idx, item) in log_items.iter().enumerate() {
         match item {
             TopLevelElem::DateSeparator(summary) => {
                 daily_session_number = 0;
 
                 let duration_string = format_duration_pretty(summary.total_session_duration);
-                let duration_part = duration_string.bold();
+                let duration_part = duration_string.bold().to_string();
 
                 let sessions_string = format!(
                     "{} {} {}",
@@ -297,7 +299,6 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                     format_duration_pretty(*duration).dimmed(),
                 );
 
-                // --- MODIFICATION: Add a spacer only if the next item is a Session ---
                 if let Some(next_item) = log_items.get(idx + 1) {
                     if matches!(next_item, TopLevelElem::Session(_)) {
                         println!("{}", "│".dimmed());
@@ -314,6 +315,32 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                     "├➤"
                 };
 
+                // --- CONFLICT DETECTION LOGIC ---
+                let mut conflicting_indices: HashSet<usize> = HashSet::new();
+                let task_times: Vec<(usize, i64, i64)> = session.elements.iter().enumerate()
+                    .filter_map(|(i, elem)| {
+                        if let NestedElem::Task(dt) = elem {
+                            let start = dt.task.start as i64;
+                            let end = dt.task.end.map(|e| e as i64).unwrap_or_else(|| Utc::now().timestamp_millis());
+                            Some((i, start, end))
+                        } else {
+                            None
+                        }
+                    }).collect();
+
+                for i in 0..task_times.len() {
+                    for j in (i + 1)..task_times.len() {
+                        let (idx_a, start_a, end_a) = task_times[i];
+                        let (idx_b, start_b, end_b) = task_times[j];
+                        if start_a < end_b && start_b < end_a {
+                            conflicting_indices.insert(idx_a);
+                            conflicting_indices.insert(idx_b);
+                        }
+                    }
+                }
+                
+                let has_conflicts = !conflicting_indices.is_empty();
+
                 let title_string = format!("Session {daily_session_number}");
                 let session_title = title_string.dimmed();
 
@@ -326,12 +353,24 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                     "]".dimmed()
                 );
 
-                let active_header_string = format!(
-                    "{}{}{}",
-                    "[".dimmed(),
-                    colorize_percentage(session.activity_percentage()),
-                    "]".dimmed()
-                );
+                // Determine how to display the activity block in the header
+                let active_header_string = if has_conflicts {
+                    format!(
+                        "{}{}{} {}",
+                        "[".dimmed(),
+                        ">100%".red(),
+                        "]".dimmed(),
+                        "‼".red().bold()
+                    )
+                } else {
+                    format!(
+                        "{}{}{}",
+                        "[".dimmed(),
+                        colorize_percentage(session.activity_percentage()),
+                        "]".dimmed()
+                    )
+                };
+
                 println!(
                     "{} {} {} {}",
                     header_prefix.dimmed(),
@@ -359,6 +398,7 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                         }
                         NestedElem::Task(display_task) => {
                             let is_last_element_in_session = elem_idx == session.elements.len() - 1;
+                            let is_conflict = conflicting_indices.contains(&elem_idx);
 
                             let task = display_task.task;
                             let start_time = ms_to_datetime(task.start)?.with_timezone(&Local);
@@ -370,17 +410,27 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                             let task_duration = task_end_time_utc - task_start_time_utc;
 
                             let duration_string = format_duration_pretty(task_duration);
-                            let duration_segment = format!(
+                            
+                            // Standard normal coloring for duration text: (30m)
+                            let colored_duration_inner = duration_string.cyan().bold().to_string();
+                            let duration_parens = format!(
                                 "{}{}{}",
                                 "(".dimmed(),
-                                duration_string.cyan().bold(),
+                                colored_duration_inner,
                                 ")".dimmed()
                             );
+
+                            // If conflict, append the red warning icon OUTSIDE the parens
+                            let duration_segment = if is_conflict {
+                                format!("{} {}", duration_parens, "‼".red())
+                            } else {
+                                duration_parens
+                            };
 
                             let (status_icon, time_segment) = if let Some(end_ms) = task.end {
                                 let end_dt = ms_to_datetime(end_ms)?.with_timezone(&Local);
                                 (
-                                    "✓".green(),
+                                    "✓".green().to_string(),
                                     format!(
                                         "{} → {}",
                                         start_time.format("%H:%M"),
@@ -391,30 +441,40 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                                 )
                             } else {
                                 (
-                                    "▶".yellow(),
+                                    "▶".yellow().to_string(),
                                     format!(
                                         "{} {} {}",
                                         start_time.format("%H:%M").dimmed(),
                                         "→".dimmed(),
-                                        "CURRENT".red().bold()
+                                        "CURRENT".magenta().underline().bold()
                                     ),
                                 )
                             };
+
                             let task_connector = if is_last_element_in_session {
                                 "╰─"
                             } else {
                                 "├─"
                             };
+
+                            // We still color the ID red if there is a conflict
+                            let display_id_str = if is_conflict {
+                                display_task.id.to_string().red().to_string()
+                            } else {
+                                display_task.id.to_string()
+                            };
+
                             println!(
                                 "{} {} {} {} - {} - {} {}",
                                 content_prefix.dimmed(),
                                 task_connector.dimmed(),
                                 status_icon,
-                                display_task.id,
+                                display_id_str,
                                 &task.computer_name.dimmed(),
                                 time_segment,
                                 duration_segment
                             );
+
                             let desc_line_prefix = if is_last_element_in_session {
                                 format!("{}      ", content_prefix.dimmed())
                             } else {

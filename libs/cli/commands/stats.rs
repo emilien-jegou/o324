@@ -173,7 +173,7 @@ async fn handle_period_summary(
             end_time: if last_task.end.is_some() {
                 session_end_dt.format("%Y-%m-%d %H:%M").to_string()
             } else {
-                "CURRENT".red().to_string()
+                "CURRENT".magenta().to_string()
             },
             total_duration_secs: total_duration.num_seconds(),
             active_duration_secs: active_duration.num_seconds(),
@@ -249,7 +249,7 @@ async fn handle_period_summary(
                 .to_string()
                 .cyan()
         } else {
-            "CURRENT".red().bold()
+            "CURRENT".magenta().underline().bold()
         };
         println!(
             "{}{} {} {} {}",

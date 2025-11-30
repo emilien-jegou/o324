@@ -22,7 +22,7 @@ pub fn format_time_period_for_display(start: u64, end: Option<u64>) -> String {
             end_dt.format("%Y-%m-%d %H:%M").to_string()
         }
     } else {
-        "CURRENT".red().bold().to_string()
+        "CURRENT".magenta().underline().bold().to_string()
     };
 
     format!("{} - {}", start_dt.format("%Y-%m-%d %H:%M"), end_display)

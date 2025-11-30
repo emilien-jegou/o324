@@ -9,17 +9,17 @@ pub mod db;
 pub mod delete;
 pub mod edit;
 pub mod log;
+pub mod new;
 pub mod playground;
 pub mod resume;
-pub mod start;
 pub mod stats;
 pub mod status;
 pub mod stop;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    ///  Stop any current task and start a new task and and
-    Start(start::Command),
+    /// Create a new task
+    New(new::Command),
     /// Display infos on an ongoing task
     Status(status::Command),
     /// Stop an ongoing task
@@ -87,7 +87,7 @@ impl Command {
         let _ = proxy.ping().await.map_err(formulate_proxy_error)?;
 
         match self {
-            Self::Start(o) => start::handle(o, proxy).await?,
+            Self::New(o) => new::handle(o, proxy).await?,
             Self::Stop(o) => stop::handle(o, proxy).await?,
             Self::Cancel(o) => cancel::handle(o, proxy).await?,
             Self::Status(o) => status::handle(o, proxy).await?,

@@ -19,7 +19,6 @@ pub struct TaskRepository {
 }
 
 impl TaskRepositoryInner {
-    /// Starts a new task. If another task is currently running, it will be stopped.
     pub async fn start_new_task(
         &self,
         input: StartTaskInput,
@@ -27,15 +26,30 @@ impl TaskRepositoryInner {
         let current_timestamp = utils::unix_now_ms();
         let mut task_actions = Vec::new();
 
+        // Determine effective start and end times
+        let (start_ts, end_ts) = match input.at {
+            Some(at) => (at.start, at.end),
+            None => (current_timestamp, None),
+        };
+
         let task = self.storage.write_txn(|qr| {
-            // If a task is already running, stop it first by setting its end time.
-            if let Some(mut current) = qr
-                .get()
-                .secondary::<Task>(TaskKey::end, None as Option<u64>)?
-            {
-                current.end = Some(current_timestamp);
-                qr.upsert(current.clone())?;
-                task_actions.push(TaskAction::Upsert(current));
+            // If the new task is "open" (running), we check if we need to stop the currently running task.
+            // We do not stop the current task if we are just inserting a historic/completed task (end_ts is Some).
+            if end_ts.is_none() {
+                if let Some(mut current) = qr
+                    .get()
+                    .secondary::<Task>(TaskKey::end, None as Option<u64>)?
+                {
+                    // Only stop the current task if the new task starts AFTER (or same time as)
+                    // the current task's start time.
+                    // If start_ts < current.start, we are inserting an open task in the past
+                    // (backfilling) and should not interrupt the task currently running "now".
+                    if start_ts >= current.start {
+                        current.end = Some(start_ts);
+                        qr.upsert(current.clone())?;
+                        task_actions.push(TaskAction::Upsert(current));
+                    }
+                }
             }
 
             // Create and start the new task with a random ID.
@@ -46,9 +60,10 @@ impl TaskRepositoryInner {
                 .project(input.project)
                 .computer_name(self.computer_name.clone())
                 .tags(input.tags)
-                .start(current_timestamp)
-                .end(None)
+                .start(start_ts)
+                .end(end_ts)
                 .build(); // try_build() already computes the hash
+
             qr.upsert(new_task.clone())?;
             task_actions.push(TaskAction::Upsert(new_task.clone()));
             Ok(new_task)

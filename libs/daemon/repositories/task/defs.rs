@@ -1,11 +1,18 @@
 use crate::entities::task::Task;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
+pub struct StartTaskAt {
+    pub start: u64,
+    pub end: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
 pub struct StartTaskInput {
     pub task_name: String,
     pub project: Option<String>,
     pub tags: Vec<String>,
+    pub at: Option<StartTaskAt>,
 }
 
 #[derive(Clone, Debug)]
