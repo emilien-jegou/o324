@@ -75,9 +75,12 @@ pub struct Command {
     /// show json output (override the verbose option)
     #[clap(long)]
     json: bool,
+    /// show detailed output (with session grouping visuals)
+    #[clap(long)]
+    detailed: bool,
 }
 
-pub async fn short_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
+pub async fn detailed_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     if tasks.is_empty() {
         println!("No tasks to show.");
         return Ok(());
@@ -86,6 +89,20 @@ pub async fn short_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
     let log_structure = build_log_structure(tasks)?;
     if !log_structure.is_empty() {
         print_log_structure(&log_structure)?;
+    }
+
+    Ok(())
+}
+
+pub async fn flat_output(tasks: &[dto::TaskDto]) -> eyre::Result<()> {
+    if tasks.is_empty() {
+        println!("No tasks to show.");
+        return Ok(());
+    }
+
+    let log_structure = build_log_structure(tasks)?;
+    if !log_structure.is_empty() {
+        print_flat_structure(&log_structure)?;
     }
 
     Ok(())
@@ -232,11 +249,12 @@ fn build_log_structure<'a>(tasks: &'a [dto::TaskDto]) -> eyre::Result<Vec<TopLev
 
 /// Colors the activity percentage string based on its value.
 fn colorize_percentage(percentage: i64) -> ColoredString {
-    let text = format!("{percentage}% active");
     if percentage > 100 {
-        // Just red, no extra symbols here (handled in session view manually)
-        colored::Colorize::red(text.as_str())
-    } else if percentage <= 55 {
+        return colored::Colorize::red(">100% active");
+    }
+
+    let text = format!("{percentage}% active");
+    if percentage <= 55 {
         colored::Colorize::truecolor(&*text, 230, 60, 60)
     } else if percentage <= 65 {
         colored::Colorize::truecolor(&*text, 255, 165, 0)
@@ -245,6 +263,197 @@ fn colorize_percentage(percentage: i64) -> ColoredString {
     } else {
         colored::Colorize::truecolor(&*text, 50, 200, 50)
     }
+}
+
+/// Prints a log structure to the console with flat formatting (one level).
+fn print_flat_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
+    for item in log_items {
+        match item {
+            TopLevelElem::DateSeparator(summary) => {
+                let duration_string = format_duration_pretty(summary.total_session_duration);
+                let duration_part = duration_string.bold().to_string();
+
+                let sessions_string = format!(
+                    "{} {} {}",
+                    "in".dimmed(),
+                    summary.session_count.bold(),
+                    "session(s)".dimmed()
+                );
+
+                let pct = summary.activity_percentage();
+                let warning = if pct > 100 {
+                    format!(" {}", "‼".red().bold())
+                } else {
+                    "".to_string()
+                };
+
+                let active_part_string = format!(
+                    "{}{}{}{}",
+                    "[".dimmed(),
+                    colorize_percentage(pct),
+                    "]".dimmed(),
+                    warning
+                );
+
+                // Add a blank line if it's not the very first thing
+                println!(
+                    "{}{} - {} {} {}",
+                    "◆ ".blue().bold(),
+                    summary.date.format("%Y-%m-%d").blue().bold(),
+                    duration_part,
+                    sessions_string,
+                    active_part_string
+                );
+                println!("{}", "│".dimmed());
+            }
+
+            TopLevelElem::BreakSeparator(duration) => {
+                println!("{}", "│".dimmed());
+                println!(
+                    "{} {}",
+                    "┊ ⋯".dimmed(),
+                    format_duration_pretty(*duration).dimmed()
+                );
+                println!("{}", "│".dimmed());
+            }
+
+            TopLevelElem::Session(session) => {
+                // Determine conflicts for this session to mark individual tasks
+                let mut conflicting_indices: HashSet<usize> = HashSet::new();
+                let task_times: Vec<(usize, i64, i64)> = session
+                    .elements
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, elem)| {
+                        if let NestedElem::Task(dt) = elem {
+                            let start = dt.task.start as i64;
+                            let end = dt
+                                .task
+                                .end
+                                .map(|e| e as i64)
+                                .unwrap_or_else(|| Utc::now().timestamp_millis());
+                            Some((i, start, end))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                for i in 0..task_times.len() {
+                    for j in (i + 1)..task_times.len() {
+                        let (idx_a, start_a, end_a) = task_times[i];
+                        let (idx_b, start_b, end_b) = task_times[j];
+                        if start_a < end_b && start_b < end_a {
+                            conflicting_indices.insert(idx_a);
+                            conflicting_indices.insert(idx_b);
+                        }
+                    }
+                }
+
+                for (elem_idx, element) in session.elements.iter().enumerate() {
+                    match element {
+                        NestedElem::BreakSeparator(duration) => {
+                            println!(
+                                "{} {}",
+                                "┊ ⋯".dimmed(),
+                                format_duration_pretty(*duration).dimmed(),
+                            );
+                        }
+                        NestedElem::Task(display_task) => {
+                            let is_conflict = conflicting_indices.contains(&elem_idx);
+                            let task = display_task.task;
+
+                            let start_time = ms_to_datetime(task.start)?.with_timezone(&Local);
+                            let task_start_time_utc = ms_to_datetime(task.start)?;
+                            let task_end_time_utc = task
+                                .end
+                                .map(|e| ms_to_datetime(e).unwrap())
+                                .unwrap_or_else(Utc::now);
+                            let task_duration = task_end_time_utc - task_start_time_utc;
+
+                            let duration_string = format_duration_pretty(task_duration);
+
+                            let colored_duration_inner = duration_string.cyan().bold().to_string();
+                            let duration_parens = format!(
+                                "{}{}{}",
+                                "(".dimmed(),
+                                colored_duration_inner,
+                                ")".dimmed()
+                            );
+
+                            let duration_segment = if is_conflict {
+                                format!("{} {}", duration_parens, "‼".red())
+                            } else {
+                                duration_parens
+                            };
+
+                            let (status_icon, time_segment) = if let Some(end_ms) = task.end {
+                                let end_dt = ms_to_datetime(end_ms)?.with_timezone(&Local);
+                                (
+                                    "✓".green().to_string(),
+                                    format!(
+                                        "{} → {}",
+                                        start_time.format("%H:%M"),
+                                        end_dt.format("%H:%M")
+                                    )
+                                    .dimmed()
+                                    .to_string(),
+                                )
+                            } else {
+                                (
+                                    "▶".yellow().to_string(),
+                                    format!(
+                                        "{} {} {}",
+                                        start_time.format("%H:%M").dimmed(),
+                                        "→".dimmed(),
+                                        "CURRENT".magenta().underline().bold()
+                                    ),
+                                )
+                            };
+
+                            let display_id_str = if is_conflict {
+                                display_task.id.to_string().red().to_string()
+                            } else {
+                                display_task.id.to_string()
+                            };
+
+                            // Flat line: Icon ID - Computer - Time (Duration)
+                            println!(
+                                "{} {} - {} - {} {}",
+                                status_icon,
+                                display_id_str,
+                                &task.computer_name.dimmed(),
+                                time_segment,
+                                duration_segment
+                            );
+
+                            // Description line with slight indent
+                            let tags = task
+                                .tags
+                                .iter()
+                                .map(|t| format!("#{t}"))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                                .dimmed()
+                                .to_string();
+
+                            println!(
+                                "{} {} {} {}",
+                                "│ ".dimmed(),
+                                match task.project.as_deref() {
+                                    Some(p) => format!("{} -", p.bold()),
+                                    None => "".to_string(),
+                                },
+                                task.task_name,
+                                tags
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Prints a log structure to the console with proper formatting.
@@ -268,14 +477,22 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                     "{} {} {}",
                     "in".dimmed(),
                     summary.session_count.bold(),
-                    "sessions".dimmed()
+                    "session(s)".dimmed()
                 );
 
+                let pct = summary.activity_percentage();
+                let warning = if pct > 100 {
+                    format!(" {}", "‼".red().bold())
+                } else {
+                    "".to_string()
+                };
+
                 let active_part_string = format!(
-                    "{}{}{}",
+                    "{}{}{}{}",
                     "[".dimmed(),
-                    colorize_percentage(summary.activity_percentage()),
-                    "]".dimmed()
+                    colorize_percentage(pct),
+                    "]".dimmed(),
+                    warning
                 );
 
                 println!("{}", "│".dimmed());
@@ -317,16 +534,24 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
 
                 // --- CONFLICT DETECTION LOGIC ---
                 let mut conflicting_indices: HashSet<usize> = HashSet::new();
-                let task_times: Vec<(usize, i64, i64)> = session.elements.iter().enumerate()
+                let task_times: Vec<(usize, i64, i64)> = session
+                    .elements
+                    .iter()
+                    .enumerate()
                     .filter_map(|(i, elem)| {
                         if let NestedElem::Task(dt) = elem {
                             let start = dt.task.start as i64;
-                            let end = dt.task.end.map(|e| e as i64).unwrap_or_else(|| Utc::now().timestamp_millis());
+                            let end = dt
+                                .task
+                                .end
+                                .map(|e| e as i64)
+                                .unwrap_or_else(|| Utc::now().timestamp_millis());
                             Some((i, start, end))
                         } else {
                             None
                         }
-                    }).collect();
+                    })
+                    .collect();
 
                 for i in 0..task_times.len() {
                     for j in (i + 1)..task_times.len() {
@@ -338,7 +563,7 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                         }
                     }
                 }
-                
+
                 let has_conflicts = !conflicting_indices.is_empty();
 
                 let title_string = format!("Session {daily_session_number}");
@@ -410,7 +635,7 @@ fn print_log_structure(log_items: &[TopLevelElem]) -> eyre::Result<()> {
                             let task_duration = task_end_time_utc - task_start_time_utc;
 
                             let duration_string = format_duration_pretty(task_duration);
-                            
+
                             // Standard normal coloring for duration text: (30m)
                             let colored_duration_inner = duration_string.cyan().bold().to_string();
                             let duration_parens = format!(
@@ -556,8 +781,10 @@ pub async fn handle(command: Command, proxy: O324ServiceProxy<'_>) -> command_er
 
     if command.json {
         json_output(&tasks).await?;
+    } else if command.detailed {
+        detailed_output(&tasks).await?;
     } else {
-        short_output(&tasks).await?;
+        flat_output(&tasks).await?;
     }
 
     Ok(())

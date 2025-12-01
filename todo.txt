@@ -1,0 +1,84 @@
+
+## When starting or editing tasks show start/end and duration
+
+```
+✔ Edited
+  ├─ ID:       CORD98z
+  ├─ Name:     Working on surqlx, improving schema
+  ├─ Project:  kainan
+  ├─ Tags:     rust
+  ╰─ Time:     2025-12-02 00:42 - CURRENT
+  ```
+
+
+## Resume shouldn’t print the task first then get an error
+
+it should get the error then show the current task.
+
+```
+❯ o324 resume
+
+ℹ Resuming
+  ├─ ID:       CORD98z
+  ├─ Name:     Working on surqlx, improving schema
+  ├─ Project:  kainan
+  ├─ Tags:     rust
+  ╰─ Time:     2025-12-02 00:42 - CURRENT
+❌ o324 - ✗ Tried to resume a running task but no changes were detected, no operation needed.
+```
+
+
+## Resuming show infos twice
+
+We would like to show task being resumed on one line
+
+```
+❯ o324 resume
+
+ℹ Resuming
+  ├─ ID:       CORD98z
+  ├─ Name:     Working on surqlx, improving schema
+  ├─ Project:  kainan
+  ├─ Tags:     rust
+  ╰─ Time:     2025-12-02 00:42 - 03:14
+
+⚡️Started
+  ├─ ID:       WocgWy0
+  ├─ Name:     Working on surqlx, improving schema
+  ├─ Project:  kainan
+  ├─ Tags:     rust
+  ╰─ Time:     2025-12-02 03:14 - CURRENT
+```
+
+Maybe something like.
+
+## starting a new task while another one is ongoing doesn’t give info on stopped task
+
+```
+projects/kainan :: mqtu 7dc9 
+2 ❯ o324 new test
+
+⚡️ Started
+  ├─ ID:       MOjzgrF
+  ├─ Name:     test
+  ├─ Project:  <none>
+  ╰─ Time:     2025-12-02 03:15 - CURRENT
+```
+
+
+## Inconsistent UTF characters
+
+THe ‘⚡️’ character width is larger than others characters event with a monospace font.
+
+## No UTF mode or nerdfonts characters.
+
+Have retro-compatibility for terminal not supporting utf character set or nerdfonts character
+config.
+
+Do both through the config file. e.g.
+```toml
+[cli_icons]
+task_start = ‘⚡️’
+info = ‘ℹ’
+...
+```
