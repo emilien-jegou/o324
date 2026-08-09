@@ -1,17 +1,48 @@
-# Misc
-notes.txt
-dist
-.localrc
+*
+!bacon.toml
+!Cargo.lock
+!Cargo.toml
+!deny.toml
+!devenv.lock
+!devenv.nix
+!devenv.yaml
+!license.txt
+!make.nix
+!README.md
 
-# Direnv
-.direnv
-.direnv/*
-.packages
+# Examples
+!examples
+!examples/*
 
-# Rust
-target
+# Pakcages
+!libs
+!libs/cli/
+!libs/cli/*
+!libs/cli/**/*
+!libs/daemon/
+!libs/daemon/*
+!libs/daemon/**/*
+!libs/dbus/
+!libs/dbus/*
+!libs/dbus/**/*
+!libs/patrons/
+!libs/patrons/*
+!libs/patrons/**/*
+!libs/window-tracker/
+!libs/window-tracker/*
+!libs/window-tracker/**/*
+!libs/wrap-builder/
+!libs/wrap-builder/*
+!libs/wrap-builder/**/*
 
-# local testing
-tests
-
-scripts/node_modules
+# Scripts
+!scripts
+!scripts/release
+!scripts/release/.gitignore
+!scripts/release/bun.lock
+!scripts/release/deps.ts
+!scripts/release/package.json
+!scripts/release/README.md
+!scripts/release/release-gh.ts
+!scripts/release/release.ts
+!scripts/release/tsconfig.json
